@@ -1,0 +1,44 @@
+# Real financial data never goes into git. Everything you add or the app learns about you lives in data/, your
+# original files included (data/uploads). scripts/git-hooks/pre-commit enforces this even for files forced past
+# this list.
+data/
+samples/
+# make demo's made-up data and files
+.demo/
+
+# Statements, exports and screenshots, wherever they land in the project
+*.pdf
+*.zip
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.ods
+*.heic
+*.heif
+*.ofx
+*.qif
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+# ...except the network logos the card faces use, and the README's screenshots (made by `make screenshots` from fake
+# data only). Pictures of anyone's cards belong in data/card-art/, never here.
+!web/public/brand/*.png
+!docs/screenshots/*.png
+
+backend/.venv/
+backend/*.egg-info/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+web/node_modules/
+web/dist/
+*.tsbuildinfo
+
+*.log
+.env
+.env.*
+.DS_Store

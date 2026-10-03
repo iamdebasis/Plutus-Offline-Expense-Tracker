@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Refuses commits that could carry someone's financial data, even files forced past .gitignore (git add -f):
+# anything under data/ or samples/, and statements, exports and photos anywhere except the network logos in
+# web/public/brand/ and the README's screenshots in docs/screenshots/ (made by `make screenshots` from the demo's fake
+# data, never by hand); pictures of anyone's cards belong in data/card-art/. `make setup` turns this hook on
+# (git config core.hooksPath scripts/git-hooks).
+set -euo pipefail
+
+blocked=$(git diff --cached --name-only --diff-filter=ACMR | grep -E \
+  -e '^(data|samples)/' \
+  -e '\.(pdf|zip|csv|tsv|xls|xlsx|ods|heic|heif|ofx|qif)$' \
+  -e '^(.*/)?(payees|merchant_memory|uploads|instruments|card_payments|card_networks|card_statements|accounts|settings|state)\.json$' \
+  | grep -vE '^web/public/' || true)
+photos=$(git diff --cached --name-only --diff-filter=ACMR | grep -iE '\.(png|jpe?g|webp|gif)$' | grep -vE '^(web/public/brand|docs/screenshots)/' || true)
+
+if [ -n "$blocked$photos" ]; then
+  echo "Commit stopped: these files could hold personal financial data and must never be pushed:" >&2
+  printf '  %s\n' $blocked $photos >&2
+  echo "Unstage them with: git rm --cached <file>   (the file itself stays on disk)" >&2
+  exit 1
+fi

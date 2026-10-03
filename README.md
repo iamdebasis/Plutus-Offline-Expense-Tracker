@@ -1,0 +1,165 @@
+# Plutus
+
+[![CI](https://github.com/iamdebasis/Plutus-Offline-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/iamdebasis/Plutus-Offline-Expense-Tracker/actions/workflows/ci.yml)
+![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Runs offline](https://img.shields.io/badge/runs-100%25%20offline-2ea44f)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**A private expense tracker for India. It reads the statements you already have, and nothing ever leaves your Mac.**
+
+![Plutus: a year's total spend, split into UPI and cards and broken down by category](docs/screenshots/overview.png)
+
+<sub>Every figure in these screenshots is made up: they're taken from the built-in demo (`make demo`).</sub>
+
+Spending in India is scattered. UPI payments go through PhonePe and Google Pay, purchases land on two or three credit
+cards, and the bills get paid through CRED. Each of these comes as its own PDF or export, in its own layout. Budgeting
+apps want your bank login, or they upload your statements to their servers.
+
+Plutus reads the files you can already download (UPI histories, credit card statements, bank exports, payment
+screenshots) and turns them into one ledger, with every rupee counted once. It all runs on your machine: no account,
+no cloud, no telemetry. It is named for the Greek god of wealth.
+
+## What it does
+
+- **Reads what you have.** It reads PhonePe and CRED statements, Google Pay history (from Google Takeout), any bank's
+  credit card statement, the bank's CSV and Excel exports, and UPI payment screenshots. A password-protected PDF asks
+  for its password once, and the password is never saved.
+- **Counts every rupee once.** One payment often shows up in several files. A RuPay card used on UPI appears in the
+  UPI app and on the card statement; a card bill appears in CRED and again as a UPI payment. Plutus matches these
+  across files and keeps one copy.
+- **Checks the bank's own arithmetic.** Every card statement must satisfy previous balance − credits + debits = total
+  due, to the rupee. A statement that doesn't is still imported, with the gap shown, so a misread can't hide.
+- **Fills in what statements don't say.** Some months have only a bill from CRED and no statement. Plutus then
+  estimates that month's card spending from the bill, less what's already counted, and places it in the billing
+  cycle the bill paid for.
+- **Learns your payees.** Your own answers, rules and a dictionary of public merchants sort payments into
+  categories. An optional local AI suggests the rest. Answer once for a payee and every payment to them follows, past
+  and future.
+- **Shows where it went.** Total spend by category, month-by-month trends, spending per card, UPI spending and a
+  searchable ledger. Every chart has a table view.
+
+![Month by month: each category's spending per month, with estimated card spending dashed](docs/screenshots/month-by-month.png)
+
+## Privacy by design
+
+Plutus is built on four rules. This is what enforces each one:
+
+| Rule | How it's enforced |
+|---|---|
+| **Your data never leaves your Mac.** No file, transaction or name is sent to any server. | The server listens on `127.0.0.1` only. The UI loads no CDN scripts, web fonts or analytics. The app's only outbound connection is to a local Ollama, and `config.py` refuses any AI host that isn't loopback. Every test runs with non-loopback sockets blocked. |
+| **No personal data in the code.** | Names, card and account digits, card networks and your choices are all user data, never code. The code ships only what is the same for everyone: categories, public merchants, card designs and parsing rules. A test fails if a module holds a real-looking account number. Tests and the demo use obviously fake data ("Mr Fake Landlord", cards ending in 1111). |
+| **Everything about you lives in `data/`.** | One module, `userdata.py`, lists every user file and is the only way into the data folder; a test fails if code goes around it. Original files go to `data/uploads/`, and the tools' temporary copies to `data/run/`. A fresh clone starts empty and gets personal as you add files. Deleting `data/` is a complete reset. |
+| **Processing and AI stay local.** | PDFs are read with PyMuPDF, scans and screenshots with Apple's on-device OCR (Vision). The optional AI runs in Ollama on your Mac. Plutus starts it on demand and unloads it after 90 seconds idle, and the app works fully without it. |
+
+`.gitignore` and a pre-commit hook (switched on by `make setup`) also keep `data/`, statements, exports and
+screenshots out of git, even with `git add -f`. A fork can't publish anyone's finances by accident.
+
+## Try it
+
+You need macOS, Python 3.12+, Node 22.18+ and pnpm. `make check` lists anything missing and how to install it.
+
+```bash
+make setup    # once: installs the Python and web packages, switches on the commit guard
+make demo     # a made-up year of spending at http://127.0.0.1:8001 (in .demo/, never data/)
+make start    # your own Plutus at http://127.0.0.1:8000, starting empty
+make test     # the backend's tests with the network blocked, the dashboard's money checks, TypeScript
+```
+
+The [guide](docs/GUIDE.md) covers everything else: each source and how it's read, how the numbers add up, where each
+file lives, the local AI, and the tools.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A["Your files<br/>PDF · CSV · XLSX · zip · images"] --> B["Identify<br/>cheap checks, never the AI"]
+    B --> C["Text<br/>text layer · decoded fonts · on-device OCR"]
+    C --> D["Parse<br/>one parser per source"]
+    D --> E["Ledger<br/>deduplicated across files"]
+    E --> F["Categorize<br/>your answers · rules · merchants · local AI"]
+    E --> G["Billing<br/>which card · which cycle · estimates"]
+    F --> H["Dashboard"]
+    G --> H
+```
+
+A file is hashed in the browser before it's uploaded, so a repeat is skipped even under a new name. On the server it
+is identified, stored in `data/uploads/`, and read in the background while the dashboard fills in. Transactions land
+in plain JSON files, one per year. Categories come from the cheapest, most certain source first. After every import,
+the billing step places each card bill in the cycle it paid for.
+
+### Engineering highlights
+
+- **Decoding scrambled PDFs.** CRED's PDFs use fonts with shuffled character codes, so their text layer reads as
+  gibberish. Plutus runs on-device OCR on the page and uses it as a key to rebuild each font's character table. It
+  then reads the exact text, and accepts the result only if every amount matches between the decoded text and OCR.
+- **One reader for every bank.** There's no parser per bank. A single table engine finds the transactions header by
+  meaning ("Date", "Transaction details", "Amount", "Cr"…), takes the columns from where the header sits, and reads
+  each row from its date to its amount. It skips reward-points boxes, EMI schedules and the worked examples in the
+  terms, and the bank's own totals check every read.
+- **Never double counting.** A card bill, the purchases it pays for, and the same card used on UPI are three views of
+  the same money. Bills are placed in their billing cycle (learned from a single statement, or estimated), netted
+  against what's already itemized, and spread over the cycle's days. One rule is tested for every year, every card
+  filter, and with investments counted or left out: the UPI section plus the card section always equals Total spend.
+- **Deduplication with explicit rules.** Payments match by UTR, then by the app's transaction ID, then by time,
+  amount and payee. Explicit rules handle the cases that fool naive matching: two ₹15 teas a minute apart are two
+  payments, while PhonePe listing one refund twice is still one.
+- **Plain files, written safely.** There's no database, by choice: one JSON file per kind of record, written to a
+  temporary file beside it and atomically swapped in, so a crash never leaves half a ledger.
+- **Tests on generated statements.** `backend/tests/fake_cards.py` renders credit card statement PDFs in the shapes
+  real banks use: Cr markers or signs, debit and credit columns, points boxes beside rows, add-on cards, statements
+  that cross the new year without years in their dates. `fake_takeout.py` builds a Google Takeout export the same
+  way. No real statement is ever in the repo.
+
+<details>
+<summary><b>More screenshots</b>: credit cards, UPI, transactions, your files</summary>
+
+![Credit cards: each card's spending, month by month, solid where statements were read and dashed where estimated from bills](docs/screenshots/credit-cards.png)
+
+![UPI spends: by category and month, where payments were debited from, and who you paid most](docs/screenshots/upi.png)
+
+![Your transactions: payees waiting for an answer, and every payment with its category and source](docs/screenshots/transactions.png)
+
+![Your vault: every file added, what it was read as, and whether each statement adds up](docs/screenshots/vault.png)
+
+</details>
+
+## Built with
+
+| | |
+|---|---|
+| **Backend** | Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS 4, Motion, Lucide, pdf.js |
+| **Local AI** (optional) | Ollama with `qwen3-vl:8b`, on `127.0.0.1` only |
+| **Storage** | JSON files in `data/`, written atomically |
+| **Tests** | pytest (228 tests), Node's built-in test runner for the dashboard's arithmetic, `tsc` |
+
+```
+backend/app/
+  ingest/          identify files; text from PDFs, scrambled fonts and OCR
+  parsers/         PhonePe, CRED, Google Pay Takeout, card statements, card exports, screenshots
+  ledger.py        merge and deduplicate across files
+  categorize.py    your answers → rules → merchant dictionary → local AI
+  billing.py       which card, which billing cycle, what each bill paid for
+  llm/             Ollama, started on demand and unloaded when idle
+  tools/           the demo, plus inspect and redact for sharing a layout without its contents
+  userdata.py      the one list of everything kept in data/
+backend/tests/     tests, with fake statements generated in code
+web/src/
+  lib/             the dashboard's arithmetic, tested in web/tests/
+  components/      dashboard sections, charts, card faces
+docs/              the guide and these screenshots
+scripts/           requirements check, dev server, commit guard, screenshots
+```
+
+## Status
+
+Plutus is a personal project, in daily use. It runs on macOS only, because it relies on Apple's on-device OCR; the
+rest is portable Python and TypeScript. Possible next steps: a reader for Google Pay's PDF statement, other UPI apps'
+screenshots without the AI, and an OCR engine for Linux.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
+
+Plutus is not affiliated with any bank, card network or payment app. Their names appear only to identify the files
+Plutus reads, and their marks belong to their owners. Plutus is not financial advice.

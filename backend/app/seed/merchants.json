@@ -1,0 +1,657 @@
+[
+  {
+    "name": "Swiggy",
+    "category": "food.delivery",
+    "pattern": "\\bswiggy\\b(?!.*instamart)"
+  },
+  {
+    "name": "Swiggy Instamart",
+    "category": "groceries.quick_commerce",
+    "pattern": "instamart"
+  },
+  {
+    "name": "Zomato",
+    "category": "food.delivery",
+    "pattern": "\\bzomato\\b"
+  },
+  {
+    "name": "EatSure",
+    "category": "food.delivery",
+    "pattern": "\\beatsure\\b"
+  },
+  {
+    "name": "Magicpin",
+    "category": "food.delivery",
+    "pattern": "\\bmagicpin\\b"
+  },
+  {
+    "name": "KFC",
+    "category": "food.restaurants",
+    "pattern": "\\bkfc\\b"
+  },
+  {
+    "name": "McDonald's",
+    "category": "food.restaurants",
+    "pattern": "\\bmc ?donalds?\\b|\\bhardcastle\\b"
+  },
+  {
+    "name": "Domino's",
+    "category": "food.restaurants",
+    "pattern": "\\bdominos?\\b|\\bjubilant foodworks\\b"
+  },
+  {
+    "name": "Pizza Hut",
+    "category": "food.restaurants",
+    "pattern": "\\bpizza hut\\b"
+  },
+  {
+    "name": "Burger King",
+    "category": "food.restaurants",
+    "pattern": "\\bburger king\\b"
+  },
+  {
+    "name": "Subway",
+    "category": "food.restaurants",
+    "pattern": "\\bsubway\\b"
+  },
+  {
+    "name": "Starbucks",
+    "category": "food.snacks",
+    "pattern": "\\bstarbucks\\b|\\btata starbucks\\b"
+  },
+  {
+    "name": "Third Wave Coffee",
+    "category": "food.snacks",
+    "pattern": "\\bthird wave\\b"
+  },
+  {
+    "name": "Blue Tokai",
+    "category": "food.snacks",
+    "pattern": "\\bblue tokai\\b"
+  },
+  {
+    "name": "Chaayos",
+    "category": "food.snacks",
+    "pattern": "\\bchaayos\\b"
+  },
+  {
+    "name": "Haldiram's",
+    "category": "food.restaurants",
+    "pattern": "\\bhaldiram"
+  },
+  {
+    "name": "Taco Bell",
+    "category": "food.restaurants",
+    "pattern": "\\btaco bell\\b"
+  },
+  {
+    "name": "Wow Momo",
+    "category": "food.restaurants",
+    "pattern": "\\bwow momo\\b"
+  },
+  {
+    "name": "Blinkit",
+    "category": "groceries.quick_commerce",
+    "pattern": "\\bblinkit\\b|\\bgrofers\\b|\\bblink commerce\\b"
+  },
+  {
+    "name": "Zepto",
+    "category": "groceries.quick_commerce",
+    "pattern": "\\bzepto\\b|\\bkiranakart\\b"
+  },
+  {
+    "name": "BigBasket",
+    "category": "groceries.quick_commerce",
+    "pattern": "\\bbig ?basket\\b|\\bbb ?now\\b|\\binnovative retail\\b"
+  },
+  {
+    "name": "Flipkart Minutes",
+    "category": "groceries.quick_commerce",
+    "pattern": "\\bflipkart minutes\\b"
+  },
+  {
+    "name": "DMart",
+    "category": "groceries.supermarket",
+    "pattern": "\\bd ?mart\\b|\\bavenue supermarts\\b"
+  },
+  {
+    "name": "Supermarket chain",
+    "category": "groceries.supermarket",
+    "pattern": "\\b(star bazaar|smart bazaar|spar hypermarket|vishal mega mart|nilgiris|easyday|lulu hypermarket|metro cash and carry|ratnadeep|simpli namdhari|hypercity|big bazaar)\\b"
+  },
+  {
+    "name": "Reliance Smart",
+    "category": "groceries.supermarket",
+    "pattern": "\\breliance (smart|fresh|retail)\\b|\\bjiomart\\b"
+  },
+  {
+    "name": "More",
+    "category": "groceries.supermarket",
+    "pattern": "\\bmore (retail|supermarket|megastore)\\b"
+  },
+  {
+    "name": "Spencer's",
+    "category": "groceries.supermarket",
+    "pattern": "\\bspencers?\\b"
+  },
+  {
+    "name": "Nature's Basket",
+    "category": "groceries.supermarket",
+    "pattern": "\\bnatures basket\\b"
+  },
+  {
+    "name": "FreshToHome",
+    "category": "groceries.meat_fish",
+    "pattern": "\\bfresh ?to ?home\\b"
+  },
+  {
+    "name": "Licious",
+    "category": "groceries.meat_fish",
+    "pattern": "\\blicious\\b|\\bdelightful gourmet\\b"
+  },
+  {
+    "name": "Country Delight",
+    "category": "groceries.local",
+    "pattern": "\\bcountry delight\\b"
+  },
+  {
+    "name": "Milkbasket",
+    "category": "groceries.local",
+    "pattern": "\\bmilk ?basket\\b"
+  },
+  {
+    "name": "Uber",
+    "category": "transport.ride_hailing",
+    "pattern": "\\buber\\b(?! ?eats)"
+  },
+  {
+    "name": "Ola",
+    "category": "transport.ride_hailing",
+    "pattern": "\\bola ?(cabs?|money)?\\b|\\bani technologies\\b"
+  },
+  {
+    "name": "Rapido",
+    "category": "transport.ride_hailing",
+    "pattern": "\\brapido\\b|\\broppen\\b"
+  },
+  {
+    "name": "Namma Yatri",
+    "category": "transport.ride_hailing",
+    "pattern": "\\bnamma yatri\\b|\\bjuspay\\b"
+  },
+  {
+    "name": "BluSmart",
+    "category": "transport.ride_hailing",
+    "pattern": "\\bblusmart\\b"
+  },
+  {
+    "name": "Metro",
+    "category": "transport.public",
+    "pattern": "\\bmetro (rail|railway)\\b|\\b(bmrcl|dmrc|mmrcl|mmmocl|cmrl|kmrl|gmrc|nmrcl|mmrda|pmrda)\\b|\\b(namma|delhi|chennai|hyderabad|kochi|pune|maha|lucknow|nagpur|ahmedabad|kolkata|mumbai|jaipur|noida|gurgaon|gurugram|indore|bhopal|patna|kanpur|agra|bangalore|bengaluru) metro\\b"
+  },
+  {
+    "name": "FASTag",
+    "category": "transport.tolls",
+    "pattern": "\\bfastag\\b|\\bnetc\\b"
+  },
+  {
+    "name": "Indian Oil",
+    "category": "transport.fuel",
+    "pattern": "\\bindian oil\\b|\\biocl\\b"
+  },
+  {
+    "name": "Bharat Petroleum",
+    "category": "transport.fuel",
+    "pattern": "\\bbharat petroleum\\b|\\bbpcl\\b"
+  },
+  {
+    "name": "HP Petrol",
+    "category": "transport.fuel",
+    "pattern": "\\bhindustan petroleum\\b|\\bhpcl\\b"
+  },
+  {
+    "name": "Shell",
+    "category": "transport.fuel",
+    "pattern": "\\bshell\\b"
+  },
+  {
+    "name": "Nayara",
+    "category": "transport.fuel",
+    "pattern": "\\bnayara\\b"
+  },
+  {
+    "name": "Amazon",
+    "category": "shopping.online",
+    "pattern": "\\bamazon\\b(?!.*prime)"
+  },
+  {
+    "name": "Flipkart",
+    "category": "shopping.online",
+    "pattern": "\\bflipkart\\b(?!.*minutes)"
+  },
+  {
+    "name": "Myntra",
+    "category": "shopping.apparel",
+    "pattern": "\\bmyntra\\b"
+  },
+  {
+    "name": "Ajio",
+    "category": "shopping.apparel",
+    "pattern": "\\bajio\\b"
+  },
+  {
+    "name": "Meesho",
+    "category": "shopping.online",
+    "pattern": "\\bmeesho\\b"
+  },
+  {
+    "name": "Nykaa",
+    "category": "personal_care",
+    "pattern": "\\bnykaa\\b"
+  },
+  {
+    "name": "Zudio",
+    "category": "shopping.apparel",
+    "pattern": "\\bzudio\\b"
+  },
+  {
+    "name": "Snitch",
+    "category": "shopping.apparel",
+    "pattern": "\\bsnitch\\b"
+  },
+  {
+    "name": "Westside",
+    "category": "shopping.apparel",
+    "pattern": "\\bwestside\\b|\\btrent\\b"
+  },
+  {
+    "name": "H&M",
+    "category": "shopping.apparel",
+    "pattern": "\\bh ?(and|&)? ?m hennes\\b|\\bh m\\b"
+  },
+  {
+    "name": "Uniqlo",
+    "category": "shopping.apparel",
+    "pattern": "\\buniqlo\\b"
+  },
+  {
+    "name": "Max Fashion",
+    "category": "shopping.apparel",
+    "pattern": "\\bmax fashion\\b|\\blandmark group\\b"
+  },
+  {
+    "name": "Madura Garments",
+    "category": "shopping.apparel",
+    "pattern": "\\bmadura\\b"
+  },
+  {
+    "name": "Decathlon",
+    "category": "shopping.online",
+    "pattern": "\\bdecathlon\\b"
+  },
+  {
+    "name": "IKEA",
+    "category": "shopping.home",
+    "pattern": "\\bikea\\b"
+  },
+  {
+    "name": "Croma",
+    "category": "shopping.electronics",
+    "pattern": "\\bcroma\\b|\\binfiniti retail\\b"
+  },
+  {
+    "name": "Reliance Digital",
+    "category": "shopping.electronics",
+    "pattern": "\\breliance digital\\b"
+  },
+  {
+    "name": "Apple",
+    "category": "shopping.electronics",
+    "pattern": "\\bapple (india|store)\\b|\\bimagine store\\b"
+  },
+  {
+    "name": "HealthKart",
+    "category": "health.fitness",
+    "pattern": "\\bhealthkart\\b|\\bmuscle ?blaze\\b|\\bmuscletech\\b|\\bmyprotein\\b"
+  },
+  {
+    "name": "Airtel",
+    "category": "bills.mobile",
+    "pattern": "\\bairtel\\b(?!.*payments bank)"
+  },
+  {
+    "name": "Jio",
+    "category": "bills.mobile",
+    "pattern": "\\bjio\\b(?!.*(hotstar|cinema|mart|saavn))|\\breliance jio\\b"
+  },
+  {
+    "name": "Vi",
+    "category": "bills.mobile",
+    "pattern": "\\bvodafone\\b|\\bvi ?(prepaid|postpaid)\\b"
+  },
+  {
+    "name": "BSNL",
+    "category": "bills.mobile",
+    "pattern": "\\bbsnl\\b"
+  },
+  {
+    "name": "Mobile recharge",
+    "category": "bills.mobile",
+    "pattern": "^mobile recharge$"
+  },
+  {
+    "name": "ACT Fibernet",
+    "category": "bills.broadband",
+    "pattern": "\\bact fibernet\\b|\\batria convergence\\b"
+  },
+  {
+    "name": "Hathway",
+    "category": "bills.broadband",
+    "pattern": "\\bhathway\\b"
+  },
+  {
+    "name": "Excitel",
+    "category": "bills.broadband",
+    "pattern": "\\bexcitel\\b"
+  },
+  {
+    "name": "Tata Play",
+    "category": "bills.dth",
+    "pattern": "\\btata (play|sky)\\b"
+  },
+  {
+    "name": "Electricity board",
+    "category": "bills.electricity",
+    "pattern": "\\b(electricity|bescom|hescom|gescom|mescom|cesc|tneb|tangedco|kseb|mseb|msedcl|mahadiscom|bses|tpddl|tata power|adani electricity|torrent power|wbsedcl|tsspdcl|tsnpdcl|apspdcl|apepdcl|apcpdcl|uppcl|pvvnl|mvvnl|dvvnl|pspcl|jvvnl|avvnl|jdvvnl|dhbvn|uhbvn|nbpdcl|sbpdcl|cspdcl|mppkvvcl|dgvcl|mgvcl|pgvcl|ugvcl|tpcodl|tpsodl|kesco|hpseb|jkpdd|meecl|apdcl)\\b"
+  },
+  {
+    "name": "Water board",
+    "category": "bills.water",
+    "pattern": "\\b(water (board|supply|works)|jal (board|nigam|sansthan)|delhi jal|bwssb|hmwssb|cmwssb|kwa|phed)\\b"
+  },
+  {
+    "name": "Gas",
+    "category": "bills.gas",
+    "pattern": "\\bindane\\b|\\bhp gas\\b|\\bbharat gas\\b|\\bmahanagar gas\\b|\\bigl\\b"
+  },
+  {
+    "name": "Netflix",
+    "category": "entertainment.ott",
+    "pattern": "\\bnetflix\\b"
+  },
+  {
+    "name": "JioHotstar",
+    "category": "entertainment.ott",
+    "pattern": "\\bhotstar\\b|\\bjiohotstar\\b|\\bdisney\\b|\\bnovi digital\\b"
+  },
+  {
+    "name": "Prime Video",
+    "category": "entertainment.ott",
+    "pattern": "\\bamazon prime\\b|\\bprime video\\b"
+  },
+  {
+    "name": "SonyLIV",
+    "category": "entertainment.ott",
+    "pattern": "\\bsony ?liv\\b"
+  },
+  {
+    "name": "ZEE5",
+    "category": "entertainment.ott",
+    "pattern": "\\bzee5\\b"
+  },
+  {
+    "name": "Spotify",
+    "category": "entertainment.music",
+    "pattern": "\\bspotify\\b"
+  },
+  {
+    "name": "YouTube",
+    "category": "entertainment.ott",
+    "pattern": "\\byoutube\\b"
+  },
+  {
+    "name": "BookMyShow",
+    "category": "entertainment.events",
+    "pattern": "\\bbook ?my ?show\\b|\\bbigtree\\b"
+  },
+  {
+    "name": "District",
+    "category": "entertainment.events",
+    "pattern": "\\bdistrict\\b|\\bpaytm insider\\b"
+  },
+  {
+    "name": "PVR INOX",
+    "category": "entertainment.events",
+    "pattern": "\\bpvr\\b|\\binox\\b"
+  },
+  {
+    "name": "Google Play",
+    "category": "subscriptions.software",
+    "pattern": "\\bgoogle play\\b|\\bgoogle one\\b"
+  },
+  {
+    "name": "iCloud",
+    "category": "subscriptions.cloud",
+    "pattern": "\\bicloud\\b|\\bapple services\\b|\\bapple com bill\\b"
+  },
+  {
+    "name": "Microsoft",
+    "category": "subscriptions.software",
+    "pattern": "\\bmicrosoft\\b"
+  },
+  {
+    "name": "OpenAI",
+    "category": "subscriptions.software",
+    "pattern": "\\bopenai\\b|\\bchatgpt\\b"
+  },
+  {
+    "name": "Anthropic",
+    "category": "subscriptions.software",
+    "pattern": "\\banthropic\\b|\\bclaude\\b"
+  },
+  {
+    "name": "GitHub",
+    "category": "subscriptions.software",
+    "pattern": "\\bgithub\\b"
+  },
+  {
+    "name": "Notion",
+    "category": "subscriptions.software",
+    "pattern": "\\bnotion\\b"
+  },
+  {
+    "name": "PharmEasy",
+    "category": "health.pharmacy",
+    "pattern": "\\bpharmeasy\\b"
+  },
+  {
+    "name": "Tata 1mg",
+    "category": "health.pharmacy",
+    "pattern": "\\b1 ?mg\\b"
+  },
+  {
+    "name": "Apollo",
+    "category": "health.pharmacy",
+    "pattern": "\\bapollo\\b"
+  },
+  {
+    "name": "MedPlus",
+    "category": "health.pharmacy",
+    "pattern": "\\bmedplus\\b"
+  },
+  {
+    "name": "Netmeds",
+    "category": "health.pharmacy",
+    "pattern": "\\bnetmeds\\b"
+  },
+  {
+    "name": "Practo",
+    "category": "health.medical",
+    "pattern": "\\bpracto\\b"
+  },
+  {
+    "name": "Cult.fit",
+    "category": "health.fitness",
+    "pattern": "\\bcult ?fit\\b|\\bcurefit\\b"
+  },
+  {
+    "name": "Urban Company",
+    "category": "home.services",
+    "pattern": "\\burban ?(company|clap)\\b"
+  },
+  {
+    "name": "IRCTC",
+    "category": "travel.trains",
+    "pattern": "\\birctc\\b"
+  },
+  {
+    "name": "MakeMyTrip",
+    "category": "travel.flights",
+    "pattern": "\\bmake ?my ?trip\\b|\\bmmt\\b"
+  },
+  {
+    "name": "Goibibo",
+    "category": "travel.flights",
+    "pattern": "\\bgoibibo\\b"
+  },
+  {
+    "name": "Cleartrip",
+    "category": "travel.flights",
+    "pattern": "\\bcleartrip\\b"
+  },
+  {
+    "name": "IndiGo",
+    "category": "travel.flights",
+    "pattern": "\\bindigo\\b|\\binterglobe\\b"
+  },
+  {
+    "name": "Air India",
+    "category": "travel.flights",
+    "pattern": "\\bair india\\b"
+  },
+  {
+    "name": "Akasa Air",
+    "category": "travel.flights",
+    "pattern": "\\bakasa\\b"
+  },
+  {
+    "name": "redBus",
+    "category": "travel.bus",
+    "pattern": "\\bredbus\\b"
+  },
+  {
+    "name": "OYO",
+    "category": "travel.hotels",
+    "pattern": "\\boyo\\b|\\boravel\\b"
+  },
+  {
+    "name": "Airbnb",
+    "category": "travel.hotels",
+    "pattern": "\\bairbnb\\b"
+  },
+  {
+    "name": "Booking.com",
+    "category": "travel.hotels",
+    "pattern": "\\bbooking com\\b"
+  },
+  {
+    "name": "Agoda",
+    "category": "travel.hotels",
+    "pattern": "\\bagoda\\b"
+  },
+  {
+    "name": "Rentomojo",
+    "category": "home.furniture_rental",
+    "pattern": "\\brent ?o? ?mojo"
+  },
+  {
+    "name": "Furlenco",
+    "category": "home.furniture_rental",
+    "pattern": "\\bfurlenco\\b"
+  },
+  {
+    "name": "NoBroker",
+    "category": "home.rent",
+    "pattern": "\\bnobroker\\b"
+  },
+  {
+    "name": "MyGate",
+    "category": "home.maintenance",
+    "pattern": "\\bmygate\\b"
+  },
+  {
+    "name": "NoBrokerHood",
+    "category": "home.maintenance",
+    "pattern": "\\bnobrokerhood\\b"
+  },
+  {
+    "name": "Udemy",
+    "category": "education",
+    "pattern": "\\budemy\\b"
+  },
+  {
+    "name": "Coursera",
+    "category": "education",
+    "pattern": "\\bcoursera\\b"
+  },
+  {
+    "name": "Unacademy",
+    "category": "education",
+    "pattern": "\\bunacademy\\b"
+  },
+  {
+    "name": "LIC",
+    "category": "insurance",
+    "pattern": "\\blic\\b|\\blife insurance corp"
+  },
+  {
+    "name": "PolicyBazaar",
+    "category": "insurance",
+    "pattern": "\\bpolicy ?bazaar\\b"
+  },
+  {
+    "name": "ACKO",
+    "category": "insurance",
+    "pattern": "\\backo\\b"
+  },
+  {
+    "name": "Star Health",
+    "category": "insurance",
+    "pattern": "\\bstar health\\b"
+  },
+  {
+    "name": "Zerodha",
+    "category": "investments",
+    "pattern": "\\bzerodha\\b"
+  },
+  {
+    "name": "Groww",
+    "category": "investments",
+    "pattern": "\\bgroww\\b|\\bnextbillion\\b"
+  },
+  {
+    "name": "Upstox",
+    "category": "investments",
+    "pattern": "\\bupstox\\b|\\brksv\\b"
+  },
+  {
+    "name": "Mutual fund",
+    "category": "investments",
+    "pattern": "\\bmutual fund\\b|\\bbse star mf\\b|\\bcams\\b|\\bkfintech\\b"
+  },
+  {
+    "name": "SBI e-Pay",
+    "category": "fees",
+    "pattern": "\\bsb ?mops\\b|\\bsbi epay\\b"
+  },
+  {
+    "name": "Amul",
+    "category": "groceries.local",
+    "pattern": "\\bamul\\b"
+  },
+  {
+    "name": "Dairy cooperative",
+    "category": "groceries.local",
+    "pattern": "\\b(mother dairy|nandini|kmf|aavin|milma|vijaya dairy|heritage foods|gokul|verka|sudha dairy|saras dairy|omfed|aarey|parag milk|banas dairy|mahananda)\\b"
+  }
+]

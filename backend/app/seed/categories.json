@@ -1,0 +1,320 @@
+[
+  {
+    "id": "food",
+    "label": "Food & Dining",
+    "children": [
+      {
+        "id": "food.delivery",
+        "label": "Food delivery"
+      },
+      {
+        "id": "food.restaurants",
+        "label": "Restaurants & cafés"
+      },
+      {
+        "id": "food.snacks",
+        "label": "Snacks & street food"
+      },
+      {
+        "id": "food.drinks",
+        "label": "Bars & liquor"
+      }
+    ]
+  },
+  {
+    "id": "groceries",
+    "label": "Groceries",
+    "children": [
+      {
+        "id": "groceries.quick_commerce",
+        "label": "Quick commerce"
+      },
+      {
+        "id": "groceries.supermarket",
+        "label": "Supermarkets"
+      },
+      {
+        "id": "groceries.local",
+        "label": "Local stores"
+      },
+      {
+        "id": "groceries.meat_fish",
+        "label": "Meat & fish"
+      }
+    ]
+  },
+  {
+    "id": "transport",
+    "label": "Transport",
+    "children": [
+      {
+        "id": "transport.ride_hailing",
+        "label": "Cabs & autos"
+      },
+      {
+        "id": "transport.fuel",
+        "label": "Fuel"
+      },
+      {
+        "id": "transport.public",
+        "label": "Metro & bus"
+      },
+      {
+        "id": "transport.tolls",
+        "label": "FASTag & tolls"
+      },
+      {
+        "id": "transport.parking",
+        "label": "Parking"
+      }
+    ]
+  },
+  {
+    "id": "shopping",
+    "label": "Shopping",
+    "children": [
+      {
+        "id": "shopping.online",
+        "label": "Online shopping"
+      },
+      {
+        "id": "shopping.electronics",
+        "label": "Electronics"
+      },
+      {
+        "id": "shopping.device_repairs",
+        "label": "Device repair & service"
+      },
+      {
+        "id": "shopping.apparel",
+        "label": "Clothing & shoes"
+      },
+      {
+        "id": "shopping.home",
+        "label": "Home & kitchen"
+      }
+    ]
+  },
+  {
+    "id": "bills",
+    "label": "Bills & Utilities",
+    "children": [
+      {
+        "id": "bills.electricity",
+        "label": "Electricity"
+      },
+      {
+        "id": "bills.mobile",
+        "label": "Mobile"
+      },
+      {
+        "id": "bills.broadband",
+        "label": "Broadband"
+      },
+      {
+        "id": "bills.water",
+        "label": "Water"
+      },
+      {
+        "id": "bills.gas",
+        "label": "Gas"
+      },
+      {
+        "id": "bills.dth",
+        "label": "DTH & cable"
+      }
+    ]
+  },
+  {
+    "id": "entertainment",
+    "label": "Entertainment",
+    "children": [
+      {
+        "id": "entertainment.ott",
+        "label": "Streaming (OTT)"
+      },
+      {
+        "id": "entertainment.music",
+        "label": "Music"
+      },
+      {
+        "id": "entertainment.events",
+        "label": "Movies & events"
+      },
+      {
+        "id": "entertainment.gaming",
+        "label": "Gaming"
+      }
+    ]
+  },
+  {
+    "id": "subscriptions",
+    "label": "Software & Subscriptions",
+    "children": [
+      {
+        "id": "subscriptions.software",
+        "label": "Apps & software"
+      },
+      {
+        "id": "subscriptions.cloud",
+        "label": "Cloud storage"
+      },
+      {
+        "id": "subscriptions.news",
+        "label": "News & newsletters"
+      }
+    ]
+  },
+  {
+    "id": "health",
+    "label": "Health",
+    "children": [
+      {
+        "id": "health.pharmacy",
+        "label": "Pharmacy"
+      },
+      {
+        "id": "health.medical",
+        "label": "Doctors & labs"
+      },
+      {
+        "id": "health.fitness",
+        "label": "Fitness"
+      }
+    ]
+  },
+  {
+    "id": "travel",
+    "label": "Travel",
+    "children": [
+      {
+        "id": "travel.flights",
+        "label": "Flights"
+      },
+      {
+        "id": "travel.hotels",
+        "label": "Hotels & stays"
+      },
+      {
+        "id": "travel.trains",
+        "label": "Trains"
+      },
+      {
+        "id": "travel.bus",
+        "label": "Bus"
+      }
+    ]
+  },
+  {
+    "id": "home",
+    "label": "Rent & Home",
+    "children": [
+      {
+        "id": "home.rent",
+        "label": "Rent"
+      },
+      {
+        "id": "home.furniture_rental",
+        "label": "Furniture & appliance rental"
+      },
+      {
+        "id": "home.maintenance",
+        "label": "Maintenance & society"
+      },
+      {
+        "id": "home.services",
+        "label": "Home services"
+      }
+    ]
+  },
+  {
+    "id": "education",
+    "label": "Education"
+  },
+  {
+    "id": "personal_care",
+    "label": "Personal care"
+  },
+  {
+    "id": "insurance",
+    "label": "Insurance"
+  },
+  {
+    "id": "fees",
+    "label": "Fees & Charges",
+    "children": [
+      {
+        "id": "fees.interest",
+        "label": "Interest"
+      },
+      {
+        "id": "fees.late",
+        "label": "Late payment"
+      },
+      {
+        "id": "fees.annual",
+        "label": "Annual & joining fees"
+      },
+      {
+        "id": "fees.forex",
+        "label": "Forex markup"
+      },
+      {
+        "id": "fees.tax",
+        "label": "GST on charges"
+      }
+    ]
+  },
+  {
+    "id": "cash",
+    "label": "Cash withdrawal"
+  },
+  {
+    "id": "investments",
+    "label": "Investments",
+    "excludeFromSpend": true
+  },
+  {
+    "id": "transfers",
+    "label": "Transfers",
+    "children": [
+      {
+        "id": "transfers.p2p",
+        "label": "To people"
+      },
+      {
+        "id": "transfers.card_bill",
+        "label": "Credit card bills",
+        "excludeFromSpend": true
+      }
+    ]
+  },
+  {
+    "id": "income",
+    "label": "Money in",
+    "excludeFromSpend": true,
+    "children": [
+      {
+        "id": "income.received",
+        "label": "Received"
+      },
+      {
+        "id": "income.cashback",
+        "label": "Cashback & rewards"
+      },
+      {
+        "id": "income.refund",
+        "label": "Refunds"
+      }
+    ]
+  },
+  {
+    "id": "ignored",
+    "label": "Ignored",
+    "excludeFromSpend": true
+  },
+  {
+    "id": "uncategorized",
+    "label": "Uncategorized"
+  }
+]

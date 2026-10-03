@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <path id="s" d="M45 19C41 11.5 23 11 21 20 19 28.5 30 30.5 33 32 37 34 46.5 37 44 45.5 41.5 53.5 24 53 19 45"/>
+    <path id="bar" d="M32 4.5V58"/>
+    <!-- anchored to the canvas: a gradient relative to a zero-width line renders nothing -->
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="58">
+      <stop offset="0" stop-color="#ffdc6e"/>
+      <stop offset="0.5" stop-color="#f7b32d"/>
+      <stop offset="1" stop-color="#e8921a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- extrusion shadow -->
+  <g transform="translate(2.2 2.2)" fill="none" stroke="#1c0f04" stroke-linejoin="round">
+    <use href="#s" stroke-width="14"/>
+    <use href="#bar" stroke-width="10.5"/>
+  </g>
+
+  <!-- S: outline, drips (paint running over the edge), gold, shade, highlight -->
+  <use href="#s" fill="none" stroke="#2a1606" stroke-width="14" stroke-linejoin="round"/>
+  <g fill="url(#gold)" stroke="#2a1606" stroke-width="1.3">
+    <path d="M24.4 54v5.4a1.6 1.6 0 0 0 3.2 0V54z"/>
+    <path d="M37.3 53.2v3.6a1.5 1.5 0 0 0 3 0v-3.6z"/>
+    <path d="M42.3 22v4.6a1.5 1.5 0 0 0 3 0V22z"/>
+    <path d="M24.8 28.6v3.4a1.4 1.4 0 0 0 2.8 0v-3.4z"/>
+  </g>
+  <g fill="#f7b32d" stroke="#2a1606" stroke-width="1.1">
+    <circle cx="26" cy="62.3" r="1.1"/>
+    <circle cx="43.8" cy="29.6" r="0.95"/>
+  </g>
+  <use href="#s" fill="none" stroke="url(#gold)" stroke-width="10" stroke-linejoin="round"/>
+  <use href="#s" transform="translate(1.6 1.6)" fill="none" stroke="#dd7d18" stroke-width="3.2" stroke-linejoin="round" opacity="0.8"/>
+  <use href="#s" transform="translate(-1.9 -2.1)" fill="none" stroke="#fff4c4" stroke-width="1.3" stroke-linejoin="round" stroke-dasharray="16 6 5 30" opacity="0.9"/>
+
+  <!-- bar, in front, with its own drip -->
+  <use href="#bar" fill="none" stroke="#2a1606" stroke-width="10.5"/>
+  <path d="M30.4 57v4.4a1.6 1.6 0 0 0 3.2 0V57z" fill="url(#gold)" stroke="#2a1606" stroke-width="1.2"/>
+  <use href="#bar" fill="none" stroke="url(#gold)" stroke-width="7"/>
+  <use href="#bar" transform="translate(1.4 0)" fill="none" stroke="#dd7d18" stroke-width="2.2" opacity="0.8"/>
+  <path d="M30.2 8V20" stroke="#fff4c4" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+</svg>
