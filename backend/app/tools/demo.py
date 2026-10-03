@@ -309,7 +309,7 @@ NETWORKS = {"card-hdfc-bank-2222": "RuPay", "card-icici-bank-3333": "Visa", "car
 
 
 def _feed(base: str, files: list[Path]) -> None:
-    with httpx.Client(base_url=base, timeout=30) as client:
+    with httpx.Client(base_url=base, timeout=30, trust_env=False) as client:  # this machine only, never via a proxy
         for _ in range(100):
             try:
                 if client.get("/api/uploads").status_code == 200:

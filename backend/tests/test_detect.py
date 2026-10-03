@@ -1,3 +1,4 @@
+import os
 import zipfile
 
 import pytest
@@ -85,6 +86,8 @@ def _image_only(src, dest):
 
 
 @pytest.mark.skipif(not ocr.available(), reason="needs macOS Vision")
+@pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS") == "true",
+                    reason="GitHub's macOS machines are virtual and lack the hardware Apple Vision reads with; `make test` runs it")
 def test_unreadable_pdf_is_read_with_ocr(tmp_path):
     pdf = _image_only(make_pdf(tmp_path / "c.pdf", [CRED_TEXT]), tmp_path / "scan.pdf")
     det = detect(pdf, "scan.pdf")

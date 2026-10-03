@@ -81,6 +81,12 @@ class OllamaManager:
     def logfile(self) -> Path:
         return self.run_dir / "ollama.log"
 
+    def _client(self, timeout: float) -> httpx.AsyncClient:
+        """A client for Ollama on this machine only. trust_env=False: no HTTP(S)_PROXY or ALL_PROXY variable, nor a
+        proxy set in macOS's network settings, can route what's sent to the model (payee names) through another
+        computer; a proxy would also stop the local AI working at all."""
+        return httpx.AsyncClient(base_url=self.base_url, timeout=timeout, trust_env=False)
+
     def binary(self) -> str | None:
         if self._binary:
             return self._binary
@@ -134,7 +140,7 @@ class OllamaManager:
         }
         if schema:
             payload["format"] = schema
-        async with httpx.AsyncClient(base_url=self.base_url, timeout=timeout) as client:
+        async with self._client(timeout) as client:
             resp = await client.post("/api/chat", json=payload)
         resp.raise_for_status()
         body = resp.json()
@@ -204,7 +210,7 @@ class OllamaManager:
 
     async def is_up(self) -> bool:
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=1.0) as client:
+            async with self._client(1.0) as client:
                 return (await client.get("/api/version")).status_code == 200
         except httpx.HTTPError:
             return False
@@ -271,7 +277,7 @@ class OllamaManager:
     async def _loaded(self) -> bool:
         """Whether the model is in memory right now (Ollama's own list of loaded models)."""
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=2.0) as client:
+            async with self._client(2.0) as client:
                 resp = await client.get("/api/ps")
             names = {m.get("name") or m.get("model") for m in resp.json().get("models", [])}
             return self.model in names or f"{self.model}:latest" in names
@@ -281,7 +287,7 @@ class OllamaManager:
     async def _model_installed(self) -> bool | None:
         """True/False when the server can tell us; otherwise fall back to Ollama's manifest folder."""
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=2.0) as client:
+            async with self._client(2.0) as client:
                 resp = await client.get("/api/tags")
             names = {m["name"] for m in resp.json().get("models", [])}
             return self.model in names or f"{self.model}:latest" in names
@@ -317,7 +323,7 @@ class OllamaManager:
 
     async def _unload_model(self) -> None:
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=10.0) as client:
+            async with self._client(10.0) as client:
                 await client.post("/api/generate", json={"model": self.model, "keep_alive": 0})
         except httpx.HTTPError:
             pass

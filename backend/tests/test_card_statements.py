@@ -177,7 +177,10 @@ def test_a_figure_of_zero_is_a_figure(tmp_path):
 def test_a_statement_cycle_is_its_date_or_its_period(tmp_path):
     for text, expected in (("Statement Cycle: 12 September 2026", date(2026, 9, 12)),
                            ("Statement Cycle: 13/08/2026 - 12/09/2026", date(2026, 9, 12))):
-        path = fake_cards.save(tmp_path / "cycle.pdf", [fake_cards.Page().at(40, text)])
+        # a page with a statement's usual words around the line, so it's read from its own text, as a statement is
+        page = fake_cards.Page().at(40, "Fake Bank Credit Card Statement").down().at(40, text).down()
+        page.at(40, "Your account summary for this month, with every payment and purchase on your card")
+        path = fake_cards.save(tmp_path / "cycle.pdf", [page])
         with pymupdf.open(path) as doc:
             assert card_statement.read_summary(card_statement.read_lines(doc)[0]).statement_date == expected
 

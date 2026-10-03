@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import textwrap
+import time
 
 import pytest
 
@@ -13,7 +14,7 @@ from app.llm.ollama import LLMUnavailable, OllamaManager
 
 FAKE_SERVER = textwrap.dedent(
     """
-    import json, os
+    import json, os, socketserver
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     host, port = os.environ["OLLAMA_HOST"].rsplit(":", 1)
@@ -55,7 +56,12 @@ FAKE_SERVER = textwrap.dedent(
         def log_message(self, *args):
             pass
 
-    ThreadingHTTPServer((host, int(port)), Handler).serve_forever()
+    class Server(ThreadingHTTPServer):
+        def server_bind(self):  # without HTTPServer's look-up of this machine's name, which can take half a minute on CI
+            socketserver.TCPServer.server_bind(self)
+            self.server_name, self.server_port = "localhost", self.server_address[1]
+
+    Server((host, int(port)), Handler).serve_forever()
     """
 )
 
@@ -79,8 +85,16 @@ def fake_ollama(tmp_path, monkeypatch):
 
 
 def _manager(binary, tmp_path, port, idle=0.3, model="fake-model:1b"):
+    # a new process can take a while to start on a busy CI machine; the wait ends as soon as the server answers
     return OllamaManager(host=f"127.0.0.1:{port}", model=model, idle_seconds=idle,
-                         binary=str(binary), run_dir=tmp_path / "run", start_timeout=10)
+                         binary=str(binary), run_dir=tmp_path / "run", start_timeout=60)
+
+
+async def _until_up(m: OllamaManager, seconds: float = 60) -> None:
+    deadline = time.monotonic() + seconds
+    while not await m.is_up():
+        assert time.monotonic() < deadline, "the fake Ollama never came up"
+        await asyncio.sleep(0.1)
 
 
 def test_starts_on_demand_and_stops_when_idle(fake_ollama, tmp_path):
@@ -128,10 +142,7 @@ def test_leaves_an_already_running_ollama_alone(fake_ollama, tmp_path):
         m = _manager(binary, tmp_path, port, idle=0.1)
 
         async def scenario():
-            for _ in range(50):
-                if await m.is_up():
-                    break
-                await asyncio.sleep(0.1)
+            await _until_up(m)
             async with m.session() as ai:
                 assert not ai.owns_server
             await asyncio.sleep(0.5)
@@ -230,10 +241,7 @@ def test_with_the_ollama_app_running_the_model_still_goes_to_sleep(fake_ollama, 
         m = _manager(binary, tmp_path, port, idle=0.2)
 
         async def scenario():
-            for _ in range(50):
-                if await m.is_up():
-                    break
-                await asyncio.sleep(0.1)
+            await _until_up(m)
             assert (await m.status())["state"] == "asleep"
             async with m.session() as ai:
                 await ai.chat([{"role": "user", "content": "hi"}])
@@ -271,3 +279,19 @@ def test_a_server_left_behind_is_stopped_at_startup(fake_ollama, tmp_path):
 
     asyncio.run(startup())
     assert first._proc.wait(timeout=3) is not None
+
+
+def test_proxy_settings_never_see_what_goes_to_the_local_ai(fake_ollama, tmp_path, monkeypatch):
+    """Payee names go to the model on this machine, never through a proxy someone set (here: one that answers nothing)."""
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.setenv(name, "http://127.0.0.1:9")
+    binary, _ = fake_ollama
+    m = _manager(binary, tmp_path, _free_port())
+
+    async def scenario():
+        async with m.session() as ai:
+            assert '"echo": "a payee"' in await ai.chat([{"role": "user", "content": "a payee"}])
+        await m.shutdown()
+
+    asyncio.run(scenario())
+
