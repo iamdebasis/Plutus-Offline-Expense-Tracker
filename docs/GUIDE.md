@@ -374,6 +374,13 @@ UPI transaction IDs on every row; a reader for it would be a separate addition.
 
 `backend/app/userdata.py` is the authoritative list. `data/` is gitignored and created as you use the app.
 
+**Starting over.** *Remove all my data…* at the foot of Your vault moves everything in this table (`data/…`) to the
+macOS Trash as one folder, "Plutus data (removed 6 Oct 2026, 14.03)", and Plutus is as a fresh clone has it, with no
+restart. It lists what goes, with counts, and asks you to type `start over`. Nothing is erased: until you empty the
+Trash you can put it back (quit Plutus, then move that folder's contents back into `data/`). It waits while files are
+being read or the local AI is working, stops an Ollama that Plutus started, and moves only what the table lists:
+anything else in the folder stays. Plutus itself, Ollama and its models, and the demo (`.demo/`) stay too.
+
 **Your original files** are always kept in `data/uploads/`; there's no setting to keep them anywhere else, so the
 project folder holds everything about you. Keep the project out of folders that sync to the cloud: Plutus warns when
 its folder syncs to iCloud Drive (including Desktop & Documents sync), Dropbox, Google Drive or OneDrive, since your

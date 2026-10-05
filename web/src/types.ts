@@ -283,3 +283,20 @@ export interface CategoryNode {
   excludeFromSpend?: boolean
   children?: CategoryNode[]
 }
+
+/** What Start over would move to the Trash (/api/reset), counted, and why it can't happen right now, if so. */
+export interface ResetPreview {
+  anything: boolean
+  transactions: number
+  files: number
+  cards: number
+  statements: number
+  /** Categories you set for one payment, and your corrections for a payee. */
+  answers: number
+  payees: number
+  accounts: number
+  cardPictures: number
+  /** The data folder, where it can all be put back. */
+  folder: string
+  busy: string | null
+}

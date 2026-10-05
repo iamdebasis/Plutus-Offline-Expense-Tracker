@@ -24,8 +24,8 @@ so the list below is complete:
     statement_ai.json      the local AI's answers about statements the rules couldn't prove (which dates and amounts are
                            the rows), so reading one again doesn't ask again
 
-A fresh clone has none of it; it's created as you use the app. Deleting the folder with the app stopped is a
-complete fresh start.
+A fresh clone has none of it; it's created as you use the app. Start over (Your vault; app/reset.py) moves all of the
+above to the macOS Trash, where it can be put back until the Trash is emptied: a complete fresh start.
 """
 
 from pathlib import Path

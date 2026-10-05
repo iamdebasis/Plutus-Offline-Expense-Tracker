@@ -5,8 +5,10 @@
   original files (`data/uploads`), and anything read into an AI session is sent to that model's provider.
 - **Everything about the user lives in `data/`**, nowhere else: originals always go to `data/uploads`
   (`app/storage.py`; there's no setting to keep them elsewhere), and the tools' temporary copies and outputs go to
-  `data/run` and `data/redacted`, never the system's temp folder. A new user starts from nothing; deleting `data/` with
-  the app stopped is a complete fresh start.
+  `data/run` and `data/redacted`, never the system's temp folder. A new user starts from nothing; **Start over** (Your vault,
+  `app/reset.py`, `POST /api/reset`) moves what `userdata.py` lists to the macOS Trash and the app is a fresh clone
+  again (refused while reading; tests use a fake Trash, `conftest.fake_trash`). Deleting `data/` with the app stopped
+  does the same, unrecoverably.
 - Real sample statements live outside the repo and are read only when the owner explicitly allows it for parser work.
   Never copy them, or any name, number, ID or amount from them, into the repo: not into tests, fixtures, docstrings,
   comments or docs. Examples use obviously fake data ("Mr Fake Payee", "XX1111", "900000000001").

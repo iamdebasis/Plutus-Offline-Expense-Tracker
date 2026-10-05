@@ -70,6 +70,23 @@ def no_real_ollama(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def fake_trash(tmp_path, monkeypatch) -> Path:
+    """Start over moves your data to the macOS Trash: in tests, "the Trash" is a folder of the test's own."""
+    import shutil
+
+    from app import reset
+
+    trash = tmp_path / "Trash"
+
+    def to_trash(folder: Path) -> Path:
+        trash.mkdir(exist_ok=True)
+        return Path(shutil.move(str(folder), trash / folder.name))
+
+    monkeypatch.setattr(reset, "to_trash", to_trash)
+    return trash
+
+
+@pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch) -> Path:
     d = tmp_path / "data"
     d.mkdir()

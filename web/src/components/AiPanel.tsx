@@ -94,11 +94,26 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
             </div>
 
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-5">
-              <p className="text-sm text-zinc-400">
-                Optional. A model on this Mac sorts payees no rule knows, reads a statement the rules couldn't prove (its
-                figures still have to add up) and reads payment screenshots in layouts Plutus doesn't know. Without it,
-                those wait for you; everything else works the same.
-              </p>
+              <div className="text-sm text-zinc-400">
+                <p>
+                  <span className="text-zinc-300">Optional.</span> Plutus asks a model on this Mac only when its own rules
+                  can't manage:
+                </p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 marker:text-zinc-600">
+                  <li>
+                    <span className="text-zinc-300">New payees:</span> names it doesn't recognise, like a local shop
+                  </li>
+                  <li>
+                    <span className="text-zinc-300">Statements on hold:</span> the AI's reading counts only if the bank's
+                    totals add up
+                  </li>
+                  <li>
+                    <span className="text-zinc-300">Unfamiliar screenshots:</span> receipts from apps whose layout Plutus
+                    doesn't know
+                  </li>
+                </ul>
+                <p className="mt-1.5">Without it, these wait for you to sort by hand. Everything else works the same.</p>
+              </div>
               {error && <p className="text-sm text-rose-300">{error}</p>}
               {setup && <Body setup={setup} switching={switching} onChoose={choose} />}
             </div>

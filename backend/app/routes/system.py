@@ -5,7 +5,7 @@ from importlib import resources
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from app import categorize, ledger, logs, payees, preferences, userdata, vault
+from app import categorize, ledger, logs, payees, preferences, reset, userdata, vault
 from app.llm import llm, setup
 from app.models import Model, Payee
 
@@ -55,6 +55,30 @@ def card_art_file(name: str) -> FileResponse:
     if not _CARD_ART.match(name) or not (path := userdata.path("card-art", name)).is_file():
         raise HTTPException(404, {"code": "not_found", "message": "No such card picture"})
     return FileResponse(path, headers={"Cache-Control": "no-cache"})
+
+
+class StartOver(Model):
+    confirm: str
+
+
+@router.get("/reset")
+def reset_preview() -> dict:
+    """What Start over would move to the Trash, counted, and whether it can happen now."""
+    return reset.what_goes()
+
+
+@router.post("/reset")
+async def start_over(req: StartOver) -> dict:
+    """Everything Plutus keeps about you, to the Trash (recoverable until it's emptied): Plutus is as a fresh clone."""
+    if req.confirm.strip().lower() != reset.CONFIRM:
+        raise HTTPException(400, {"code": "not_confirmed", "message": f'Type "{reset.CONFIRM}" to confirm'})
+    try:
+        return await reset.start_over()
+    except reset.Busy as exc:
+        raise HTTPException(409, {"code": "busy", "message": str(exc)}) from exc
+    except OSError as exc:
+        raise HTTPException(500, {"code": "trash_failed", "message": f"Couldn't move your data to the Trash ({exc}). "
+                                                                      "Nothing was removed."}) from exc
 
 
 @router.get("/llm/status")

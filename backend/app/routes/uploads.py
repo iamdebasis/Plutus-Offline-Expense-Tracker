@@ -11,7 +11,7 @@ import pymupdf
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from app import ledger, logs, storage, vault
+from app import ledger, logs, reset, storage, vault
 from app.config import settings
 from app.imports import DETECTOR_VERSION, importer
 from app.ingest.detect import SUPPORTED_EXTS, detect, folder_for
@@ -40,10 +40,17 @@ def upload_file(upload_id: str) -> FileResponse:
 
 @router.post("/uploads/{upload_id}/reimport")
 def reimport(upload_id: str) -> UploadRecord:
+    _not_while_starting_over()
     if not vault.find_upload(upload_id):
         raise HTTPException(404, {"code": "not_found", "message": "No such file"})
     importer.enqueue(upload_id)
     return vault.find_upload(upload_id)
+
+
+def _not_while_starting_over() -> None:
+    """While your data is moving to the Trash (Start over), nothing new comes in: it would land in the folder going."""
+    if reset.in_progress:
+        raise HTTPException(409, {"code": "starting_over", "message": "Plutus is starting over: add your files again in a moment"})
 
 
 @router.post("/uploads")
@@ -52,6 +59,7 @@ def upload(
     kind: DeclaredKind = Form("auto"),
     password: str | None = Form(None),
 ) -> UploadResult:
+    _not_while_starting_over()
     name = file.filename or "upload"
     ext = Path(name).suffix.lower()
     if ext not in SUPPORTED_EXTS:
@@ -76,6 +84,7 @@ def upload_folder(files: list[UploadFile] = File(...), name: str = Form("Export"
     """An export's extracted folder (Google Takeout), sent as its files, each named by its path inside the folder.
     They're packed into one zip, the same bytes every time for the same files, so from here on it's stored,
     recognised as a repeat, and read exactly like the zip Google sends."""
+    _not_while_starting_over()
     kept: list[tuple[str, bytes]] = []
     total = 0
     for f in files:

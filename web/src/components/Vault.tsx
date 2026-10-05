@@ -10,6 +10,7 @@ import { extOf, isImage } from '../lib/sources'
 import type { CardStatement, HeldRow, Instrument, Transaction, UploadRecord } from '../types'
 import { CardFace } from './CardFace'
 import { PagePeek } from './PagePeek'
+import { StartOver } from './StartOver'
 import { StorageLine } from './StoragePanel'
 
 interface Props {
@@ -80,6 +81,7 @@ export function Vault({ uploads, cards, statements = [], txns = [], onShowRows, 
           />
         ))}
       </ul>
+      <StartOver />
     </motion.section>
   )
 }

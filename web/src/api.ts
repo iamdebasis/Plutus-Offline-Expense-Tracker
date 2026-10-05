@@ -1,4 +1,4 @@
-import type { AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, StorageInfo, Transaction, UploadRecord } from './types'
+import type { AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, ResetPreview, StorageInfo, Transaction, UploadRecord } from './types'
 
 export class ApiError extends Error {
   readonly code: string | undefined
@@ -34,6 +34,15 @@ export const api = {
     }),
   confirmHeld: (id: string) => request<CardStatement>(`/api/card-statements/${encodeURIComponent(id)}/confirm`, { method: 'POST' }),
   llmStatus: () => request<LlmStatus>('/api/llm/status'),
+  /** What Start over would move to the Trash, and whether it can happen now. */
+  resetPreview: () => request<ResetPreview>('/api/reset'),
+  /** Everything Plutus keeps about you, to the Trash (recoverable until it's emptied). `confirm`: the words typed. */
+  startOver: (confirm: string) =>
+    request<{ moved: number; trash: string | null }>('/api/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm }),
+    }),
   /** The Local AI panel: this Mac, Ollama, what's downloaded, and the steps to what suits it. */
   aiSetup: () => request<AiSetup>('/api/llm/setup'),
   /** Use this downloaded model from now on; null lets Plutus pick the best one for this Mac again. */
