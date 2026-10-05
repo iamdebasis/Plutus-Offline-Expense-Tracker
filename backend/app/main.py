@@ -8,10 +8,11 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import ledger, logs, storage, userdata, vault
+from app import categorize, ledger, logs, storage, userdata, vault
 from app.config import settings
 from app.imports import importer
 from app.llm import llm
+from app.llm import setup as llm_setup
 from app.routes import ledger as ledger_routes
 from app.routes import storage as storage_routes
 from app.routes import system, uploads
@@ -41,6 +42,7 @@ async def lifespan(_: FastAPI):
         log.info("ledger: %d payment(s) listed twice under one UTR folded into one", folded)
     if repaired := ledger.repair_duplicate_ids():
         log.info("ledger: %d transaction(s) shared an id with another; each has its own now", repaired)
+    categorize.remember_rows([t for t in ledger.load_transactions() if t.categorized_by == "user"])  # set before rows were kept
     folder = storage.summary()
     log.info("your files: %s", folder["folder"])
     if folder["cloudWarning"]:
@@ -52,16 +54,8 @@ async def lifespan(_: FastAPI):
         len(ledger.load_transactions()), len(ledger.load_card_payments()), len(vault.list_instruments()), len(vault.list_uploads()),
     )
     await llm.reclaim()
-    status = await llm.status()
-    if not status["installed"]:
-        log.info("local AI: not set up (optional). Payees no rule knows wait for you in \"Needs your eyes\"; see Local AI in the README")
-    elif status["modelInstalled"] is False:
-        log.info("local AI: Ollama found, model %s not downloaded (optional). To use it: ollama pull %s", llm.model, llm.model)
-    else:
-        log.info("local AI: %s via Ollama, %s%s; wakes for a job, sleeps after %ds idle", llm.model,
-                 "in memory" if status["loaded"] else "asleep",
-                 " (the Ollama app's own server is running; it stays up, the model doesn't)" if status["server"] == "ollama" else "",
-                 int(llm.idle_seconds))
+    await llm.status()  # picks the model: your choice, or the best one downloaded for this Mac
+    log.info("local AI: %s", await llm_setup.summary())
 
     importer.start()
     log.info("ready on http://127.0.0.1:%d", settings.port)

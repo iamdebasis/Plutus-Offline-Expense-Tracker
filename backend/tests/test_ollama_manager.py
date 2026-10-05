@@ -1,6 +1,7 @@
 """Exercises start / reuse / idle-stop against a fake `ollama` binary, so tests never touch the real one."""
 
 import asyncio
+import json
 import os
 import socket
 import subprocess
@@ -295,3 +296,40 @@ def test_proxy_settings_never_see_what_goes_to_the_local_ai(fake_ollama, tmp_pat
 
     asyncio.run(scenario())
 
+
+
+def test_the_model_is_picked_when_a_job_starts(fake_ollama, tmp_path):
+    binary, _ = fake_ollama
+    picks = []
+
+    async def choose():  # the app's: your choice in the Local AI panel, or the best one downloaded for this Mac
+        picks.append(m.model)
+        m.model = "fake-model:1b"
+
+    m = OllamaManager(host=f"127.0.0.1:{_free_port()}", model=None, idle_seconds=0.3, binary=str(binary),
+                      run_dir=tmp_path / "run", start_timeout=60, choose=choose)
+
+    async def scenario():
+        async with m.session() as ai:
+            out = await ai.chat([{"role": "user", "content": "hi"}])
+            assert '"echo": "hi"' in out
+        await m.shutdown()
+
+    asyncio.run(scenario())
+    assert picks == [None]
+
+
+def test_unloads_the_model_a_job_used_even_after_another_is_chosen(fake_ollama, tmp_path):
+    binary, unload_log = fake_ollama
+    m = _manager(binary, tmp_path, _free_port(), idle=0.3)
+
+    async def scenario():
+        async with m.session() as ai:
+            await ai.chat([{"role": "user", "content": "hi"}])
+        m.model = "another-model:2b"  # chosen in the Local AI panel while the first was still warm
+        await asyncio.sleep(1.0)
+        assert m.state == "off"
+
+    asyncio.run(scenario())
+    unloaded = [json.loads(line)["model"] for line in unload_log.read_text().splitlines()]
+    assert unloaded == ["fake-model:1b"]

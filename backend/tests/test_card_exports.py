@@ -53,7 +53,9 @@ def test_signed_amounts_without_payments_take_the_rarer_sign_for_credits(tmp_pat
     rows = [t for t in EVERY_ROW if not t.details.startswith("PAYMENT")]
     result = card_export.parse(fake_cards.csv_export(tmp_path / "card.csv", style="signed", rows=rows), "upl_x",
                                detect(tmp_path / "card.csv", "card.csv"))
-    assert {t.note for t in result.transactions if t.direction == "credit"} == {"REFUND FAKE FOOD APP", "CASHBACK CREDIT"}
+    held = result.statement.held  # the sign that marks credits was a guess: held for you to check, not counted
+    assert (result.statement.status, result.transactions) == ("on_hold", [])
+    assert {t.note for t in held if t.direction == "credit"} == {"REFUND FAKE FOOD APP", "CASHBACK CREDIT"}
 
 
 def test_a_bank_accounts_export_is_not_a_cards(tmp_path):

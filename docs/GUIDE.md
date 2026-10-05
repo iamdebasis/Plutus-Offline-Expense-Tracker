@@ -14,7 +14,7 @@ built, see the [README](../README.md).
 - **macOS**: screenshots and scanned PDFs are read with Apple's on-device OCR (Vision).
 - **Python 3.12+**: macOS's own `python3` is older; `brew install python@3.13`.
 - **Node 22.18+ and pnpm**, to build and test the UI: `brew install node pnpm`.
-- **Optional: [Ollama](https://ollama.com)**, a local AI that sorts payees no rule recognises (see [Local AI](#local-ai-optional)).
+- **Optional: [Ollama](https://ollama.com)**, a local AI that sorts payees no rule recognises. Plutus suggests the model that suits your Mac and shows the steps (see [Local AI](#local-ai-optional)).
   Without it everything works; those payees wait for you in "Needs your eyes".
 
 `make check` tells you what's missing and how to get it.
@@ -101,7 +101,7 @@ File names, counts and timings only; never your transactions.
 
 | Tag | You'll see |
 |---|---|
-| `startup` | data folder, ledger size, whether Ollama and the model are available |
+| `startup` | data folder, ledger size, the local AI: the model in use, or why there's none and what suits this Mac |
 | `upload` | each file: size, what it was identified as, cards found, duplicates, unlocking |
 | `read` / `ocr` / `decode` | whether a PDF's own text was used or on-device OCR ran (pages, lines, seconds), and how the scrambled-font decode checked out |
 | `parse` / `ledger` | what was found, how it was read, amounts confirmed, new vs already known |
@@ -140,6 +140,11 @@ their line's end, since lines can cross anywhere and more colours would be too c
   to "CRED" / "CRED Club" / "CredClub" / Dreamplug in PhonePe. The UPI side is always a card bill, never spending, and
   is linked to its bill (same minute, same amount, or up to 5% less when CRED rewards paid part of it), so the
   transactions list says which card it paid. The bill is counted once, in the Credit cards section.
+  In the transactions list every card bill payment, either side of it, is marked **Bill paid**, its amount grey: it's
+  neither money in nor spending (the tag is green on the card's side, where the payment comes in, like every row where
+  money comes in: Refund, Cashback, Received, Transfer in). Filing one as something else (a payment through CRED that was really rent, say) asks
+  first, the row on its own or among ticked payments ("Leave it out" changes the rest), because it would then count;
+  moving it to Ignored doesn't ask. The ticked payments' total leaves card bills out.
 - **Investments** (SIPs, brokers, mutual funds): the **Count investments** switch next to the years decides. Off
   (the default, for when you track investments elsewhere) leaves them out of everything: every total, chart, list,
   the transactions table and "Needs your eyes", with refunds of them too; the bar under the years says how much
@@ -165,6 +170,19 @@ their line's end, since lines can cross anywhere and more colours would be too c
   opposite: give it a category such as Rent, and add a name if you like; that goes to your payee table.
 - **Who you paid most** lists people and shops, never card bills: a bill pays your own card, and what the card bought
   is in the Credit cards section.
+
+**Changing categories** in the transactions list:
+
+- **One payment**: its category dropdown. You're then offered to change that payee's other payments too ("Change
+  all"), which also holds for their future payments.
+- **Several payments you pick**: tick them (Shift-click ticks a run; the box at the top ticks every payment shown),
+  choose their category in the bar that appears, and **Change**. Made for one payee that stands for several kinds of
+  bill (a payment company that collects your insurance, phone and electricity bills): each ticked payment takes the
+  category on its own, nothing is assumed about the payee's other or future payments, and **Undo** puts them back
+  exactly as they were. Only payments shown can be ticked, so a change never reaches one you can't see.
+
+Whatever you set for a payment is kept with its row (`data/row_answers.json`): the statement read again by a newer
+reader, or deleted and added again, keeps your answers.
 
 When the categorization rules or your payee table change (`RULES_VERSION` in `app/categorize.py`, or
 `data/payees.json` edited by hand), the app re-applies them to the whole ledger on its next start. Your own
@@ -193,35 +211,95 @@ set the RuPay card's network on its card face and it's matched.
 
 ### Credit card statements
 
-Add any bank's monthly statement PDF (password-protected ones ask for the password once; it's never saved). One
-reader handles every bank: it finds the transactions table by its header's meaning ("Date", "Transaction details",
-"Description", "Particulars", "Amount"…), takes the columns from where the header sits, and reads each row: a row starts
-with a date and ends with an amount; a line without a date continues the description above. Credits are recognised
-by "Cr", "CR", "C", "+"/"-", a credits column or a credits section; reward points tables, EMI schedules and terms are
-skipped. Columns the header names around the description and amount are kept out of them: a transaction ID or
-reference before the description, cash or reward points after the amount. The summary's own labels ("Statement Date |
-Payment Due Date | Total Amount Due") are never taken for the table's header, and the terms pages' worked examples
-(an illustration of interest, with dates and figures of its own) are never rows or figures. A balance or a due is
-money (paise or a ₹), so a cash points box's "Previous Balance" or "Closing Balance" beside it isn't mistaken for it.
-A statement with no header it knows is read line by line. The tests read generated statements in the shapes of Axis,
-HDFC, ICICI and SBI statements and seven other layouts (signs instead of Cr, no header, separate debit and credit
-columns, times and reward points beside rows, add-on cards, a statement across the new year with no years in its
-dates…); a new bank usually just works.
+Add any bank's statement PDF: a month, a year's download holding several months, or the card's transactions over any
+span (password-protected ones ask for the password once; it's never saved). There's no reader per bank. Plutus reads
+every file two ways and lets the statement's own arithmetic decide:
 
-**Every statement is checked against the bank's own figures**: previous balance − credits + debits must equal the total
-due, to the rupee. The import summary and the Credit cards section say whether it adds up; one that doesn't is still
-imported, with how far apart it is, so a misread never hides.
+- **by its table**: the transactions header found by meaning ("Date", "Transaction details", "Particulars",
+  "Amount"…), the columns taken from where the header sits;
+- **by its shape**: whatever the wording, a transaction is a date and an amount on one line, lined up in columns with
+  the others. Dates are found however they're printed (12/08/2026, 12-Aug-26, Aug 12, 2026, "12/08/2026|14:05" glued to
+  a time), amounts whatever form ₹ takes in the PDF's font (₹, Rs., INR, `, a "C"), and credits however they're
+  marked (Cr, CR, C, +, −, brackets, a credits column or section, a Dr/Cr column even with another after it). The
+  amount column is where the rows' figures line
+  up, table by table (a first page laid out around its summary can print it a little to one side); a figure inside a
+  description ("USD 12.99"), reward points, reference numbers and a column of letters after the amount aren't it. A
+  wrapped row's amount on its second line is found too.
+
+A word in a small box beside a row is a tag, not part of what the row says: HDFC puts "EMI" on a purchase you could
+turn into EMIs (₹2,500 or more), and the purchase is an ordinary one, under the shop's own name.
+
+What isn't transactions is left out: EMI schedules, rewards summaries, and the terms with their worked examples. Only
+a heading starts the terms ("Terms and Conditions", "Illustration of how interest is charged"); a note that names them
+in passing hides nothing, and a table of transactions after them is read.
+
+Each reading is tried under every meaning a statement could give its marks (does "+" mark a credit or a debit? is a
+lone "C" the rupee sign or a credit?). Then the check: **previous balance − credits + debits must equal the total due,
+to the paisa** (a total printed in whole rupees, which the bank rounded, within 50 paise). A file that prints no
+balances but its totals (a bank's statement of a whole year: "Purchases & Debits", "Payments & Credits") is checked
+against those: the debits read must come to its total of debits and the credits to its total of credits, each to the
+paisa. A file with a running balance proves its rows line by line instead: each balance moves from the one before by
+exactly that row's amount. Summary labels are read however they're laid out: beside their figures, above them, or
+wrapped over two or three lines ("Purchases &" over "Debits"). A
+year's download is split into its statements (where each one's summary starts, with its statement date, or its due
+date when it prints none), each checked against its own figures.
+
+**A bank's statement of a year** (HDFC's "Year End Statement & Summary", say) sums up the monthly statements dated in
+its year and then lists every transaction. Its totals cover those statements' billing cycles (MAY-2025 to MAR-2026,
+each dated the 1st: 2 April 2025 to 1 March 2026), while its list can run on to the year's end. So it's checked over
+those cycles: the rows inside them must come to its totals, debits and credits, to the paisa, and are then counted.
+The rows past the last statement are shown as a part of their own, on hold, because nothing on the file adds them up.
+Adding that month's statement proves them; or check them and count them.
+
+A card's transactions downloaded from a bank's site as a PDF ("Credit Card Transactions") is read too, even with no
+statement words on it: a card, and a table of dated amounts, are enough to recognise it.
+
+Every statement ends up in one of these states, shown in Your vault:
+
+| State | What it means | Counted |
+|---|---|---|
+| **Adds up** (proven) | exactly one reading accounts for the bank's figures | yes |
+| **Read from its cells** (exact) | a CSV or Excel export: the bank's own data, no layout to guess | yes |
+| **Two readings agree** | nothing on it to check against, but the rules and the local AI found exactly the same rows | yes |
+| **Confirmed by you** | you checked a statement on hold and said its rows are right | yes |
+| **On hold** | none of the above: no reading adds up, two different readings both do, or there's nothing to check against | **no** |
+
+**A statement on hold counts nothing**: not its purchases, and it covers no bill (the bill's estimate stays). Your vault
+opens it for you with why it's held, the arithmetic, and its rows as read. The page icon beside a row shows the page of
+the PDF with that row marked, drawn on this Mac. Fix a row, add one that was missed or remove one that isn't a
+transaction, and it's checked against the bank's figures again as soon as you save; when the rows are right, one click
+counts them. A statement you confirmed or corrected keeps your version when it's read again later, unless the new
+reading proves itself.
+
+**The local AI, when the rules can't decide.** If Ollama is installed, a statement the rules couldn't prove (or couldn't
+read at all) goes to the local model, about 20 lines at a time, every amount tagged with an id. It answers with
+lines and ids, never with figures, so it can't invent or mistype a number. Its reading counts only if the statement's
+own arithmetic proves it, or, for a file with nothing to check against, if it found exactly the rows the rules did.
+Anything else stays on hold. Its answers are kept in `data/statement_ai.json`, so reading a file again doesn't ask
+again. A long file with nothing to check against (a year's list of rows) isn't sent: the model could only agree row
+for row, at about 20 seconds per 20 lines, so it waits on hold for you instead of holding up other files. Without
+Ollama, nothing changes: statements the rules can't prove wait for you.
+
+How sure can you be? The tests read random statements made up on every run: a new layout from each seed, monthly,
+yearly or any span, varying everything banks vary (date formats and separators, column orders, reward points and
+reference columns, forms of ₹, credit marks, wrapped rows, headers present or missing, EMI schedules and the terms'
+worked examples beside the transactions, notes that mention the terms, a summary printed as a sum with only a due date,
+a total rounded to the rupee, a first page's table printed to one side, a year's summary with only its totals, labels
+wrapped over two lines, a card number after the Dr/Cr column). Every one with totals or a running balance must be proven exactly, every
+one without must be held with exactly the right rows waiting for you, and none may be counted wrong.
 
 What each row becomes:
 
 | Row | Becomes |
 |---|---|
 | a merchant (debit) | a purchase on that card: the name cleaned ("PYU*SHOP BANGALORE" → SHOP), sorted by your answers, known merchants, then the bank's own category column as a hint ("RESTAURANTS"), then keywords and the local AI. A card purchase is never filed as a person |
-| PAYMENT RECEIVED / BBPS / AUTOPAY | your bill payment: Credit card bills, never spending or money in |
-| a merchant (credit), REFUND, REVERSAL | a refund, taken off the purchase it refunds |
+| PAYMENT RECEIVED / BBPS / AUTOPAY, any credit saying PAYMENT, or one that pays the previous balance | your bill payment: Credit card bills, never spending or money in. The transactions list shows it as **Bill paid**, its amount grey with no +. Nothing learned about a name moves it ("Change all", the review list): the wording is the bank's, not a shop's. Filing that one row as something else asks first, since it would start counting |
+| a merchant (credit), REFUND, REVERSAL | a refund, taken off the purchase it refunds (by the shop's name, or else the same card's purchase of exactly that much) |
 | CASHBACK, REWARD | cashback (money in) |
 | forex markup, GST, late, annual or joining fee, interest | Fees & Charges (counted as spending) |
-| an EMI conversion or instalment | Ignored: the purchase counted when you made it; EMI interest is a fee |
+| an EMI instalment (SHOP EMI 3/12, SMARTEMI …) | spending, in the bill that charges it: what you pay for the purchase, month by month (a converted purchase's EMI is principal and interest, plus GST on the interest). EMI interest is a fee |
+| an EMI conversion (the purchase credited back as its EMIs begin) | taken off that purchase (same card, same amount), so it's counted once, by its instalments; without that purchase here, left out |
+| a loan's instalment (Insta / Jumbo loan, loan on card) | Ignored: the loan went to your bank account, not to a shop |
 | cash withdrawal | Cash |
 
 A purchase paid over UPI with the card ("UPI-SHOP-shop@okbank") is a UPI payment, counted in UPI spends. A RuPay card
@@ -230,9 +308,8 @@ a day either way) and kept as one payment, whichever file comes first. A Google 
 matched the same way. Adding a statement again, or a better reader re-reading it, adds nothing twice (your answers
 stay), and a row an earlier reading made up is dropped. A statement a reader couldn't read is tried again,
 automatically, when the reader improves. Deleting it removes its rows and its record, and the bill it covered counts
-again. If a statement reads wrong, `make inspect FILE=...` shows its layout with every name and number masked; when
-its rows don't add up, its entry in Your vault shows the figures behind the check and the lines of its table that
-weren't read as rows.
+again. If a statement reads wrong, `make inspect FILE=...` shows its layout and what the reader decided, with every
+name and number masked, safe to share.
 
 ### Exports of a span
 
@@ -242,7 +319,9 @@ mark, separate debit and credit columns, or a sign (the sign your payments carry
 statement of yours also lists is counted once, even when the export dates it when it posted (up to three days later)
 or names the shop its own way. A bill for a cycle an export lists whole adds no estimate; for a cycle it lists part
 of, what it lists comes off the estimate. An export that doesn't print its card number is taken to be your only card
-of that bank, and says so.
+of that bank, and says so. A CSV or Excel export is read from its own cells ("Read from its cells", counted); one whose
+rows don't add up to totals it prints, or whose credits are told apart only by a sign nothing in it explains (no
+payment to show which sign is a credit), is held for you instead.
 
 ## Google Pay (from Google Takeout)
 
@@ -284,11 +363,13 @@ UPI transaction IDs on every row; a reader for it would be a separate addition.
 | `data/accounts.json` | Your own bank accounts, last four digits only, so transfers between them are left out |
 | `data/payees.json` | Your payee table: people and accounts you pay, e.g. "R Kumar" → Water delivery, your landlord → Rent |
 | `data/merchant_memory.json` | Your corrections and the local AI's earlier answers, per payee name |
-| `data/settings.json` | Your settings: whether investments count as spending |
+| `data/row_answers.json` | The category you set for one payment, kept with its row: delete a file and add it again, and your answers come back |
+| `data/settings.json` | Your settings: whether investments count as spending, the local model you picked, whether you've seen the local AI hint |
 | `data/state.json` | Housekeeping: which rules your ledger was last sorted with |
 | `data/run/` | Files being received, the tools' temporary copies, the local AI's process id and log |
 | `data/redacted/` | Anonymised copies made by `make redact` |
 | `data/card-art/` | Pictures of your cards you added, shown on their card faces ([below](#card-designs)) |
+| `data/statement_ai.json` | The local AI's answers about statements the rules couldn't prove, so a file read again doesn't ask again |
 | `backend/app/seed/` | Not yours: the category tree and the merchant dictionary, the same for everyone |
 
 `backend/app/userdata.py` is the authoritative list. `data/` is gitignored and created as you use the app.
@@ -314,13 +395,41 @@ and no other website can load them from Plutus.
 
 ## Local AI (optional)
 
-Plutus uses a local model through [Ollama](https://ollama.com) for two jobs, both fallbacks: placing payees that no
+Plutus uses a local model through [Ollama](https://ollama.com) for three jobs, all fallbacks: placing payees that no
 rule, dictionary entry or earlier answer covers (only their names and a typical amount are sent, to the model on this
-Mac), and reading a payment screenshot whose layout the rules don't know. Without it, those payees go to "Needs your
-eyes" and such a screenshot is reported as unreadable; statements, exports and everything else work the same.
+Mac); reading a payment screenshot whose layout the rules don't know; and reading a card statement the rules couldn't
+prove, where its answer counts only if the statement's own figures prove it ([above](#credit-card-statements)).
+Without it, those payees go to "Needs your eyes", such a screenshot is reported as unreadable, and such a statement
+waits on hold for you; everything else works the same.
 
-To turn it on: install Ollama, then `ollama pull qwen3-vl:8b` (about 6 GB; it needs roughly 8 GB of free memory while
-it runs). The header shows "Local AI · not set up" until then. Another model can be used with `ET_OLLAMA_MODEL`.
+**Setting it up.** Click **Local AI** in the header (or *Check this Mac* on the welcome page). Plutus reads this Mac (its
+chip, memory, free space and macOS version) and Ollama (whether it's installed, its version and the models it has
+downloaded), suggests the model that suits it, and shows only the steps still needed, each command with a copy
+button. **Plutus never downloads a model or installs Ollama**: you run the steps, and it notices the model by itself,
+with no restart. `make check` prints the same advice in Terminal.
+
+| This Mac's memory | Plutus suggests | Download |
+|---|---|---|
+| 8–15 GB | `qwen3.5:2b`, a little less accurate | 2.7 GB |
+| 16–23 GB | `qwen3.5:4b`, the best balance of speed and accuracy | 3.3 GB |
+| 24 GB or more | `qwen3.5:9b`, the most accurate | 6.6 GB |
+| under 8 GB, or an Intel Mac | none: a local model would only slow it down | |
+
+The steps, for a Mac with nothing yet: install Ollama from [ollama.com/download](https://ollama.com/download) (it
+needs macOS 14 or later), or `brew install --cask ollama-app`; then `ollama pull qwen3.5:4b` (or the model suggested
+for your Mac). Ollama must be **0.32.7 or newer**: older versions let these models answer in prose instead of the
+JSON Plutus asks for. The panel says when an update is needed.
+
+**Which model Plutus uses**: `ET_OLLAMA_MODEL` if it's set; else the model you picked in the panel (*Use this*),
+while it's downloaded; else the most capable downloaded model that suits this Mac (`qwen3-vl` models work too:
+`qwen3-vl:8b-instruct`, `qwen3-vl:8b`, `qwen3-vl:4b-instruct`, `qwen3-vl:2b-instruct`); else none, and the header
+shows "Local AI · not set up". A model Plutus doesn't know is listed as "not tested with Plutus" and used only if you
+pick it. The lists are in `backend/app/llm/advice.py`, which needs only Python's standard library (so `make check`
+can run it before setup). The panel reads Ollama's folders and asks its running server; it never starts Ollama.
+
+**A one-time hint.** When an import leaves payees in "Needs your eyes" or a statement on hold and there's no local AI
+to handle them, a note under the Local AI pill says so once, with *See how* and *Not now*. Answering it either way
+puts it away for good (`data/settings.json`).
 
 `backend/app/llm/ollama.py` manages Ollama for you:
 
@@ -336,9 +445,9 @@ Ollama app's server running), **working** during a job, **awake** for the minute
 seconds left). Note that running an `ollama` command in a terminal (`ollama list`, `ollama ps`) opens the Ollama app if
 no server is running, and the app then keeps one running until you quit it from the menu bar.
 
-`make llm-check` does a live round trip: it starts Ollama, categorizes a few sample merchants, and stops it again.
-The default `qwen3-vl:8b` is the *thinking* variant. The client works around its quirks, but the instruct variant
-would be faster: `ollama pull qwen3-vl:8b-instruct`, then set `ET_OLLAMA_MODEL`.
+`make llm-check` does a live round trip with the model Plutus uses: it starts Ollama, categorizes a few sample
+merchants, and stops it again. `qwen3-vl:8b` is the *thinking* variant: the client works around its quirks (its
+answer arrives as its "thinking"), but it's heavier and slower than the suggested models.
 
 ## Tools
 
@@ -346,6 +455,7 @@ would be faster: `ollama pull qwen3-vl:8b-instruct`, then set `ET_OLLAMA_MODEL`.
 make inspect FILE="~/Downloads/statement.pdf"         # what the detector sees, content masked
 make redact  FILE="~/Downloads/statement.pdf"         # layout-preserving anonymised copy → data/redacted/
 make inspect-takeout FILE="~/Downloads/takeout.zip"   # a Google Pay export's structure, names and amounts masked
+make measure                                          # the statement readers on 1000 random made-up statements
 ```
 
 `inspect` and `inspect-takeout` print structure only, safe to share when something reads wrong; their temporary

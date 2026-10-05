@@ -5,6 +5,7 @@ re-uploaded file. Matching is by UTR, then the app's transaction ID, then time +
 A match merges the new source into the existing record instead of adding a copy.
 """
 
+import functools
 import hashlib
 import re
 import threading
@@ -35,6 +36,21 @@ def _shard(year: int) -> JsonFile:
 
 def _payments() -> JsonFile:
     return userdata.json_file("card_payments.json", default=list)
+
+
+def exclusive(fn):
+    """A route that reads, changes and saves the ledger holds it throughout (see `editing`)."""
+    @functools.wraps(fn)
+    def run(*args, **kwargs):
+        with _lock:
+            return fn(*args, **kwargs)
+    return run
+
+
+def editing() -> threading.RLock:
+    """Hold the ledger for a whole read, change and save: `with ledger.editing(): …`. Nothing else (an import, another
+    change of yours) writes in between, so neither undoes the other."""
+    return _lock
 
 
 def load_transactions() -> list[Transaction]:
@@ -307,15 +323,17 @@ def _place(txns: list[Transaction], payments: list[CardPayment]) -> bool:
     from app import vault
 
     changed = billing.assign_cards(txns, vault.list_instruments())
-    if billing.place_bills(payments, statements.list_statements(), txns):
+    if billing.place_bills(payments, statements.counted(), txns):  # a statement on hold covers no bill: its rows aren't counted
         _payments().write([p.model_dump(mode="json") for p in sorted(payments, key=lambda p: p.at)])
     return changed > 0
 
 
 def update_transactions(changed: list[Transaction]) -> None:
+    """Save these, as changed by a step that took a while (the local AI sorting new payees): a payment you set
+    yourself in the meantime keeps your answer."""
     by_id = {t.id: t for t in changed}
     with _lock:
-        save_transactions([by_id.get(t.id, t) for t in load_transactions()])
+        save_transactions([t if t.categorized_by == "user" else by_id.get(t.id, t) for t in load_transactions()])
 
 
 def load_card_payments() -> list[CardPayment]:
@@ -346,9 +364,9 @@ def retract(upload_id: str, keep: set[str]) -> int:
     with _lock:
         txns, kept, gone = load_transactions(), [], 0
         for t in txns:
-            if t.id not in keep and any(s.upload == upload_id for s in t.sources):
+            if t.id not in keep and any(_file_of(s.upload) == upload_id for s in t.sources):
                 gone += 1
-                t.sources = [s for s in t.sources if s.upload != upload_id]
+                t.sources = [s for s in t.sources if _file_of(s.upload) != upload_id]
                 if not t.sources:
                     continue
             kept.append(t)
@@ -357,12 +375,17 @@ def retract(upload_id: str, keep: set[str]) -> int:
         return gone
 
 
+def _file_of(source: str) -> str:
+    """The file a row was read from ("upl_1~2", one of several statements in it, as rows once cited it, is upl_1)."""
+    return source.split("~", 1)[0]
+
+
 def forget_upload(upload_id: str) -> None:
     """Drop what only this upload contributed; keep records other files also vouch for."""
     with _lock:
         kept = []
         for t in load_transactions():
-            t.sources = [s for s in t.sources if s.upload != upload_id]
+            t.sources = [s for s in t.sources if _file_of(s.upload) != upload_id]
             if t.sources:
                 kept.append(t)
         _payments().write([r for r in _payments().read() if r["source"]["upload"] != upload_id])

@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app import categorize, ledger, logs, payees, preferences, userdata, vault
-from app.llm import llm
+from app.llm import llm, setup
 from app.models import Model, Payee
 
 router = APIRouter(prefix="/api")
@@ -59,7 +59,32 @@ def card_art_file(name: str) -> FileResponse:
 
 @router.get("/llm/status")
 async def llm_status() -> dict:
-    return await llm.status()
+    return {**await llm.status(), "hintSeen": preferences.ai_hint_seen()}
+
+
+@router.get("/llm/setup")
+async def llm_setup() -> dict:
+    """The Local AI panel: this Mac, Ollama, the models downloaded, what Plutus suggests and the steps to get it.
+    Plutus never downloads or installs anything: you run the steps."""
+    return await setup.report()
+
+
+class ModelChoice(Model):
+    model: str | None = None  # None: let Plutus pick the best model downloaded for this Mac
+
+
+@router.put("/llm/model")
+async def choose_model(choice: ModelChoice) -> dict:
+    try:
+        return await setup.use(choice.model)
+    except ValueError as exc:
+        raise HTTPException(400, {"code": "model_unusable", "message": str(exc)}) from exc
+
+
+@router.post("/llm/hint-seen", status_code=204)
+def llm_hint_seen() -> None:
+    """You've answered the one-time hint about the local AI: it doesn't show again."""
+    preferences.see_ai_hint()
 
 
 @router.get("/categories")
@@ -73,6 +98,7 @@ def list_payees() -> list[Payee]:
 
 
 @router.put("/payees/{payee_id}")
+@ledger.exclusive
 def put_payee(payee_id: str, payee: Payee) -> Payee:
     if payee.id != payee_id:
         raise HTTPException(400, {"code": "id_mismatch", "message": "Payee id in the URL and body differ"})
@@ -83,6 +109,7 @@ def put_payee(payee_id: str, payee: Payee) -> Payee:
 
 
 @router.delete("/payees/{payee_id}", status_code=204)
+@ledger.exclusive
 def delete_payee(payee_id: str) -> None:
     if not payees.delete_payee(payee_id):
         raise HTTPException(404, {"code": "not_found", "message": "No such payee"})

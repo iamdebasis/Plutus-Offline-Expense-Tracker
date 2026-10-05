@@ -188,6 +188,7 @@ export function ActivityLine({ activity, pending = 0 }: { activity: Activity; pe
 function doneText(s: ReturnType<typeof summarize>) {
   const parts = [`${plural(s.finished, 'file')} read`, s.added ? `${s.added} new` : 'nothing new']
   if (s.toReview) parts.push(`${s.toReview} to review`)
+  if (s.onHold) parts.push(`${s.onHold} on hold in Your vault`)
   if (s.failed.length) parts.push(`${s.failed.length} failed`)
   else if (s.skipped.length) parts.push(`${s.skipped.length} not readable yet`)
   return parts.join(' · ')

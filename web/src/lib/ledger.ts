@@ -21,8 +21,11 @@ export interface LedgerData {
   accounts: OwnAccount[]
   /** Your choices about what the numbers include (data/settings.json). */
   preferences: Preferences
-  /** The credit card statements you added: periods, the bank's figures, whether the rows add up. */
+  /** The credit card statements you added and whose rows are counted: periods, the bank's figures, whether the rows
+   *  add up. */
   statements: CardStatement[]
+  /** Statements on hold: read but unproven, so nothing from them is counted until you confirm them in Your vault. */
+  held: CardStatement[]
   /** Payments the dashboard leaves out (investments, when you choose so; see lib/scope.ts). Out of every view,
    *  kept only so card bills still know what they paid for. */
   leftOut: Transaction[]
@@ -38,7 +41,12 @@ export function useLedger() {
         api.transactions(), api.cardPayments(), api.categories(), api.instruments(), api.uploads(), api.accounts(), api.preferences(),
         api.cardStatements(),
       ])
-      setData({ txns, payments, categories: flatten(tree), tree, cards, uploads, accounts, preferences, statements, leftOut: [] })
+      setData({
+        txns, payments, categories: flatten(tree), tree, cards, uploads, accounts, preferences,
+        statements: statements.filter((s) => s.status !== 'on_hold'),
+        held: statements.filter((s) => s.status === 'on_hold'),
+        leftOut: [],
+      })
       setError(null)
     } catch (e) {
       setError((e as Error).message)
@@ -77,12 +85,41 @@ export const isIgnored = (t: Transaction) => topOf(t.category) === 'ignored' || 
  *  isn't spending and isn't money in either. Unmatched refunds stay in money in. */
 export const isLinkedRefund = (t: Transaction) => t.direction === 'credit' && !!t.refundOf
 
+/** A payment to your own credit card, either side of it: the statement's "PAYMENT RECEIVED" or the UPI or bank
+ *  payment that paid it. Never spending and never money in: the card's purchases are what count. */
+export const isCardBill = (t: Transaction) => t.category === 'transfers.card_bill'
+
 export function bucketOf(t: Transaction): Bucket {
   if (isIgnored(t)) return 'ignored'
-  if (t.category === 'transfers.card_bill') return 'cardBill' // either side of paying a card: never spending, never money in
+  if (isCardBill(t)) return 'cardBill' // either side of paying a card: never spending, never money in
   if (t.direction === 'credit' && !t.refundOf) return t.kind === 'cashback' || t.category === 'income.cashback' ? 'cashback' : 'in'
   if (t.category === 'transfers.p2p') return 'people'
   return 'spent'
+}
+
+/** The tag a row carries in the transactions list. Every row where money comes in has one, in green (`inward`): a
+ *  refund, cashback, your card's bill paid (on the card's side: its amount stays grey, since it's not money in), money
+ *  received, money moved in from your own accounts. Of the rows where money goes out, only a card bill paid from your
+ *  bank or UPI has one, neutral. */
+export function rowTag(t: Transaction): { text: string; title: string; inward: boolean } | null {
+  if (t.direction !== 'credit') {
+    return isCardBill(t) ? { text: 'Bill paid', title: CARD_BILL_TITLE, inward: false } : null
+  }
+  if (isCardBill(t)) return { text: 'Bill paid', title: CARD_BILL_TITLE, inward: true }
+  if (t.kind === 'refund') {
+    const title = t.refundOf ? 'Taken off the payment it refunds' : "Its payment isn't in your files, so it counts as money in"
+    return { text: 'Refund', title, inward: true }
+  }
+  if (t.kind === 'cashback' || t.category === 'income.cashback') return { text: 'Cashback', title: 'Cashback or a reward, credited to you', inward: true }
+  if (t.kind === 'transfer') return { text: 'Transfer in', title: 'Moved in from one of your own accounts: counted nowhere', inward: true }
+  return { text: 'Received', title: 'Money sent to you', inward: true }
+}
+
+const CARD_BILL_TITLE = "A payment to your credit card: not spending, and not money in. The card's purchases are what count."
+
+/** What a payment would count as under another category: said before a card bill is filed as something else. */
+export function countsAs(t: Transaction, category: string): Bucket {
+  return bucketOf({ ...t, category })
 }
 
 /** The data as UPI saw it: card statement rows left out. A card used on UPI stays (it was a UPI payment), and so

@@ -8,12 +8,15 @@ export function CategorySelect({
   onChange,
   compact,
   label = 'Category',
+  placeholder,
 }: {
   tree: CategoryNode[]
   value: string
   onChange: (id: string) => void
   compact?: boolean
   label?: string
+  /** Shown while nothing is chosen yet (`value` ''): a prompt, never itself a choice. */
+  placeholder?: string
 }) {
   return (
     <label className="relative inline-flex min-w-0">
@@ -25,6 +28,11 @@ export function CategorySelect({
           compact ? 'py-1 text-xs' : 'py-1.5 text-sm'
         }`}
       >
+        {placeholder && (
+          <option value="" disabled className="bg-zinc-900">
+            {placeholder}
+          </option>
+        )}
         {tree.map((top) =>
           top.children?.length ? (
             <optgroup key={top.id} label={top.label} className="bg-zinc-900">

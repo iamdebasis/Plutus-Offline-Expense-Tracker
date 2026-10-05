@@ -97,12 +97,19 @@ export const statement = (id: string, cardId: string, from: string, to: string, 
   totalDue: null,
   minimumDue: null,
   creditLimit: null,
+  printedDebits: null,
+  printedCredits: null,
   debits: 0,
   credits: 0,
   rows: 0,
   check: 'unchecked',
   difference: null,
   unread: [],
+  status: 'proven',
+  proof: '',
+  held: [],
+  edited: false,
+  pages: [],
 })
 
 export function ledger(parts: Partial<LedgerData>): LedgerData {
@@ -116,6 +123,7 @@ export function ledger(parts: Partial<LedgerData>): LedgerData {
     accounts: [],
     preferences: { countInvestments: true },
     statements: [],
+    held: [],
     leftOut: [],
     ...parts,
   }

@@ -102,3 +102,18 @@ def test_scrambled_text_is_not_readable():
     scrambled = '-X"XX"X-X*XX-"-XXXX-\nXX 9XX\nXXXX\nXXXXXXXXXXXXXXXXXX\nXXXXXX\n:9\n99\n"!\n-#9! "9999 #9\n>"X@\n' * 5
     assert not ocr.text_is_readable(scrambled)
     assert ocr.text_is_readable(CRED_TEXT)
+
+
+def test_a_cards_transactions_exported_as_a_pdf_are_a_cards(tmp_path):
+    """A bank site's download of a card's transactions says "Credit Card Transactions" and "Card No", not a statement's
+    words: a card and a table of dated amounts make it a card's all the same (it was skipped as unrecognised)."""
+    from tests import fake_cards
+
+    page = fake_cards.Page().at(40, "Fake Bank Credit Card Transactions").down().at(40, "Card No: XXXX XXXX XXXX 3141").down(25)
+    page.at(40, "Date").at(120, "Transaction Details").at(420, "Amount").down()
+    for day, shop, amount in (("03/07/2026", "FAKE GROCER", "1,234.50"), ("15/08/2026", "FAKE CHAI POINT", "205.75"),
+                              ("09/09/2026", "FAKE BOOKSHOP", "640.00")):
+        page.at(40, day).at(120, shop).at(420, amount).down()
+    path = fake_cards.save(tmp_path / "export.pdf", [page])
+    d = detect(path, path.name)
+    assert d.kind == "cc_statement" and d.cards and d.cards[0].last4 == "3141"

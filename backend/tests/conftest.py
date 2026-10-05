@@ -58,6 +58,18 @@ def no_real_llm(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_real_ollama(tmp_path, monkeypatch):
+    """Tests never ask the Ollama running on this Mac, nor read its models folder: what's downloaded here would change
+    which model the app picks. Tests that need a server use a fake one (test_ollama_manager, test_local_ai)."""
+    from app.llm import llm
+
+    monkeypatch.setattr(llm, "base_url", "http://127.0.0.1:9")  # nothing listens there
+    monkeypatch.setattr(llm, "model", None)
+    monkeypatch.setattr(llm, "_capabilities", {})
+    monkeypatch.setenv("OLLAMA_MODELS", str(tmp_path / "no-ollama-models"))
+
+
+@pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch) -> Path:
     d = tmp_path / "data"
     d.mkdir()

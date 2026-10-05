@@ -305,7 +305,7 @@ def parse(path: Path, upload_id: str, detection: Detection) -> ParseResult:
                         page=0, y=float(i)))
     if not rows:
         raise ParseError("The export's table has no transactions in it.")
-    _settle_signs(rows)
+    settled = _settle_signs(rows)
 
     notes: list[str] = []
     last4s = [r.last4 for r in rows if r.last4]
@@ -338,8 +338,20 @@ def parse(path: Path, upload_id: str, detection: Detection) -> ParseResult:
     if not has_totals:
         statement.statement_date = None
     _check(statement, result)
+    # The cells are exact; what can still be wrong is which rows are credits, or rows missing from the totals.
+    if statement.check == "matched":
+        statement.status, statement.proof = "proven", "previous balance − credits + debits = total due"
+    elif statement.check == "mismatch":
+        statement.status, statement.proof = "on_hold", "its rows don't add up to the totals it prints"
+    elif settled == "guessed":
+        statement.status, statement.proof = "on_hold", "which sign marks its credits had to be guessed: nothing in it says"
+    else:
+        statement.status, statement.proof = "exact", "read from the export's own cells"
     _describe(statement, result, True)
     result.notes = notes + result.notes
+    if statement.status == "on_hold":
+        result.warnings.append(f"On hold, not counted yet: {statement.proof}. Check it in Your vault.")
+        statement.held, result.transactions = result.transactions, []  # read, shown, not counted until you confirm it
     return result
 
 
@@ -366,7 +378,7 @@ def _amount_of(get, cols: Columns) -> Amount | None:
     return Amount(value, mark, 0, 0)
 
 
-def _settle_signs(rows: list[Row]) -> None:
+def _settle_signs(rows: list[Row]) -> str | None:
     """Rows marked only by a sign, or not at all: which are credits. The sign your payments to the card carry is
     the credits' sign; without payments, the less common sign is (purchases outnumber refunds). Unsigned rows that
     say they're a refund or a payment are credits."""
@@ -374,6 +386,7 @@ def _settle_signs(rows: list[Row]) -> None:
         for r in rows:  # in a column of signed amounts, a figure without a sign is a plus
             if r.amount and r.amount.mark == "":
                 r.amount.mark = "+"
+    settled = None  # how the sign's meaning was settled: by the payments' sign, or guessed from which is rarer
     signed = [r for r in rows if r.amount and r.amount.mark in ("+", "-")]
     if signed:
         paid = Counter(r.amount.mark for r in signed if _PAYMENT.search(r.description))
@@ -381,9 +394,11 @@ def _settle_signs(rows: list[Row]) -> None:
         credit_sign = paid.most_common(1)[0][0] if paid else (min(signs, key=signs.get) if len(signs) > 1 else None)
         for r in signed:
             r.amount.mark = "cr" if r.amount.mark == credit_sign else "dr"
+        settled = "payments" if paid else "guessed"
     for r in rows:
         if r.amount and r.amount.mark == "":
             r.amount.mark = "cr" if _PAYMENT.search(r.description) or _CREDIT_WORDS.search(r.description) else "dr"
+    return settled
 
 
 # ---- recognising one --------------------------------------------------------------------------------------------

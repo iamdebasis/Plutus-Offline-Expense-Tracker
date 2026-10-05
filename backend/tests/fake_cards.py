@@ -60,6 +60,7 @@ def inr(v: float) -> str:
 class Page:
     def __init__(self) -> None:
         self.items: list[tuple[float, float, str, float]] = []
+        self.shapes: list[tuple[float, float, float, float]] = []  # filled boxes drawn under the text (badges, highlights)
         self.y = 60.0
 
     def at(self, x: float, text: str, size: float = 9, y: float | None = None) -> "Page":
@@ -70,15 +71,23 @@ class Page:
         self.y += by
         return self
 
+    def badge(self, x: float, text: str, size: float = 7) -> "Page":
+        """A word in a small filled pill, the way a bank tags a row ("EMI": you could turn it into EMIs)."""
+        w = _width(text, size)
+        self.shapes.append((x - 4, self.y - size - 1, x + w + 4, self.y + 2))
+        return self.at(x, text, size)
 
-def save(path: Path, pages: list[Page], password: str | None = None) -> Path:
+
+def save(path: Path, pages: list[Page], password: str | None = None, landscape: bool = False) -> Path:
     doc = pymupdf.open()
     for p in pages:
-        page = doc.new_page(width=600, height=842)
+        page = doc.new_page(width=842, height=595) if landscape else doc.new_page(width=600, height=842)
         fontname = "helv"
         if FONT.exists():
             page.insert_font(fontname="hv", fontfile=str(FONT))
             fontname = "hv"
+        for x0, y0, x1, y1 in p.shapes:
+            page.draw_rect(pymupdf.Rect(x0, y0, x1, y1), color=None, fill=(0.85, 0.9, 1.0))
         for x, y, text, size in p.items:
             page.insert_text((x, y), text, fontsize=size, fontname=fontname)
     kwargs = {"encryption": pymupdf.PDF_ENCRYPT_AES_256, "user_pw": password, "owner_pw": password + "-o"} if password else {}
@@ -187,6 +196,112 @@ def sbi(path: Path) -> Path:
     p.at(40, "Date").at(120, "Transaction Details").at(480, "Amount (₹)").down()
     for t in ROWS:
         p.at(40, t.day.strftime("%d %b %y")).at(120, t.details).at(480, inr(t.amount)).at(545, "C" if t.credit else "D").down()
+    return save(path, [p])
+
+
+def _right(page: Page, x: float, text: str, size: float = 9) -> Page:
+    return page.at(x - _width(text, size), text, size)
+
+
+def sbi_card(path: Path, immediate: bool = False) -> Path:
+    """SBI Card as its statements are made (from public parsers of them): the account summary a flattened table, its
+    labels with "( ` )" (the ₹ its font draws as a backtick) and their figures on the line below; Total Amount Due and
+    Minimum Amount Due the same; dates like "20 Aug 26"; C or D after every amount; a fee's GST on the line under the
+    fee, undated; the due date "IMMEDIATE" when the last bill went unpaid (`immediate`)."""
+    p = Page()
+    p.at(40, "SBI Card", 13).down(18).at(40, "MR FAKE CARDHOLDER").down(16)
+    p.at(40, "Credit Card Number", 8).at(200, "Statement Date", 8).at(330, "Payment Due Date", 8).down(12)
+    p.at(40, "XXXX XXXX XXXX 3141", 8).at(200, "12 Sep 2026", 8).at(330, "IMMEDIATE" if immediate else "02 Oct 2026", 8).down(24)
+    xs = [40, 150, 250, 350, 460]
+    for x, label in zip(xs, ["Previous Balance ( ` )", "Credits ( ` )", "Debits ( ` )", "Interest Charges ( ` )", "Total Outstanding ( ` )"]):
+        p.at(x, label, 7)
+    p.down(12)
+    for x, v in zip(xs, [inr(PREVIOUS), inr(CREDITS), inr(DEBITS), "0.00", inr(TOTAL_DUE)]):
+        p.at(x, v, 8)
+    p.down(22).at(40, "Total Amount Due ( ` )", 8).at(250, "Minimum Amount Due ( ` )", 8).down(12)
+    p.at(40, inr(TOTAL_DUE), 8).at(250, "1,000.00", 8).down(26)
+    p.at(40, "Date", 8).at(120, "Transaction Details", 8).at(470, "Amount ( ` )", 8).down(14)
+    for t in ROWS:
+        if t.details == "GST":  # the fee's tax, under the fee, without a date
+            p.at(120, "IGST DB @ 18.00%", 8)
+        else:
+            p.at(40, t.day.strftime("%d %b %y"), 8).at(120, t.details, 8)
+        _right(p, 530, inr(t.amount), 8).at(536, "C" if t.credit else "D", 8).down(13)
+    return save(path, [p])
+
+
+def icici_bold(path: Path) -> Path:
+    """ICICI as its statements are made: headings in bold that read with every letter twice ("SSTTAATTEEMMEENNTT
+    DDAATTEE"), figures on the line below their labels with ₹ as a backtick, Date | SerNo. | Transaction Details | Reward
+    Points | Intl.# amount | Amount (in `), CR after credits, and a refund taking its reward points back (negative)."""
+    def bold(text: str) -> str:
+        return " ".join("".join(c * 2 for c in w) for w in text.split())
+
+    p = Page()
+    p.at(40, "ICICI Bank Credit Card Statement", 13).down(20).at(40, "Card Number 4000 XXXX XXXX 3141", 8).down(18)
+    p.at(40, bold("STATEMENT DATE"), 8).at(220, bold("PAYMENT DUE DATE"), 8).down(12)
+    p.at(40, "September 12, 2026", 8).at(220, "October 2, 2026", 8).down(22)
+    xs = [40, 135, 230, 325, 420, 515]
+    for x, label in zip(xs, ["Previous Balance", "Purchases / Charges", "Cash Advances", "Payments / Credits", "Total Amount due", "Minimum Amount due"]):
+        p.at(x, bold(label), 6)
+    p.down(12)
+    for x, v in zip(xs, [inr(PREVIOUS), inr(DEBITS), "0.00", inr(CREDITS), inr(TOTAL_DUE), "1,000.00"]):
+        p.at(x, f"` {v}", 7)
+    p.down(26)
+    p.at(40, "Date", 8).at(100, "SerNo.", 8).at(170, "Transaction Details", 8).at(370, "Reward Points", 8).at(440, "Intl.# amount", 8)
+    p.at(505, "Amount (in `)", 8).down(14)
+    for n, t in enumerate(ROWS):
+        points = -2 if t.details.startswith("REFUND") else (0 if t.credit else int(t.amount // 100))
+        p.at(40, t.day.strftime("%d/%m/%Y"), 8).at(100, f"{8800000000 + n}", 8).at(170, t.details, 8).at(380, str(points), 8)
+        _right(p, 560, inr(t.amount), 8)
+        if t.credit:
+            p.at(564, "CR", 8)
+        p.down(13)
+    return save(path, [p])
+
+
+def amex(path: Path) -> Path:
+    """American Express (India) as its statements are made: Opening Balance − New Credits + New Debits = Closing
+    Balance, and Minimum Payment Due, labels over figures ("Rs"); dates like "August 14", their year the statement's;
+    CR after credits."""
+    p = Page()
+    p.at(40, "American Express", 13).down(18).at(40, "Fake Membership Rewards Credit Card", 9).down()
+    p.at(40, "Card Number XXXX-XXXXXX-3141", 8).at(330, "Statement Date 12/09/2026", 8).down(12)
+    p.at(330, "Payment Due Date 02/10/2026", 8).down(22)
+    xs = [40, 150, 260, 370, 480]
+    for x, label in zip(xs, ["Opening Balance Rs", "New Credits Rs", "New Debits Rs", "Closing Balance Rs", "Minimum Payment Due Rs"]):
+        p.at(x, label, 7)
+    p.down(12)
+    for x, v in zip(xs, [inr(PREVIOUS), inr(CREDITS), inr(DEBITS), inr(TOTAL_DUE), "1,000.00"]):
+        p.at(x, v, 8)
+    p.down(26).at(40, "Date", 8).at(140, "Transaction Details", 8).at(480, "Amount Rs", 8).down(14)
+    for t in ROWS:
+        p.at(40, t.day.strftime("%B %d"), 8).at(140, t.details, 8)
+        _right(p, 530, inr(t.amount), 8)
+        if t.credit:
+            p.at(534, "CR", 8)
+        p.down(13)
+    return save(path, [p])
+
+
+def hdfc_wrapped(path: Path) -> Path:
+    """HDFC's monthly layout with descriptions too long for their cell: the cell's two lines centred on the row, so
+    the first sits above the date and amount, the second below."""
+    p = Page()
+    p.at(40, "Fake Bank Credit Card Statement", 13).down(20).at(40, "Card No: 4000 00XX XXXX 3141", 8).down()
+    p.at(40, "Statement Date: 12/09/2026", 8).at(320, "Payment Due Date: 02/10/2026", 8).down()
+    p.at(40, f"Previous Balance: {inr(PREVIOUS)}", 8).at(320, f"Total Amount Due: {inr(TOTAL_DUE)}", 8).down(24)
+    p.at(40, "Domestic Transactions", 10).down(16)
+    p.at(40, "DATE & TIME", 8).at(150, "TRANSACTION DESCRIPTION", 8).at(470, "AMOUNT", 8).down(18)
+    for n, t in enumerate(ROWS):
+        amount = f"{'+ ' if t.credit else ''}C {inr(t.amount)}"
+        if len(t.details) > 20:  # too long for one line: half above the row, half below
+            words = t.details.split()
+            p.at(150, " ".join(words[: len(words) // 2]), 8, y=p.y - 4.5).at(150, " ".join(words[len(words) // 2:]), 8, y=p.y + 4.5)
+        else:
+            p.at(150, t.details, 8)
+        p.at(40, f"{t.day:%d/%m/%Y}| {10 + n:02d}:00", 8)
+        _right(p, 530, amount, 8).down(20)
     return save(path, [p])
 
 
@@ -341,6 +456,95 @@ def points_after_amount(path: Path, raised: float = 2.5) -> Path:
     terms.at(40, "Transaction Amount").at(140, "Period").at(200, "Date").at(260, "Transaction").at(360, "Amount").down()
     terms.at(40, "` 4,000").at(140, "05-Jan-20 - 20-Feb-20").at(260, "Late Payment Fees").at(360, "` 100.00").down()
     return save(path, [p, terms])
+
+
+def _year() -> list[Txn]:
+    """A year of fake activity on one card, paid off each month."""
+    import random
+
+    rng, out = random.Random(11), []
+    for month in range(11):  # the cycles of the statements dated the 1st, May to March
+        start = date(2026 + (3 + month) // 12, (3 + month) % 12 + 1, 2)
+        if month:
+            out.append(Txn(start, "ONLINE TRF - PYMT RECD - THANK YOU", "", round(rng.uniform(2000, 40000), 2), credit=True))
+        for _ in range(rng.randint(3, 6)):
+            day = date.fromordinal(start.toordinal() + rng.randint(0, 27))
+            shop = rng.choice(["UPI-FAKE GROCER", "FAKE FOOD APP GURGAON", "UPI-MR FAKE PAYEE", "FAKE AIRWAYS MUMBAI", "UPI-FAKE TEA STALL"])
+            out.append(Txn(day, shop, "", round(rng.choice([rng.uniform(10, 900), rng.uniform(1000, 30000)]), 2)))
+        if month == 4:
+            out.append(Txn(date.fromordinal(start.toordinal() + 9), "REFUND FAKE FOOD APP", "", 345.60, credit=True))
+        if month == 7:  # money back from a shop, printed under its name: only the CR column says it's a credit
+            out.append(Txn(date.fromordinal(start.toordinal() + 12), "UPI-FAKE GROCER", "", 120.40, credit=True))
+    return sorted(out, key=lambda t: t.day)
+
+
+YEAR = _year()
+# Activity after the last statement the summary sums up (its year runs to 31 March; its last statement is dated the
+# 1st): listed, but in no statement's totals
+AFTER = [Txn(date(2027, 3, 4), "UPI-FAKE GROCER", "", 812.40), Txn(date(2027, 3, 9), "ONLINE TRF - PYMT RECD - THANK YOU", "", 5000.00, credit=True),
+         Txn(date(2027, 3, 18), "FAKE FOOD APP GURGAON", "", 1234.56), Txn(date(2027, 3, 30), "FAKE AIRWAYS MUMBAI", "", 9876.50)]
+
+
+def year_end(path: Path, header: bool = True, tamper: bool = False, after: bool = False) -> Path:
+    """A bank's statement of a year: an account summary with only totals (purchases & debits, payments & credits) under
+    labels wrapped over two lines, a table of each month's statement, then every transaction: Date | Description |
+    Amount | DR/CR | Card Number, the marks column followed by the card's number. No balances, no statement date (only
+    its day of the month), its period in months ("APRIL-26 to MARCH-27"). Without the transactions' `header`, only
+    the rows' shape says what they are; `tamper` prints a total of debits ₹100 more than the rows; `after` lists the
+    month after its last statement too (AFTER), which none of its totals includes."""
+    debits = round(sum(t.amount for t in YEAR if not t.credit) + (100 if tamper else 0), 2)
+    credits = round(sum(t.amount for t in YEAR if t.credit), 2)
+    card = "400000XXXXXX3141"
+    p = Page()
+    p.y = 40
+    p.at(40, "Fake Bank", 13).at(330, "Year End Statement & Summary", 14).down(16)
+    p.at(300, "Fake Bank Credit Cards GSTIN : 00FAKE0000F0Z0", 8).at(640, "HSN Code : 9999", 8).down(30)
+    p.at(200, "Account Summary for the period from APRIL-26 to MARCH-27", 10).down(18)
+    for x, label in ((155, "Number of Add-on"), (265, "Purchases &"), (365, "Payments &"), (555, "Monthly Statement")):
+        p.at(x, label, 8)
+    p.down(6)
+    p.at(60, "Card Number", 8).at(470, "Credit Limit", 8).down(6)
+    for x, label in ((185, "Cards"), (280, "Debits"), (380, "Credits"), (590, "Date")):
+        p.at(x, label, 8)
+    p.down(14)
+    p.at(42, f"000{card}", 8).at(195, "0", 8).at(270, inr(debits), 8).at(370, inr(credits), 8).at(465, "3,00,000.00", 8).at(600, "01", 8)
+    p.down(28).at(300, "Monthly Statement wise Summary of your Card", 10).down(18)
+    # labels of three lines, two lines (centred between them) and one, as a bank's header row has them: a label's
+    # lines 8.5pt apart for 7pt text
+    for row in (((300, "Debits"), (520, "Minimum"), (590, "Total")), ((640, "Purchases"), (700, "Payments &"), (770, "Finance")),
+                ((230, "Domestic"), (320, "International"), (410, "Cash Withdrawal"), (520, "Amount"), (590, "Amount")),
+                ((640, "& Debits"), (705, "Credits"), (770, "charges")), ((45, "Month"), (110, "Card Number"), (525, "Dues"), (595, "Dues"))):
+        for x, label in row:
+            p.at(x, label, 7)
+        p.down(4.25)
+    p.down(10)
+    due = 0.0
+    for month in range(11):
+        start = date(2026 + (3 + month) // 12, (3 + month) % 12 + 1, 2)
+        end = date(2026 + (4 + month) // 12, (4 + month) % 12 + 1, 1)
+        rows = [t for t in YEAR if start <= t.day <= end]
+        spent, paid = round(sum(t.amount for t in rows if not t.credit), 2), round(sum(t.amount for t in rows if t.credit), 2)
+        due = round(due - paid + spent, 2)
+        p.at(45, end.strftime("%b-%Y").upper(), 7).at(110, f"000{card}", 7).at(230, inr(spent), 7).at(320, "0.00", 7).at(410, "0.00", 7)
+        p.at(520, inr(round(due * 0.05)), 7).at(590, inr(round(due)), 7).at(640, inr(spent), 7).at(705, inr(paid), 7).at(770, "0.00", 7).down(11)
+    pages, rows = [p], list(YEAR) + (AFTER if after else [])
+    p.down(16)
+    while rows:
+        p.at(45, "Transaction Details -  Primary Card Holder MR FAKE CARDHOLDER", 10).down(14)
+        if header:
+            p.at(45, "Date", 8).at(200, "Transaction Description", 8).at(470, "Amount", 8).at(518, "DR/CR", 8).at(570, "Card Number", 8).down(12)
+        while rows and p.y < 560:
+            t = rows.pop(0)
+            amount = inr(t.amount)
+            p.at(45, t.day.strftime("%d-%b-%Y"), 8).at(130, t.details, 8).at(505 - _width(amount, 8), amount, 8)
+            p.at(527, "CR" if t.credit else "DR", 8).at(565, card, 8).down(12)
+        p.at(760, f"Page {len(pages)} of 9", 7, y=585)
+        if rows:
+            p = Page()
+            p.y = 40
+            p.at(40, "Fake Bank", 13).at(330, "Year End Statement & Summary", 14).down(30)
+            pages.append(p)
+    return save(path, pages, landscape=True)
 
 
 # ---- the bank's exports of a span (CSV, Excel, an HTML table saved as .xls) -------------------------------------

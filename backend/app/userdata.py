@@ -5,7 +5,8 @@ the rules that read statements. Nothing in it is about a particular person (no n
 no choices), and nothing about you is kept anywhere but this folder. Every module reaches it through this file,
 so the list below is complete:
 
-    settings.json          your settings: whether investments count as spending
+    settings.json          your settings: whether investments count as spending; the local model you chose,
+                           and whether you've seen the local AI's one-time hint
     uploads.json           your files: one record each (fingerprint, what it was, how reading it went)
     ledger/<year>.json     your transactions, one file per calendar year
     card_payments.json     your credit card bill payments
@@ -20,6 +21,8 @@ so the list below is complete:
     run/                   files being received, the tools' temporary copies, and the local AI's process id and log
     redacted/              anonymised copies `make redact` makes of a statement, for sharing its layout
     card-art/              pictures of your cards you add, shown on their card faces ("hdfc-bank--fake-rewards.jpg")
+    statement_ai.json      the local AI's answers about statements the rules couldn't prove (which dates and amounts are
+                           the rows), so reading one again doesn't ask again
 
 A fresh clone has none of it; it's created as you use the app. Deleting the folder with the app stopped is a
 complete fresh start.
@@ -32,7 +35,7 @@ from app.config import settings
 from app.jsonstore import JsonFile
 
 FILES = {
-    "settings.json": "your settings: whether investments count as spending",
+    "settings.json": "your settings: whether investments count as spending, the local model you chose",
     "uploads.json": "your files: one record each",
     "card_payments.json": "your credit card bill payments",
     "instruments.json": "your cards: bank, product, last four digits, network",
@@ -41,7 +44,9 @@ FILES = {
     "accounts.json": "your own bank accounts (last four digits)",
     "payees.json": "your payee table",
     "merchant_memory.json": "your corrections, and the local AI's earlier answers",
+    "row_answers.json": "the category you set for one payment, kept with its row, so adding its file again restores it",
     "state.json": "which rules your ledger was last sorted with",
+    "statement_ai.json": "the local AI's answers about statements the rules couldn't prove",
 }
 FOLDERS = {
     "ledger": "your transactions, one file per calendar year",

@@ -15,8 +15,8 @@ from app import categorize, ledger, logs, statements, storage, vault
 from app.ingest.detect import detect, folder_for
 from app.ingest.textlines import page_lines
 from app.llm import LLMUnavailable
-from app.models import ImportStatus, UploadRecord
-from app.parsers import ParseError, ParseResult, card_export, card_statement, cred, gpay_takeout, phonepe, screenshot
+from app.models import CardStatement, ImportStatus, UploadRecord
+from app.parsers import ParseError, ParseResult, card_export, card_statement, cred, gpay_takeout, phonepe, screenshot, statement_ai
 
 log = logs.get("import")
 log_parse = logs.get("parse")
@@ -25,7 +25,7 @@ log_cat = logs.get("category")
 
 # Bump when detection gets smarter; older uploads are re-identified at startup (and read again if that changed
 # what they are). 3: a card's transactions exported as CSV or Excel.
-DETECTOR_VERSION = 3
+DETECTOR_VERSION = 4  # 4: a card's transactions exported as a PDF, with no statement's words, are a card's
 # Bump when a parser reads more accurately; files read by an older one are read again at startup. Per kind of
 # file, so improving one reader doesn't re-read every other file.
 # 2: letter case in CRED reference numbers (w/W) repaired.
@@ -41,7 +41,21 @@ PARSER_VERSION = 2
 #                 the summary's labels ("Statement Date | … | Total Amount Due") are never taken for the table's header.
 # cc_statement 7: columns a few points apart are two; a figure of ₹0.00 is read (not the next label alike); a
 #                 "Statement Cycle" dates the statement; the terms' worked examples are never rows or figures.
-PARSER_VERSIONS = {"gpay_takeout": 4, "cc_statement": 7}
+# cc_statement 8: any layout, read by its shape (where dates and amounts line up) as well as its header, and proven by
+#                 the statement's own arithmetic; one that can't be proven is held, uncounted (statement_reader.py).
+# cc_statement 9: a note that names the terms in passing hides no rows (only a heading starts them, and a table after
+#                 them is read); a table printed a few points to one side on its first page is one column; a summary
+#                 with only a due date (no statement date) dates the rows and splits a year's file.
+# cc_statement 10: a year's summary with no balances is proven by its printed totals of debits and credits; labels
+#                 wrapped over lines are read; a Cr/Dr column with another column after it is read; periods in months.
+# cc_statement 11: paying the card is a bill payment however the bank words it (or when it pays the previous balance);
+#                 EMI instalments are spending in the bill that charges them; a loan's are not.
+# cc_statement 12: a word in a small box beside a row (HDFC's "EMI": eligible to convert) is a tag, not the shop's name;
+#                 SmartEMI is a purchase's EMIs, not a cash loan; a card's refund under another name finds its purchase.
+# cc_statement 13: a summary of several statements (a year's) is proven over their cycles, its rows past them held; an
+#                 undated row under a fee (its GST) is a row; a description wrapped above its row; bold read once;
+#                 "May 2025" isn't a date; AmEx's New Credits/Debits; the local AI never takes a summary figure for a row.
+PARSER_VERSIONS = {"gpay_takeout": 4, "cc_statement": 13}
 
 
 def parser_version(kind: str) -> int:
@@ -147,6 +161,25 @@ class Importer:
                 error = f"Something unexpected stopped this file being read ({type(exc).__name__}). The terminal has the details."
                 _set_status(upload_id, ImportStatus(state="failed", error=error, finished_at=_now()))
 
+    async def _ask_ai(self, rec: UploadRecord, held: CardStatement | None, status: ImportStatus) -> ParseResult | None:
+        """The local AI reads a statement the rules couldn't prove (or read): its reading counts only if the statement's
+        arithmetic proves it, or it matches the rules' reading row for row. Without a local AI, nothing changes."""
+        name = rec.original_name
+        status.step = "Asking the local AI to read it"
+        _set_status(rec.id, status)
+
+        def progress(n: int, total: int) -> None:
+            status.step = f"Asking the local AI to read it (page {n} of {total})"
+            _set_status(rec.id, status)
+
+        try:
+            return await statement_ai.resolve(storage.file_path(rec), rec, held, progress)
+        except LLMUnavailable as exc:
+            log_parse.info("%s: the local AI isn't available (%s)%s", name, exc, "; it stays on hold" if held else "")
+        except Exception:  # never let the AI's trouble lose what the rules read
+            log.exception("%s: the local AI's reading failed", name)
+        return None
+
     async def _import(self, upload_id: str) -> None:
         rec = vault.find_upload(upload_id)
         if rec is None:
@@ -174,13 +207,22 @@ class Importer:
                 vault.update_upload(upload_id, import_version=parser_version(det.kind))  # tried with this version; a newer one tries again
                 return _set_status(upload_id, ImportStatus(state="skipped", error=str(exc), finished_at=_now()))
             except ParseError as exc:
-                log.error("%s: couldn't read it: %s", name, exc)
-                vault.update_upload(upload_id, import_version=parser_version(det.kind))  # a better reader tries it again
-                return _set_status(upload_id, ImportStatus(state="failed", error=str(exc), finished_at=_now()))
+                read_by_ai = await self._ask_ai(rec, None, status) if _is_pdf_statement(rec) else None
+                if read_by_ai is None:
+                    log.error("%s: couldn't read it: %s", name, exc)
+                    vault.update_upload(upload_id, import_version=parser_version(det.kind))  # a better reader tries it again
+                    return _set_status(upload_id, ImportStatus(state="failed", error=str(exc), finished_at=_now()))
+                result = read_by_ai
+            if _is_pdf_statement(rec):  # a statement the rules couldn't prove: the local AI tries
+                for s in [s for s in result.statements if s.status == "on_hold" and not s.outside_cycles]:  # (nothing could prove those)
+                    if better := await self._ask_ai(rec, s, status):
+                        _replace(result, s, better)
             read_s = elapsed()
 
         found = len(result.transactions) + len(result.card_payments)
         what = _count(len(result.card_payments), "card bill payment") if result.card_payments else _count(len(result.transactions), "transaction")
+        if on_hold := sum(len(s.held) for s in result.statements if s.status == "on_hold"):
+            what += f" counted, {on_hold} on hold"
         log_parse.info("%s: %s via %s in %.1fs", name, what, _METHOD.get(result.method, result.method), read_s)
         for note in result.notes:
             log_parse.info("%s: %s", name, note)
@@ -193,8 +235,17 @@ class Importer:
             if unverified:
                 log_parse.warning("%s: %d amount(s) didn't match between readings. Check them in the dashboard", name, unverified)
 
-        if result.statement:
-            statements.save(result.statement)
+        yours = 0  # statements you confirmed or corrected, read again by a reader that can't prove its reading: kept as you left them
+        for s in result.statements:
+            before = statements.get(s.id)
+            if s.status == "on_hold" and before and (before.status == "confirmed" or (before.status == "on_hold" and before.edited)):
+                log_parse.info("%s: read again without proof; keeping the rows you %s", name,
+                               "confirmed" if before.status == "confirmed" else "corrected")
+                yours += 1
+                continue
+            if s.status == "on_hold":
+                log_parse.warning("%s: on hold, %d row(s) not counted until you confirm them in Your vault", name, len(s.held))
+            statements.save(s)
         status.method = result.method
         status.found = found
         status.details = result.notes + result.warnings
@@ -204,14 +255,16 @@ class Importer:
         ctx = categorize.build_context(ledger.load_transactions() + result.transactions)
         unknown_ids = {t.id for t in categorize.categorize_offline(result.transactions, ctx)}
         stats, added = ledger.upsert_transactions(result.transactions)
-        if det.kind == "cc_statement":  # a statement's rows are what its latest reading says, nothing the old reader made up
+        if det.kind == "cc_statement" and not yours:  # a statement's rows are what its latest reading says, nothing the old reader made up
             if gone := ledger.retract(upload_id, keep={t.id for t in stats.matched} | {t.id for t in added}):
                 log_ledger.info("%s: %d row(s) an earlier reading had and this one doesn't: no longer counted", name, gone)
         if stats.refreshed:  # rows read again by a better reader: the rules place them afresh (your answers stay)
-            categorize.recategorize(ledger.load_transactions(), only={t.id for t in stats.refreshed})
+            with ledger.editing():
+                categorize.recategorize(ledger.load_transactions(), only={t.id for t in stats.refreshed})
         pay_stats = ledger.upsert_card_payments(result.card_payments)
         status.added = stats.added + pay_stats.added
         status.duplicates = stats.duplicates + pay_stats.duplicates
+        status.held = sum(len(s.held) for s in result.statements if s.status == "on_hold")
         log_ledger.info("%s: %d new · %d already known%s", name, status.added, status.duplicates,
                         " (updated with the new reading)" if pay_stats.duplicates else "")
 
@@ -294,3 +347,38 @@ def _now() -> datetime:
 
 
 importer = Importer()
+
+
+def confirm_statement(statement_id: str) -> CardStatement | None:
+    """You looked at a statement on hold and said its rows are right: they're counted from now on, placed in
+    categories like any file's (names no rule knows wait in Needs your eyes)."""
+    s = statements.get(statement_id)
+    if s is None or s.status != "on_hold":
+        return s
+    txns = s.held
+    ctx = categorize.build_context(ledger.load_transactions() + txns)
+    for t in categorize.categorize_offline(txns, ctx):
+        categorize.fallback(t)
+    stats, _ = ledger.upsert_transactions(txns)
+    s.status, s.proof, s.held, s.edited = "confirmed", "you checked its rows and confirmed them", [], False
+    statements.save(s)
+    ledger.relink()  # its rows are counted now, and it covers the bill that paid it
+    log_ledger.info("statement %s confirmed by you: %d row(s) counted (%d new)", statement_id, len(txns), stats.added)
+    return s
+
+
+def _is_pdf_statement(rec: UploadRecord) -> bool:
+    return rec.detection.kind == "cc_statement" and rec.stored_path.lower().endswith(".pdf")
+
+
+def _replace(result: ParseResult, old: CardStatement, better: ParseResult) -> None:
+    """A statement of the file read better (by the local AI): its new record in place of the old, its rows counted."""
+    assert better.statement is not None
+    if result.statement is old:
+        result.statement = better.statement
+    else:
+        result.more_statements = [better.statement if s is old else s for s in result.more_statements]
+    result.transactions += better.transactions
+    result.notes += better.notes
+    result.warnings = [w for w in result.warnings if not (better.statement.status != "on_hold" and w.startswith("On hold"))] + better.warnings
+

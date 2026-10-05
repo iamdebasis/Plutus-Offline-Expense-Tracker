@@ -21,12 +21,17 @@
   `tests/test_own_accounts.py` fails if a module reaches the data folder directly or carries a real-looking account
   number. Defaults come from the seed (e.g. the category tree's `excludeFromSpend`), never from one person's taste.
 - No network calls from app code except to `127.0.0.1` (Ollama). No CDN scripts, fonts or analytics in the UI.
-  `backend/tests/conftest.py` blocks non-loopback sockets and the real LLM in every test; keep it that way.
+  `backend/tests/conftest.py` blocks non-loopback sockets, the real LLM, and this Mac's Ollama (its server and its
+  models folder) in every test; keep it that way.
 - The LLM host is validated to be loopback in `app/config.py`.
 
 ## Layout
 - macOS only. `scripts/check.sh` (`make check`, run by `make setup`) lists requirements and finds a Python 3.12+
-  (macOS's own `python3` is 3.9). Ollama is optional: the app must work fully without it.
+  (macOS's own `python3` is 3.9). Ollama is optional: the app must work fully without it. **Plutus never downloads a
+  model or installs anything**: `app/llm/advice.py` (standard library only; `make check` runs it) reads this Mac and
+  Ollama and suggests the model that suits it; the Local AI panel (`/api/llm/setup`, the header's pill) shows the
+  steps for the user to run. The model used: `ET_OLLAMA_MODEL`, else the user's pick (`data/settings.json`), else the
+  best downloaded one for this Mac (`app/llm/setup.py`), else none ("not set up").
 - `backend/`: FastAPI + PyMuPDF + Apple Vision (pyobjc), Python 3.12+. Venv at `backend/.venv`.
   Tests: `cd backend && .venv/bin/python -m pytest -q`
 - `web/`: Vite + React 19 + Tailwind 4 + motion. `pnpm typecheck`, `pnpm build` (served by FastAPI from `web/dist`),
@@ -46,10 +51,25 @@
   `gpay_takeout.py` reads Google Takeout zips (folders are packed into a zip by `POST /api/uploads/folder`); its
   tests use the fake export in `tests/fake_takeout.py`. Reader versions are per kind of file
   (`PARSER_VERSIONS` in `app/imports.py`): bump only the kind that improved; skipped files are retried too.
-- `card_statement.py` reads any bank's credit card statement: one table engine (header by meaning, columns from
-  its position, rows from date to amount) plus small hints, and a check against the statement's own totals
-  (previous balance − credits + debits = total due). Statements are kept in `data/card_statements.json`
-  (`app/statements.py`). Tests use `tests/fake_cards.py`; never real statement values, not even a fee amount or a
+- Card statements (`card_statement.parse` → `statement_reader.py`): read two ways, by the table header
+  (`card_statement.read_rows`) and by shape (`shape_reader.py`: tokens for dates/amounts in any form, rows = a date and
+  an amount, columns from where figures line up), each under every meaning of the marks (`Convention`). `decide()`
+  keeps a reading only when the statement's arithmetic proves it (previous balance − credits + debits = total due to
+  the paisa; with no balances printed, its printed totals of debits and of credits; or a running balance); else the
+  statement is **on hold**: its rows wait in `CardStatement.held`, out of
+  the ledger and of billing, until the user confirms or corrects them (`/api/card-statements/{id}/confirm|held`). Never
+  count an unproven row. A year's file is split by `segments()` into statements `upload~1`, `upload~2`…; a summary of
+  several statements (a year-end statement) is proven over their cycles (`covered`, `_by_cycles`), its rows past them a
+  held part of their own. Rows always cite the file itself (`SourceRef.upload` never has "~").
+  **docs/READERS.md is the maintainer's guide**: banks' layouts (researched), the pipeline, diagnosing with
+  `make inspect`, and the procedure for a reader change (fake layout + failing test, general fix, `make test`,
+  `make measure` must show 0 wrong/misread/unrecognised, bump `PARSER_VERSIONS`).
+  `statement_ai.py` asks the local model about held or unreadable statements (tagged lines in 20-line chunks; it
+  answers with ids, never figures; answers cached in `data/statement_ai.json`); its reading counts only if proven, or
+  if it equals the rules' reading when there's nothing to check against ("agreed"); a file with no figures longer than
+  `UNCHECKED_PARTS` questions isn't sent (it can only agree, slowly). Statements are kept in
+  `data/card_statements.json` (`app/statements.py`). Tests: `tests/statement_gen.py` (random layouts; every one proven
+  exactly or held, none wrong), `tests/fake_cards.py`; never real statement values, not even a fee amount or a
   card's first digits. A row paid over UPI with the card is channel "upi" (UPI spends); `refs.cardRow` marks any
   statement row, whatever its channel. `card_export.py` reads the bank's CSV/XLSX exports of a span into the same rows.
 - `app/billing.py`: which card an app's "XXXX99" is (RuPay first, never guessed when unclear) and what each bill paid

@@ -161,8 +161,32 @@ def reader_view(doc: pymupdf.Document) -> None:
     priced = sum(1 for ln in lines if cs.amount_at_end(ln))  # at the very end of the line
     print(f"lines starting with a date: {dated} · ending with an amount: {priced} · rows read: {len(rows)}"
           f" · table lines not read: {len(unread)}")
+
+    # the reader by shape and arithmetic (app/parsers/statement_reader.py): what it decided, and why; never a figure
+    from app.parsers import shape_reader as sr
+    from app.parsers import statement_reader as rd
+
+    parts = rd.segments(rd.Statement(lines, method, summary, None, None, None, summary.period, anchor))
+    spans = ", ".join(f"pages {p.lines[0].page + 1}–{p.lines[-1].page + 1}" for p in parts if p.lines)
+    print(f"\nstatements in this file: {len(parts)}" + (f" ({spans})" if len(parts) > 1 else ""))
+    for k, part in enumerate(parts, 1):
+        readings = rd.readings_of(part)
+        d = rd.decide(readings, part.summary, part.anchor, part.period)
+        # why, in words, with every digit masked: a reason can quote the statement's figures
+        print(f"  statement {k}: {d.status.replace('_', ' ')}: {re.sub(r'[0-9]', '9', d.proof)}")
+        print("    readings: " + " · ".join(f"{r.name} {len(r.rows)} rows" for r in readings))
+        if part.summary.months:  # a summary of several statements (a year's): what it covers, and what it lists past that
+            span = rd.covered(part.summary)
+            print(f"    sums up {len(part.summary.months)} statements · the day they're dated: "
+                  f"{'found' if part.summary.statement_day else 'not found'} · their totals: "
+                  f"{'found' if part.summary.printed_debits is not None and part.summary.printed_credits is not None else 'not found'}"
+                  f" · rows within their cycles: {len(d.rows) if span else '?'} · rows outside: {len(d.beyond) if span else '?'}")
+    shaped, _ = sr.find_rows(lines, None)
+    by_shape = {r.line for r in shaped if not r.after_terms}
+    columns = sr.money_columns([r for r in shaped if not r.after_terms])
+    print(f"rows by their shape: {len(by_shape)} · amounts line up at x " + (", ".join(f"{c.edge:.0f}" for c in columns) or "nowhere"))
     print("\neach line with a digit, as the reader takes it  [H] table header  [D] starts with a date  "
-          "[A] ends with an amount (its Dr/Cr)  [E] the table ends here:")
+          "[A] ends with an amount (its Dr/Cr)  [S] a row by its shape  [E] the table ends here:")
     shown = 0
     cols = None
     for i, ln in enumerate(lines):
@@ -174,11 +198,13 @@ def reader_view(doc: pymupdf.Document) -> None:
             flags += "D"
         if amount := cs._amount_in(ln, cols):  # with the table's columns: a points column after the amount is skipped
             flags += f"A{('(' + amount.mark + ')') if amount.mark else ''}"
+        if i in by_shape:
+            flags += "S"
         if cs._END.search(ln.text):
             flags += "E"
         if not flags and not re.search(r"\d", ln.text):
             continue
-        print(f"  p{ln.page + 1} y{ln.y:4.0f} [{flags:<6}] {_cells(ln)}")
+        print(f"  p{ln.page + 1} y{ln.y:4.0f} [{flags:<7}] {_cells(ln)}")
         shown += 1
         if shown >= READER_LINES:
             print(f"  … {len(lines) - i - 1} more lines not shown")

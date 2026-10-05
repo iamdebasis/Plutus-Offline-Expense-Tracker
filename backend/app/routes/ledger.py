@@ -1,13 +1,18 @@
 import re
 from collections import defaultdict
+from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
+from pydantic import Field
 
-from app import accounts, categorize, ledger, logs, payees, statements
-from app.models import NO_NAME, CardPayment, CardStatement, Model, OwnAccount, Payee, Transaction
+from app import accounts, categorize, imports, ledger, logs, payees, statements
+from app.models import NO_NAME, CardPayment, CardStatement, CategorizedBy, Model, OwnAccount, Payee, Transaction
+from app.parsers import statement_reader
 
 router = APIRouter(prefix="/api")
 log = logs.get("category")
+log_parse = logs.get("parse")
 
 
 @router.get("/transactions")
@@ -26,6 +31,46 @@ def card_statements() -> list[CardStatement]:
     return statements.list_statements()
 
 
+class HeldRow(Model):
+    """A row of a statement on hold, as you corrected it."""
+
+    at: datetime
+    amount: float = Field(gt=0)
+    direction: Literal["debit", "credit"]
+    description: str = Field(min_length=1)
+    page: int = 1
+
+
+def _held(statement_id: str) -> CardStatement:
+    s = statements.get(statement_id)
+    if s is None:
+        raise HTTPException(404, {"code": "not_found", "message": "No such statement"})
+    if s.status != "on_hold":
+        raise HTTPException(409, {"code": "not_on_hold", "message": "This statement isn't on hold"})
+    return s
+
+
+@router.put("/card-statements/{statement_id}/held")
+def correct_held(statement_id: str, rows: list[HeldRow]) -> CardStatement:
+    """Your corrections to a statement on hold: its rows as they should be. It's checked against the statement's
+    figures again, and stays on hold (uncounted) until you confirm it."""
+    s = _held(statement_id)
+    fixed = statement_reader.rebuild(s, [(r.at, r.amount, r.direction == "credit", r.description.strip(), r.page) for r in rows])
+    statements.save(fixed)
+    log_parse.info("statement %s: your corrections saved (%d rows; %s)", statement_id, len(rows),
+                   "adds up now" if fixed.check == "matched" else "still on hold")
+    return fixed
+
+
+@router.post("/card-statements/{statement_id}/confirm")
+def confirm_held(statement_id: str) -> CardStatement:
+    """You checked a statement on hold: its rows are counted from now on."""
+    _held(statement_id)
+    confirmed = imports.confirm_statement(statement_id)
+    assert confirmed is not None
+    return confirmed
+
+
 class CategorizeRequest(Model):
     category: str
     transaction_id: str | None = None
@@ -34,6 +79,7 @@ class CategorizeRequest(Model):
 
 
 @router.post("/categorize")
+@ledger.exclusive
 def set_category(req: CategorizeRequest) -> dict:
     cats = categorize.category_ids()
     if req.category not in cats:
@@ -64,6 +110,7 @@ def set_category(req: CategorizeRequest) -> dict:
         if t is None:
             raise HTTPException(404, {"code": "not_found", "message": "No such transaction"})
         t.category, t.categorized_by, t.confidence, t.needs_review = req.category, "user", 1.0, False
+        categorize.remember_rows([t])  # kept with its row: adding its file again restores it
         categorize.link_refunds(txns)  # its refunds follow it
         ledger.save_transactions(txns)
         log.info("you set one payment to %s → %s", t.payee, cats[req.category]["label"])
@@ -86,14 +133,15 @@ def _account_to_offer(t: Transaction, category: str, txns: list[Transaction]) ->
 
 
 def _changeable(t: Transaction) -> bool:
-    """A payment whose category you'd change with its shop's: not a refund or cashback, which follow their own rules."""
-    return t.kind not in ("refund", "cashback")
+    """A payment whose category you'd change with its shop's: not a refund or cashback, which follow their own rules,
+    nor a statement's row for paying the card, whose wording ("PAYMENT RECEIVED") is the bank's, not a shop's."""
+    return t.kind not in ("refund", "cashback") and not categorize.statement_bill(t)
 
 
 def _same_shop(edited: Transaction, txns: list[Transaction]) -> list[dict]:
     """The other payments to the shop you just re-filed one payment of, per name as it appears on them."""
-    if edited.payee == NO_NAME:
-        return []  # no shop to share: every payment without a name is someone else
+    if edited.payee == NO_NAME or categorize.statement_bill(edited):
+        return []  # no shop to share: every payment without a name is someone else; a card payment's wording is the bank's
     key = categorize.same_shop(edited.payee)
     names: dict[str, dict] = {}
     for t in txns:
@@ -112,6 +160,7 @@ class ShopChange(Model):
 
 
 @router.post("/categorize/shop")
+@ledger.exclusive
 def set_shop_category(req: ShopChange) -> dict:
     """"Change all" after re-filing one payment: every payment to these names takes the category, including ones
     you'd set one by one before (you asked for all of them), and it's remembered for their future payments."""
@@ -128,12 +177,76 @@ def set_shop_category(req: ShopChange) -> dict:
             updated += (t.category, t.needs_review) != (req.category, False)
             t.category, t.categorized_by, t.confidence, t.needs_review = req.category, "user", 1.0, False
     categorize.remember({categorize.normalize(n) or n.lower(): req.category for n in names}, by="user")
+    categorize.remember_rows([t for t in txns if t.payee in names and _changeable(t)])  # even if a better reader renames them
     categorize.link_refunds(txns)
     ledger.save_transactions(txns)
     if changed := _accounts_follow(names, req.category):
         updated += categorize.recategorize(txns)  # transfers the other way, and under other names, follow
     log.info("you set every payment to %s → %s; %d transaction(s) updated", ", ".join(sorted(names)), cats[req.category]["label"], updated)
     return {"updated": updated, "accounts": changed}
+
+
+class PaymentsChange(Model):
+    transaction_ids: list[str]
+    category: str
+
+
+class PaymentState(Model):
+    """How a payment was sorted, to put it back."""
+
+    id: str
+    category: str
+    categorized_by: CategorizedBy = "default"
+    confidence: float = 0.0
+    needs_review: bool = False
+
+
+@router.post("/categorize/payments")
+@ledger.exclusive
+def set_payments_category(req: PaymentsChange) -> dict:
+    """Payments you picked out one by one ("these four are electricity"): each takes the category as if you'd set it
+    alone, and keeps it with its row. Nothing is learned about their payee: one payee (a payment company, a biller) can
+    stand for several kinds of bill. Returns how they were, so the change can be undone."""
+    cats = categorize.category_ids()
+    if req.category not in cats:
+        raise HTTPException(400, {"code": "bad_category", "message": f"Unknown category {req.category}"})
+    ids = list(dict.fromkeys(req.transaction_ids))
+    if not ids:
+        raise HTTPException(400, {"code": "nothing_selected", "message": "Pick the payments to change first"})
+    txns = ledger.load_transactions()
+    by_id = {t.id: t for t in txns}
+    if missing := [i for i in ids if i not in by_id]:
+        raise HTTPException(404, {"code": "not_found", "message": f"{len(missing)} of those payments are gone (a file was deleted?)"})
+    picked = [by_id[i] for i in ids]
+    before = [PaymentState(id=t.id, category=t.category, categorized_by=t.categorized_by, confidence=t.confidence,
+                           needs_review=t.needs_review) for t in picked]
+    for t in picked:
+        t.category, t.categorized_by, t.confidence, t.needs_review = req.category, "user", 1.0, False
+    categorize.remember_rows(picked)  # kept with each row: adding its file again restores it
+    categorize.link_refunds(txns)  # their refunds follow them
+    ledger.save_transactions(txns)
+    log.info("you set %d payment(s) one by one → %s", len(picked), cats[req.category]["label"])
+    return {"updated": len(picked), "before": before}
+
+
+@router.post("/categorize/payments/undo")
+@ledger.exclusive
+def undo_payments_category(states: list[PaymentState]) -> dict:
+    """Payments back as they were before a change of several (the `before` that change returned): their category, how
+    it was set, and whether it needs a look."""
+    txns = ledger.load_transactions()
+    by_id = {t.id: t for t in txns}
+    restored = []
+    for s in states:
+        if (t := by_id.get(s.id)) is not None:
+            t.category, t.categorized_by, t.confidence, t.needs_review = s.category, s.categorized_by, s.confidence, s.needs_review
+            restored.append(t)
+    categorize.remember_rows([t for t in restored if t.categorized_by == "user"])
+    categorize.forget_rows([t for t in restored if t.categorized_by != "user"])
+    categorize.link_refunds(txns)
+    ledger.save_transactions(txns)
+    log.info("undone: %d payment(s) back as they were", len(restored))
+    return {"updated": len(restored)}
 
 
 def _accounts_follow(names: set[str], category: str) -> list[str]:
@@ -161,6 +274,7 @@ class Answers(Model):
 
 
 @router.post("/categorize/bulk")
+@ledger.exclusive
 def set_categories(req: Answers) -> dict:
     """Many payees at once ("Looks right" for the whole review list): each answer is kept exactly as the
     single one would be, and the ledger is re-sorted once."""
@@ -224,6 +338,7 @@ def _keep_answer(payee: str, category: str, label: str | None, matching: list[Tr
 
 
 @router.post("/recategorize")
+@ledger.exclusive
 def recategorize_all() -> dict:
     updated = recategorize(ledger.load_transactions())
     log.info("rules re-applied to the whole ledger: %d transaction(s) changed", updated)
@@ -248,6 +363,7 @@ class AccountClaim(Model):
 
 
 @router.post("/accounts")
+@ledger.exclusive
 def claim_account(req: AccountClaim) -> dict:
     """"Yes, it's mine": every transfer to or from this account is left out from now on."""
     txns = ledger.load_transactions()
@@ -264,6 +380,7 @@ def claim_account(req: AccountClaim) -> dict:
 
 
 @router.delete("/accounts/{last4}")
+@ledger.exclusive
 def forget_account(last4: str) -> dict:
     """"Not mine": transfers to and from it count again, sorted by the usual rules."""
     removed = accounts.remove(last4)

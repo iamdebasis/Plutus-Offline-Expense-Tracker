@@ -9,6 +9,7 @@ import { PlutusLogo } from '../components/brand/PlutusLogo'
 import { Header } from '../components/Header'
 import { SourceTiles } from '../components/SourceTiles'
 import { Vault } from '../components/Vault'
+import { aiPanel } from '../lib/aiPanel'
 import type { LedgerData } from '../lib/ledger'
 import { SOURCES } from '../lib/sources'
 import { useStorage } from '../lib/storage'
@@ -38,7 +39,7 @@ export function Welcome({ data, refresh, intake, activity }: Props) {
   return (
     <div className="relative min-h-dvh pb-28">
       <Backdrop />
-      <Header actions={<ImportActivity activity={activity} pending={intake.pending} />} />
+      <Header activity={activity} actions={<ImportActivity activity={activity} pending={intake.pending} />} />
 
       <main className="mx-auto max-w-6xl px-6">
         <section className="mx-auto max-w-3xl pt-12 text-center sm:pt-16">
@@ -124,7 +125,18 @@ export function Welcome({ data, refresh, intake, activity }: Props) {
           >
             {[
               { icon: HardDrive, title: 'Stays on this Mac', text: `Files are kept in ${storage?.display ?? "Plutus's data folder"}, with everything else it learns about you.` },
-              { icon: Cpu, title: 'Optional local AI', text: 'With Ollama installed, new payees are sorted on this Mac. Without it, you sort them once.' },
+              {
+                icon: Cpu,
+                title: 'Optional local AI',
+                text: (
+                  <>
+                    New payees sorted on this Mac by a model that suits it. Without it, you sort them once.{' '}
+                    <button type="button" onClick={aiPanel.open} className="text-zinc-300 underline decoration-white/30 underline-offset-4 hover:decoration-white">
+                      Check this Mac
+                    </button>
+                  </>
+                ),
+              },
               { icon: WifiOff, title: 'Works offline', text: 'No accounts, no cloud, no analytics. Try it with Wi-Fi off.' },
             ].map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex gap-3">

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { CircleCheck, CreditCard, ListChecks, Plus, Smartphone, TrendingUp, X } from 'lucide-react'
+import { CircleCheck, CirclePause, CreditCard, ListChecks, Plus, Smartphone, TrendingUp, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { Backdrop } from '../components/Backdrop'
@@ -24,7 +24,7 @@ import { NO_NAME, bucketOf, bestPeriod, describeSource, periodsIn, topOf, upiOnl
 import { inr, inrExact } from '../lib/money'
 import { INVESTMENTS, scoped } from '../lib/scope'
 import { totalSpendFor } from '../lib/totals'
-import type { OwnAccount } from '../types'
+import type { CardStatement, OwnAccount } from '../types'
 import type { Activity } from '../lib/useImportActivity'
 import { dayLabel, monthKey, periodLabel, spanLabel, type PeriodKey } from '../lib/periods'
 
@@ -99,6 +99,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
     <div className="relative min-h-dvh pb-28">
       <Backdrop />
       <Header
+        activity={activity}
         actions={
           <button
             type="button"
@@ -142,7 +143,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
               })}
             </div>
             <InvestmentsSwitch on={countInvestments} onChange={setCountInvestments} />
-            <Coverage view={all} />
+            <Coverage view={all} held={data.held} />
             <div className="ml-auto flex items-center gap-2">
               {categoryLabel && (
                 <button
@@ -183,10 +184,11 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
         <Vault
           uploads={data.uploads}
           cards={data.cards}
-          statements={data.statements}
+          statements={[...data.statements, ...data.held]}
           txns={data.txns}
           onShowRows={(upload, label) => show({ upload, label })}
           onDelete={deleteUpload}
+          onChanged={refresh}
           showCards={false}
         />
       </main>
@@ -194,8 +196,9 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
   )
 }
 
-/** What the files cover in the selected period, so a quiet month isn't mistaken for no spending. */
-function Coverage({ view }: { view: PeriodView }) {
+/** What the files cover in the selected period, so a quiet month isn't mistaken for no spending; and any statement
+ *  on hold, whose rows aren't counted yet. */
+function Coverage({ view, held }: { view: PeriodView; held: CardStatement[] }) {
   const upi = spanLabel([...view.coverage.upi])
   const cards = spanLabel([...view.coverage.cards])
   return (
@@ -210,6 +213,12 @@ function Coverage({ view }: { view: PeriodView }) {
         <span className="inline-flex items-center gap-1.5">
           <CreditCard className="size-3.5" /> Card statements: <span className="text-zinc-300">{spanLabel([...view.coverage.statements])}</span>
         </span>
+      )}
+      {held.length > 0 && (
+        <a href="#your-vault" className="inline-flex items-center gap-1.5 text-amber-200/90 hover:text-amber-100" title="Check it in Your vault">
+          <CirclePause className="size-3.5" /> {plural(held.length, 'statement')} on hold:{' '}
+          <span>{plural(held.reduce((n, s) => n + s.held.length, 0), 'row')} not counted yet</span>
+        </a>
       )}
       {view.leftOut.count > 0 && (
         <span className="inline-flex items-center gap-1.5" title="Turn on Count investments to include them">

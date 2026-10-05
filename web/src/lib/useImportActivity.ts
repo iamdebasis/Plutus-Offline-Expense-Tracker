@@ -145,6 +145,8 @@ export function summarize(batch: UploadRecord[], pending = 0) {
     added: sum('added'),
     known: sum('duplicates'),
     toReview: sum('needsReview'),
+    /** files read but held: statements whose rows wait in Your vault, uncounted */
+    onHold: done.filter((u) => (u.importStatus?.held ?? 0) > 0).length,
     failed: done.filter((u) => u.importStatus?.state === 'failed'),
     skipped: done.filter((u) => u.importStatus?.state === 'skipped'),
   }

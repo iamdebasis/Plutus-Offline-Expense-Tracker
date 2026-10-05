@@ -66,6 +66,9 @@ class Year:
     upi: list[Payment] = field(default_factory=list)
     bills: list[Bill] = field(default_factory=list)
     statements: list[tuple[date, date, list[CardRow], float, float]] = field(default_factory=list)  # from, to, rows, previous, due
+    # the Visa card's purchases over three months, exported from the bank's site: no totals to prove them by, so the
+    # demo (which runs without the local AI) shows a statement on hold
+    export: tuple[date, date, list[CardRow]] | None = None
 
 
 def _days():
@@ -198,6 +201,13 @@ def _cards(y: Year, rng: random.Random) -> None:
             y.bills.append(Bill(_at(rng, paid, 9, 20), "SBI CARD 1111", due))
         previous = due
 
+    frm, to = LAST - timedelta(days=89), LAST
+    rows = [CardRow(frm + timedelta(days=rng.randint(0, 88)), f"{name} MUMBAI", category, round(rng.uniform(250, 6000), 2))
+            for name, category in (rng.choice(shops) for _ in range(11))]
+    back = rows[3]
+    rows.append(CardRow(min(to, back.day + timedelta(days=4)), f"REFUND {back.details}", "", back.amount, credit=True))
+    y.export = (frm, to, sorted(rows, key=lambda r: r.day))
+
     for b in y.bills:  # the UPI side of each bill: paid to CRED from the bank account, the same minute
         y.upi.append(Payment(b.at, "CRED Club", b.amount))
 
@@ -292,11 +302,26 @@ def card_statement(path: Path, frm: date, to: date, rows: list[CardRow], previou
     return _pdf(path, [items])
 
 
+def card_export(path: Path, frm: date, to: date, rows: list[CardRow]) -> Path:
+    """The Visa card's transactions over a span, as a bank's site exports them: a list, no totals or balance."""
+    items = [(40, 60, "ICICI Bank", 14), (40, 78, "Credit Card Transactions", 9), (40, 93, "Card Number: 4000 XXXX XXXX 3333", 9),
+             (40, 108, f"From {frm:%d/%m/%Y} To {to:%d/%m/%Y}", 9),
+             (40, 136, "Date", 9), (110, 136, "Transaction Details", 9), (470, 136, "Amount (in ₹)", 9)]
+    y = 151
+    for r in rows:
+        items += [(40, y, r.day.strftime("%d %b %Y"), 9), (110, y, r.details, 9), (480, y, f"{inr(r.amount)}{' Cr' if r.credit else ''}", 9)]
+        y += 15
+    return _pdf(path, [items])
+
+
 def write_files(folder: Path, y: Year) -> list[Path]:
     folder.mkdir(parents=True, exist_ok=True)
     files = [phonepe_statement(folder / "PhonePe_Statement.pdf", y.upi), cred_history(folder / "CRED_payment_history.pdf", y.bills)]
     for frm, to, rows, previous, due in y.statements[-3:]:
         files.append(card_statement(folder / f"SBI_Card_Statement_{to:%b_%Y}.pdf", frm, to, rows, previous, due))
+    if y.export:
+        frm, to, rows = y.export
+        files.append(card_export(folder / f"ICICI_card_transactions_{frm:%b}-{to:%b_%Y}.pdf", frm, to, rows))
     return files
 
 

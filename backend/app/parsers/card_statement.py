@@ -28,7 +28,6 @@ from pathlib import Path
 import pymupdf
 
 from app import vault
-from app.ingest.issuers import detect_issuer, product_name
 from app.ingest.textlines import page_lines
 from app.models import CardRef, CardStatement, Detection, SourceRef, Transaction
 from app.parsers import IST, ParseError, ParseResult, stable_id
@@ -88,8 +87,38 @@ def read_lines(doc: pymupdf.Document) -> tuple[list[Line], str]:
     return out, method
 
 
+def _badges(page: pymupdf.Page, words: list) -> set[int]:
+    """The words printed as a badge: a short word alone in a small filled shape (a pill), like the "EMI" a bank puts on
+    a purchase it would turn into EMIs. A tag about the row, not part of what it says. A Cr or Dr in a box is a mark,
+    and stays."""
+    shapes = [r for d in page.get_drawings() if d.get("fill") is not None and (r := d["rect"]).width < 60 and r.height < 30]
+    candidates = [k for k, w in enumerate(words) if w[4].isalpha() and len(w[4]) <= 6 and not re.fullmatch(r"(?i)cr|dr|c|d", w[4])]
+    out = set()
+    for k in candidates:
+        r = pymupdf.Rect(words[k][:4])
+        for s in shapes:
+            if (s + (-1, -1, 1, 1)).contains(r) and s.width <= r.width + 16 and s.height <= 2.2 * r.height \
+                    and not any(j != k and s.intersects(pymupdf.Rect(v[:4])) for j, v in enumerate(words)):
+                out.add(k)
+                break
+    return out
+
+
+def _undoubled(text: str) -> str:
+    """Bold drawn as two copies of the text a hair apart reads with every character twice ("SSTTAATTEEMMEENNTT
+    DDAATTEE", ICICI's headings): once. A figure only when it shows the doubling plainly ("11,,223344..5566"); "1100"
+    is a number."""
+    if len(text) >= 4 and len(text) % 2 == 0 and text[0::2] == text[1::2]:
+        single = text[0::2]
+        if len(set(single)) > 1 and (single.isalpha() or ".." in text or ",," in text):  # "XXXX" is a card number's mask
+            return single
+    return text
+
+
 def _word_lines(page: pymupdf.Page, index: int) -> list[Line]:
-    words = sorted((Word(w[4], w[0], w[2], w[1], w[3]) for w in page.get_text("words") if w[4].strip()),
+    raw = [w for w in page.get_text("words") if w[4].strip()]
+    badges = _badges(page, raw)
+    words = sorted((Word(_undoubled(w[4]), w[0], w[2], w[1], w[3]) for k, w in enumerate(raw) if k not in badges),
                    key=lambda w: ((w.y0 + w.y1) / 2, w.x0))
     lines: list[Line] = []
     for w in words:
@@ -119,10 +148,13 @@ def _spread(text: str, x0: float, x1: float, y0: float, y1: float) -> list[Word]
 # ---- dates and amounts --------------------------------------------------------------------------------
 
 _MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+# A month as statements spell it: "Aug", "August", "Sept"; never a word that only starts like one ("MARKET")
+_MONTH_WORD = re.compile(r"^(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|"
+                         r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?$", re.IGNORECASE)
 _NUMERIC_DATE = re.compile(r"^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})$")
 _ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _DAY_MON = re.compile(r"^(\d{1,2})(?:st|nd|rd|th)?[\s\-/]?([A-Za-z]{3,9})[\s\-/,]*(\d{2}|\d{4})?$")
-_MON_DAY = re.compile(r"^([A-Za-z]{3,9})\s*(\d{1,2}),?\s*(\d{2}|\d{4})?$")
+_MON_DAY = re.compile(r"^([A-Za-z]{3,9})\s*(\d{1,2})(?:(?:,\s*|\s+)(\d{2}|\d{4}))?$")  # "May 2025" is a month, not 20 May 25
 _TIME = re.compile(r"^\d{1,2}:\d{2}(:\d{2})?$|^(am|pm)$", re.IGNORECASE)
 
 
@@ -142,10 +174,10 @@ def parse_date(text: str, default_year: int | None = None) -> date | None:
             return date(_year(m[3]), int(m[2]), int(m[1]))  # type: ignore[arg-type]
         if m := _ISO_DATE.match(s):
             return date(int(m[1]), int(m[2]), int(m[3]))
-        if (m := _DAY_MON.match(s)) and m[2][:3].lower() in _MONTHS:
+        if (m := _DAY_MON.match(s)) and _MONTH_WORD.match(m[2]):
             y = _year(m[3]) or default_year
             return date(y, _MONTHS[m[2][:3].lower()], int(m[1])) if y else None
-        if (m := _MON_DAY.match(s)) and m[1][:3].lower() in _MONTHS:
+        if (m := _MON_DAY.match(s)) and _MONTH_WORD.match(m[1]):
             y = _year(m[3]) or default_year
             return date(y, _MONTHS[m[1][:3].lower()], int(m[2])) if y else None
     except ValueError:
@@ -220,6 +252,8 @@ _H_CATEGORY = re.compile(r"merchant category|spends? area|\bcategory\b|\bmcc\b",
 _H_OTHER = re.compile(r"reward points?|\bpoints\b|\brewards?\b|\bref(?:erence)?(?: no\.?)?\b|ser\.? ?no|\bsl\.? ?no\b|"
                       r"\b(?:transaction|txn|tran) ?(?:id|no\.?|number)\b|"
                       r"foreign|intl\.?|international|original currency|\bfx\b", re.IGNORECASE)
+_H_MARKS = re.compile(r"^\(?(?:cr|dr|c|d)\.? ?(?:/|or|&) ?(?:cr|dr|c|d)\.?\)?$|^(?:txn |transaction )?type$|"
+                      r"^(?:debit|credit) ?/ ?(?:debit|credit)$", re.IGNORECASE)  # a column of Cr/Dr marks: part of the amount
 _FOREIGN = re.compile(r"intl|international|foreign|original|\bfx\b|currency", re.IGNORECASE)
 # Tables that hold dates and amounts but aren't transactions
 _NOT_TRANSACTIONS = re.compile(r"illustrat|interest calculation|\bexamples?\b|"
@@ -228,9 +262,22 @@ _NOT_TRANSACTIONS = re.compile(r"illustrat|interest calculation|\bexamples?\b|"
 _END = re.compile(r"end of statement|reward points? (summary|account)|rewards? summary|summary of reward|"
                   r"important (message|information|notes?)|terms (and|&) conditions|"
                   r"(emi|loan) (summary|details)|this is a (system|computer)[- ]generated", re.IGNORECASE)
+
+
+def heading(line_text: str, pattern: re.Pattern) -> bool:
+    """A line that is a heading for what `pattern` names ("Terms and Conditions", "EMI Summary", "For example, …"), not
+    a sentence that mentions it ("… as per the Terms and Conditions."): a few words, or starting with the phrase."""
+    m = pattern.search(line_text)
+    return bool(m) and (len(line_text.split()) <= 8 or m.start() <= 3)
+
+
 _CREDIT_SECTION = re.compile(r"^(?:your )?payments?(?: (?:and|&|/) (?:other )?credits?)?$|^(?:other )?credits?$", re.IGNORECASE)
 _DEBIT_SECTION = re.compile(r"^(?:new |your )?(?:purchases|transactions|charges|spends|debits)\b|domestic transactions|"
                             r"international transactions", re.IGNORECASE)
+# A heading, the whole line, that starts a section of transactions again (after a box of terms, say): "Domestic
+# Transactions", "Purchases & Other Debits". Not "Charges": the terms have a section of those.
+_TRANSACTIONS_AGAIN = re.compile(r"^(?:(?:domestic|international|your|new|other) )?(?:transactions|purchases|spends|debits)"
+                                 r"(?: (?:and|&|/) (?:other )?(?:debits|charges|purchases|cash advances?))?(?: \(.*\))?:?$", re.IGNORECASE)
 _CARD_NO = re.compile(r"(?<![0-9A-Za-z])[0-9Xx*•]{4}[ -]?[0-9Xx*•]{2,4}[ -]?[0-9Xx*•]{2,6}[ -]?(\d{4})(?![0-9])")
 
 
@@ -251,6 +298,7 @@ class Columns:
     debit: float | None = None  # separate debit / credit amount columns
     credit: float | None = None
     after_amount: float | None = None  # a column after the amount (cash or reward points): a row's amount ends before it
+    amount_at: float | None = None  # where the amount's heading starts
 
     def kind_of(self, x: float) -> str:
         starts = [(self.details, "details")]
@@ -267,8 +315,8 @@ class Columns:
 def _header(line: Line, below: Line | None) -> Columns | None:
     """A transactions header, possibly wrapped over two lines ("Amount" / "(in Rs.)")."""
     candidates = [line]
-    if below and below.page == line.page and 0 < below.y - line.y < 2.5 * line.height:
-        candidates.append(Line(line.words + below.words, line.page))
+    if below and below.page == line.page and 0 < below.y - line.y < 2.5 * line.height and _header(below, None) is None:
+        candidates.append(Line(line.words + below.words, line.page))  # (a title over a header that's whole isn't part of it)
     for ln in candidates:
         text = ln.text
         if amount_at_end(ln) or any(parse_date(w.text) for w in ln.words) or _NOT_TRANSACTIONS.search(text):
@@ -299,9 +347,9 @@ def _header(line: Line, below: Line | None) -> Columns | None:
         # the row's amount is under the last amount heading that isn't a foreign-currency one ("Intl.# amount")
         amounts = [c for m in _H_AMOUNT.finditer(text) if (c := cell_of(m)) and not _FOREIGN.search(c[2])]
         money = amounts[-1:] + [c for m in (dr, cr) if m and (c := cell_of(m))]
-        if money:
-            end = max(c[1] for c in money)
-            cols.after_amount = min((c[0] for c in cells if c[0] > end + 1 and _H_OTHER.search(c[2])), default=None)
+        if money:  # whatever the bank prints after the amount (points, a marks or instrument column) isn't the amount
+            end, cols.amount_at = max(c[1] for c in money), min(c[0] for c in money)
+            cols.after_amount = min((c[0] for c in cells if c[0] > end + 1 and not _H_MARKS.match(c[2].strip())), default=None)
         return cols
     return None
 
@@ -321,12 +369,21 @@ def _cells(line: Line) -> list[tuple[float, float, str]]:
 
 def _amount_in(line: Line, cols: Columns | None) -> Amount | None:
     """A row's amount: at the end of its line or, when the table has a column after the amount (cash or reward
-    points), at the end of what comes before that column."""
+    points), at the end of what comes before that column. Headings sit centred over their columns, so a column's
+    values can start left of its heading: anything right of the amount's own heading, after the amount, is a later
+    column's (the card's number, an instrument's letter), never the amount."""
+    words = line.words
     if cols and cols.after_amount is not None:
         before = [w for w in line.words if w.x0 < cols.after_amount - 2]
         if before and len(before) < len(line.words):
-            return amount_at_end(Line(before, line.page))
-    return amount_at_end(line)
+            words = before
+    found = amount_at_end(Line(words, line.page))
+    if found is None and cols and cols.amount_at is not None:
+        words = list(words)
+        while found is None and len(words) > 1 and words[-1].x0 > cols.amount_at:
+            words.pop()
+            found = amount_at_end(Line(words, line.page))
+    return found
 
 
 # ---- one row of the table -----------------------------------------------------------------------------
@@ -404,7 +461,7 @@ def read_rows(lines: list[Line], default_year: int | None, primary_last4: str | 
         if i in headers:
             cols, in_table, current = headers[i], True, None
             continue
-        if _END.search(text):
+        if heading(text, _END):
             in_table, current = False, None
             continue
         if found := _card_number(text):
@@ -468,18 +525,23 @@ def _with_column(amount: Amount | None, cols: Columns | None) -> Amount | None:
 _LABELS = {
     "previous_balance": r"previous (?:statement )?(?:balance|dues)|opening balance|last statement balance|balance b/?f",
     "total_due": r"total (?:amount )?(?:due|dues|payable)|total payment due|total outstanding|closing balance|amount payable",
-    "minimum_due": r"minimum (?:amount )?(?:due|payable)|min\.? (?:amount )?due",
+    "minimum_due": r"minimum (?:amount )?(?:due|payable)|minimum payment(?: due)?|min\.? (?:amount )?due",
     "credit_limit": r"(?<!available )(?<!cash )credit limit",
     "statement_date": r"statement date|date of statement|statement generation date|statement cycle|billing cycle",
+    "statement_day": r"(?:monthly )?statement date|billing date|statement day",  # a year's summary: "01", the day each is dated
     "due_date": r"(?:payment )?due date",
+    # what the rows add up to, as the statement prints it: a year's summary proves its rows by these alone
+    "printed_debits": r"purchases? ?(?:&|and|/) ?(?:other )?(?:debits?|charges)|total (?:debits?|purchases)\b|new debits\b",
+    "printed_credits": r"payments? ?(?:&|and|/) ?(?:other )?credits?|total (?:credits?|payments)\b|new credits\b",
     "period": r"statement period|billing period|statement for the period|period|statement cycle|billing cycle|"
               r"(?<![a-z])from(?= +\d{1,2}[/.\- ])",
 }
 
 
 # A line of the summary's labels (with their figures in the line below) also says "date" and "amount"; it isn't the
-# transactions header.
-_SUMMARY_ROW = re.compile("|".join(pattern for key, pattern in _LABELS.items() if key != "period"), re.IGNORECASE)
+# transactions header. (Not "Payments & Credits": that's a section of transactions too.)
+_SUMMARY_ROW = re.compile("|".join(pattern for key, pattern in _LABELS.items() if key not in ("period", "printed_debits", "printed_credits")),
+                          re.IGNORECASE)
 
 
 @dataclass
@@ -491,6 +553,10 @@ class Summary:
     statement_date: date | None = None
     due_date: date | None = None
     period: tuple[date, date] | None = None
+    printed_debits: float | None = None  # its total of purchases and charges
+    printed_credits: float | None = None  # its total of payments and credits
+    statement_day: int | None = None  # the day of the month its statements are dated, when it sums up several
+    months: list["MonthTotals"] = field(default_factory=list)  # the statements it sums up, month by month
 
 
 # Where a statement's terms start: their worked examples ("For an account whose statement date is …") print the
@@ -499,47 +565,183 @@ _TERMS = re.compile(r"illustrat|interest calculation|terms (?:and|&) conditions|
                     r"for an account (?:whose|with)", re.IGNORECASE)
 
 
+def in_terms(lines: list[Line]) -> list[bool]:
+    """For each line, whether it's in the statement's terms or their worked examples, which print dates, amounts and
+    the summary's labels with made-up figures. They start at a heading ("Terms and Conditions", "Illustration of …"),
+    never at a sentence that mentions them, and end where a section of transactions starts again: a note above the
+    table that begins "Terms and Conditions apply" hides no transactions."""
+    out, terms = [], False
+    for i, ln in enumerate(lines):
+        text = ln.text.strip()
+        if heading(text, _TERMS):
+            terms = True
+        elif terms and (_CREDIT_SECTION.match(text) or _TRANSACTIONS_AGAIN.match(text)
+                        or _header(ln, lines[i + 1] if i + 1 < len(lines) else None) is not None):
+            terms = False
+        out.append(terms)
+    return out
+
+
 def read_summary(lines: list[Line]) -> Summary:
-    """The figures a statement prints about itself, before its terms start. A label's value is beside it, after it on
-    the line, or below it, under the label (summary boxes put labels in a row and figures in the row beneath)."""
+    """The figures a statement prints about itself, outside its terms. A label's value is beside it, after it on the
+    line, or below it, under the label (summary boxes put labels in a row and figures in the row beneath, a label
+    wrapped over two or three lines: "Purchases &" over "Debits")."""
     found: dict[str, object] = {}
+    terms = in_terms(lines[:400])
     for i, ln in enumerate(lines[:400]):
-        if _TERMS.search(ln.text):
-            break
+        if terms[i]:
+            continue
         low = ln.text.lower()
         for key, pattern in _LABELS.items():
             if key in found:
                 continue
             for m in re.finditer(pattern, low):
+                if _across_cells(ln, m.start(), m.end()):
+                    continue  # "Payments & | Credit Limit": the end of one label and the start of the next
                 value = _value_beside(ln, m.end(), key)
                 if value is None:  # not `or`: a figure of ₹0.00 is a figure
                     value = _value_below(lines, i, ln.span(m.start(), m.end()), key)
                 if value is not None:
                     found[key] = value
                     break
+        for text, span, last in _wrapped_labels(lines, i):
+            for key, pattern in _LABELS.items():
+                if key not in found and key != "period" and re.search(pattern, text.lower()):
+                    if (value := _value_below(lines, last, span, key)) is not None:
+                        found[key] = value
+    if found.get("due_date") == "immediate":
+        found["due_date"] = found.get("statement_date")
+        if found["due_date"] is None:
+            del found["due_date"]
+    for key in ("printed_debits", "printed_credits"):  # a total, whatever sign the box's arithmetic puts before it
+        if isinstance(found.get(key), float):
+            found[key] = abs(found[key])  # type: ignore[arg-type]
     s = Summary(**{k: v for k, v in found.items() if k != "period"})
     if isinstance(found.get("period"), tuple):
         s.period = found["period"]  # type: ignore[assignment]
+    s.months = statement_months(lines[:400], terms)
+    if s.months and (s.printed_debits is None or s.printed_credits is None) and all(m.debits is not None and m.credits is not None for m in s.months):
+        s.printed_debits = round(sum(m.debits for m in s.months), 2)  # type: ignore[misc]
+        s.printed_credits = round(sum(m.credits for m in s.months), 2)  # type: ignore[misc]
     return s
+
+
+@dataclass
+class MonthTotals:
+    """One statement of several a summary sums up: the month it's for, and its figures."""
+
+    month: date  # the first of that month
+    debits: float | None = None
+    credits: float | None = None
+    total_due: float | None = None
+
+
+_MONTH_ROW = re.compile(r"^([A-Za-z]{3,9})[-/ ']?(\d{4}|\d{2})$")
+
+
+def statement_months(lines: list[Line], terms: list[bool] | None = None) -> list[MonthTotals]:
+    """A summary of several statements, a row each ("MAY-2025 | … | 38,805.34 | 91,141.14 | …"): each month, with its
+    purchases & debits, payments & credits and total due read from the columns under those labels."""
+    columns: dict[str, tuple[float, float]] = {}
+    out: list[MonthTotals] = []
+    for i, ln in enumerate(lines):
+        if terms and terms[i]:
+            continue
+        low = ln.text.lower()
+        for key in ("printed_debits", "printed_credits", "total_due"):
+            for m in re.finditer(_LABELS[key], low):
+                if not _across_cells(ln, m.start(), m.end()):
+                    columns[key] = ln.span(m.start(), m.end())
+            for text, span, _ in _wrapped_labels(lines, i):
+                if re.search(_LABELS[key], text.lower()):
+                    columns[key] = span
+        day, used = None, 0
+        for n in (1, 2):  # "MAY-2025", "May-25", "May'25", or "May 2025" in two words
+            m = _MONTH_ROW.match("".join(w.text for w in ln.words[:n])) if len(ln.words) >= n else None
+            if m and _MONTH_WORD.match(m[1]) and (day := parse_date(f"1 {m[1]} {m[2]}")):
+                used = n
+                break
+        if day is None or not columns:
+            continue
+        figures = {}
+        for key, (x0, x1) in columns.items():
+            near = [w for w in ln.words[used:] if w.x1 > x0 - 12 and w.x0 < x1 + 12 and _MONEY.search(w.text)]
+            if near:
+                figures[key] = _signed(" ".join(w.text for w in near))
+        if figures:
+            out.append(MonthTotals(day, debits=figures.get("printed_debits"), credits=figures.get("printed_credits"),
+                                   total_due=figures.get("total_due")))
+    months = {m.month: m for m in out}
+    return [months[k] for k in sorted(months)] if len(months) >= 2 else []
+
+
+def _across_cells(line: Line, start: int, end: int) -> bool:
+    """Whether the text from `start` to `end` runs across a wide gap: two cells of a row of labels, not one label."""
+    pos, inside = 0, []
+    for w in line.words:
+        if pos < end and pos + len(w.text) > start:
+            inside.append(w)
+        pos += len(w.text) + 1
+    return any(b.x0 - a.x1 > 1.5 * line.height for a, b in zip(inside, inside[1:]))
+
+
+def _wrapped_labels(lines: list[Line], i: int) -> list[tuple[str, tuple[float, float], int]]:
+    """The labels of a row of them (a summary box's), each with the words wrapped under it from the next lines: its
+    text, where it spans, and the line it ends on. A label that doesn't wrap isn't here (the line itself reads it)."""
+    ln = lines[i]
+    cells = _cells(ln)
+    if len(cells) < 2 or any(len(text.split()) > 4 for _, _, text in cells):
+        return []  # a row of labels has several short cells; prose isn't one
+    out = []
+    for x0, x1, text in cells:
+        last, y = i, ln.y
+        for k in range(i + 1, min(i + 5, len(lines))):
+            nxt = lines[k]
+            if nxt.page != ln.page or nxt.y - y > 1.6 * ln.height:
+                break  # a label's lines are close; a box's next label and figure, a full line further, aren't its
+            under = [w for w in nxt.words if w.x0 < x1 + 2 and w.x1 > x0 - 2]
+            if not under:
+                continue  # another label's line, sitting between this one's two
+            if any(re.search(r"\d", w.text) for w in under) or len(under) > 3:
+                break  # the figures, or not a label
+            text = f"{text} {' '.join(w.text for w in under)}"
+            x0, x1 = min(x0, *(w.x0 for w in under)), max(x1, *(w.x1 for w in under))
+            last, y = k, nxt.y
+        if last != i:
+            out.append((text, (x0, x1), last))
+    return out
 
 
 def _value(text: str, key: str) -> object | None:
     if key == "period":
         days = [d for d in (parse_date(x) for x in re.findall(r"\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}[ \-][A-Za-z]{3,9}[ \-,]*\d{2,4}|"
                                                                r"[A-Za-z]{3,9} \d{1,2},? \d{4}", text)) if d]
-        return (days[0], days[1]) if len(days) >= 2 else None
+        if len(days) >= 2:
+            return days[0], days[1]
+        # whole months: "for the period from APRIL-25 to MARCH-26", from the first day of one to the last of the other
+        months = [d for m, y in re.findall(r"\b([A-Za-z]{3,9})[ \-'’]*(\d{4}|\d{2})\b", text) if (d := parse_date(f"1 {m} {y}"))]
+        if len(months) >= 2 and months[1] >= months[0]:
+            return months[0], (months[1].replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        return None
+    if key == "due_date" and re.search(r"\bimmediate", text, re.IGNORECASE):
+        return "immediate"  # overdue: due on the statement's own date (set once that's read)
+    if key == "statement_day":
+        m = re.fullmatch(r"\s*(\d{1,2})(?:st|nd|rd|th)?\s*", text)
+        return int(m[1]) if m and 1 <= int(m[1]) <= 31 else None
     if key.endswith("date"):
         days = [d for token in re.findall(r"\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}[ \-][A-Za-z]{3,9}[ \-,]*\d{2,4}|"
                                           r"[A-Za-z]{3,9} \d{1,2},? \d{4}", text) if (d := parse_date(token))]
         # a cycle printed as a range ("Statement Cycle: 13/08/2026 - 12/09/2026"): the statement is dated at its end
         return (days[1] if key == "statement_date" and len(days) >= 2 and days[1] > days[0] else days[0]) if days else None
-    text = re.sub(r"\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}[ \-][A-Za-z]{3,9}[ \-,]*\d{2,4}", " ", text)  # a date isn't a figure
+    # a date isn't a figure (but "87 INR 300", the end of one figure and the start of the next, isn't a date)
+    text = re.sub(r"\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}[ \-][A-Za-z]{3,9}[ \-,]*\d{2,4}",
+                  lambda m: " " if parse_date(m[0]) else m[0], text)
     if key in _MONEY_KEYS and not _MONEY.search(text):
         return None  # a balance or a due is money, with paise or a ₹: "Closing Balance 54" in a points box is points
     return _signed(text)
 
 
-_MONEY_KEYS = {"previous_balance", "total_due", "minimum_due"}
+_MONEY_KEYS = {"previous_balance", "total_due", "minimum_due", "printed_debits", "printed_credits"}
 _MONEY = re.compile(r"(?:₹|`|\brs\.?|\binr)\s?\d|\d\.\d{2}\b", re.IGNORECASE)
 
 
@@ -566,8 +768,22 @@ _PAYMENT = re.compile(r"payment (received|recd|thank)|thank you|\bbbps\b|bill ?p
                       r"\brtgs\b|\bcred\b|net ?banking|\bpayment\b.*\b(upi|online|mobile)\b|^(upi )?payment\b|cheque|clearing",
                       re.IGNORECASE)
 _CASHBACK = re.compile(r"cash ?back|\breward|voucher|points? redeem|redemption", re.IGNORECASE)
-_EMI = re.compile(r"\bemi\b|loan on card|instal?lment", re.IGNORECASE)
+_EMI = re.compile(r"\bemi\b|smart ?emi|flexi ?pay|loan on (?:credit )?card|instal?lment", re.IGNORECASE)
 _EMI_INTEREST = re.compile(r"interest|processing fee|\bfee\b|charges?|\bgst\b|\btax\b", re.IGNORECASE)
+# A loan paid to your bank account, repaid by EMIs on the card (not a purchase turned into EMIs, which banks call a
+# loan too: "SmartEMI" is one)
+_LOAN = re.compile(r"\binsta ?(?:loan|jumbo)|\bjumbo ?loan|loan on (?:credit )?card|personal loan|\bencash\b", re.IGNORECASE)
+_PAID = re.compile(r"\bpayment\b", re.IGNORECASE)  # a credit that says it's a payment ("XXXX CC PAYMENT 0123 (Ref# …)")
+_GIVEN_BACK = re.compile(r"\brefund|\breversal|\breversed|\brev\b|chargeback", re.IGNORECASE)
+
+
+def is_emi(description: str) -> bool:
+    return bool(_EMI.search(description))
+
+
+def pays_the_last_bill(amount: float, summary: "Summary") -> bool:
+    """A credit of the previous balance, to the rupee: the last bill paid in full."""
+    return summary.previous_balance is not None and summary.previous_balance > 0 and abs(amount - summary.previous_balance) <= 1.0
 
 
 # A row starting "UPI", or carrying the shop's UPI address (no dot after the @, unlike an e-mail address).
@@ -580,17 +796,21 @@ def paid_over_upi(description: str) -> bool:
 
 
 def classify(description: str, credit: bool) -> str:
-    """The kind of money movement a row is."""
+    """The kind of money movement a row is. An EMI's instalments are spending, each in the bill that charges it (what
+    you pay, month by month); a purchase turned into EMIs is credited back as a refund of it, so it's counted once,
+    by its instalments. A loan's instalments aren't spending: the loan went to your bank account, not to a shop."""
     if credit:
         if _PAYMENT.search(description):
             return "bill_payment"  # you paying the card: not money in, not spending
         if _EMI.search(description):
-            return "transfer"  # a purchase turned into EMIs is credited back; the instalments follow
+            return "refund"  # a purchase turned into EMIs, credited back: its instalments follow
         if _CASHBACK.search(description):
             return "cashback"
+        if _PAID.search(description) and not _GIVEN_BACK.search(description):
+            return "bill_payment"  # whatever the bank calls it: "BPPY CC PAYMENT …", "CC PAYMENT …"
         return "refund"
-    if _EMI.search(description) and not _EMI_INTEREST.search(description):
-        return "transfer"  # an instalment of a purchase counted when you made it
+    if _LOAN.search(description) and not _EMI_INTEREST.search(description):
+        return "transfer"  # repaying a loan on the card
     return "spend"
 
 
@@ -627,7 +847,7 @@ def clean_merchant(description: str) -> str:
     s = s.split(",")[0]  # "NAME,CITY"
     s = s.split(" - ")[0]  # "NAME - BRANCH"
     s = re.sub(r"\b(?:usd|eur|gbp|sgd|aed|aud|cad|jpy|chf|hkd|myr|thb)\s*[\d,]+\.\d{2}\b", "", s, flags=re.IGNORECASE)  # foreign amount
-    s = re.sub(r"^(?:refund|reversal|rev|credit)\b[\s:\-/]*|[\s\-/]*\b(?:refund|reversal|rev)$", "", s.strip(), flags=re.IGNORECASE)
+    s = re.sub(r"^(?:refund|reversal|rev|credit|emi)\b[\s:\-/]*|[\s\-/]*\b(?:refund|reversal|rev)$", "", s.strip(), flags=re.IGNORECASE)
     s = re.sub(r"\b(?:www\.)?([a-z0-9\-]+)\.(?:com|in|co\.in|net|org|io)\b", r"\1", s, flags=re.IGNORECASE)
     s = re.sub(r"\s+(?:ref(?:erence)?|txn|ref no)?\s*[#:]?\s*\d{6,}\b.*$", "", s, flags=re.IGNORECASE)
     words = s.split()
@@ -641,55 +861,10 @@ def clean_merchant(description: str) -> str:
 
 
 def parse(path: Path, upload_id: str, detection: Detection) -> ParseResult:
-    with pymupdf.open(path) as doc:
-        lines, method = read_lines(doc)
-    if not lines:
-        raise ParseError("This statement has no readable text")
-    summary = read_summary(lines)
+    """Any bank's statement, read by competing readings and proven by its own arithmetic (statement_reader.py)."""
+    from app.parsers import statement_reader  # builds on this module's pieces
 
-    card = (detection.cards or [None])[0]
-    issuer = (card.issuer if card else None) or detection.source or detect_issuer(" ".join(ln.text for ln in lines[:80]))
-    primary = card.last4 if card else None
-    period = summary.period or _period_from(detection)
-    anchor = (summary.statement_date or (period[1] if period else None))
-    rows, from_table, unread = read_rows(lines, anchor.year if anchor else None, primary)
-    if anchor:
-        rows = [_fix_year(r, anchor) if not r.year_printed else r for r in rows]
-        # a statement lists its cycle's purchases (and a few that posted late); a row dated far outside that is a
-        # worked example in the terms, not a purchase: shown with the lines not read, never counted
-        earliest = (period[0] if period else anchor - timedelta(days=31)) - OUTSIDE_PERIOD
-        inside = [r for r in rows if earliest <= r.day <= anchor + timedelta(days=7)]
-        if len(inside) >= len(rows) / 2:
-            unread += [f"{r.day:%d/%m/%Y} {r.description} (dated outside this statement's period)" for r in rows if r not in inside]
-            rows = inside
-        else:  # most rows are far from it: the statement date is what was misread, not the rows
-            summary.statement_date, period, anchor = None, None, None
-    if rows and not period:
-        # no period printed: from the first transaction to the statement date (or the last transaction)
-        period = (min(r.day for r in rows), anchor or max(r.day for r in rows))
-    if not rows:
-        raise ParseError("No transactions found in this statement. If it has some, run `make inspect` on it and share the "
-                         "masked output so the reader can learn its layout.")
-
-    last4s = [r.last4 for r in rows if r.last4]
-    primary = primary or (Counter(last4s).most_common(1)[0][0] if last4s else None)
-    if primary:
-        vault.register_cards([CardRef(issuer=issuer, product=card.product if card else None, last4=primary,
-                                      network=card.network if card else None)], upload_id)
-
-    result = _build(rows, upload_id, issuer, primary, period, summary, method, signs_mark_credits=True)
-    signed = any(r.amount and r.amount.mark in ("+", "-") for r in rows)
-    if signed and result.statement and result.statement.check == "mismatch":
-        other = _build(rows, upload_id, issuer, primary, period, summary, method, signs_mark_credits=False)
-        if other.statement and other.statement.check == "matched":
-            result = other  # this bank's + and - mark debits and credits the other way round
-    assert result.statement is not None
-    result.statement.unread = unread
-    if summary.total_due is None and summary.statement_date is None and summary.due_date is None:
-        # no statement date, total or due date: the bank's list of the card's transactions over a span, not a statement
-        result.statement.kind, result.statement.statement_date = "export", None
-    _describe(result.statement, result, from_table)
-    return result
+    return statement_reader.parse(path, upload_id, detection)
 
 
 def _build(rows: list[Row], upload_id: str, issuer: str | None, primary: str | None, period: tuple[date, date] | None,
@@ -701,6 +876,8 @@ def _build(rows: list[Row], upload_id: str, issuer: str | None, primary: str | N
         assert r.amount is not None
         credit = r.is_credit(signs_mark_credits)
         kind = classify(r.description, credit)
+        if credit and kind == "refund" and not is_emi(r.description) and pays_the_last_bill(r.amount.value, summary):
+            kind = "bill_payment"  # however the bank words it
         last4 = r.last4 or primary
         key = (r.day, credit, round(r.amount.value * 100), r.description.lower())
         seen[key] += 1
@@ -719,7 +896,8 @@ def _build(rows: list[Row], upload_id: str, issuer: str | None, primary: str | N
             refs={"cardRow": f"{last4 or 'card'}:{r.day:%Y%m%d}:{'c' if credit else 'd'}:{r.amount.value:.2f}:{same_day[key[:3] + (last4,)]}"},
             note=r.description, card=vault.instrument_id(CardRef(issuer=issuer, last4=last4)) if last4 else None,
             merchant_category=" ".join(r.category).strip().title() or None,
-            sources=[SourceRef(upload=upload_id, page=r.page + 1)],
+            # the file it's in (one of several statements in a file is "file~2": its rows cite the file)
+            sources=[SourceRef(upload=upload_id.split("~", 1)[0], page=r.page + 1, y=round(r.y, 1) if r.y else None)],
         ))
 
     stmt_date = summary.statement_date or (period[1] if period else None)
@@ -730,6 +908,7 @@ def _build(rows: list[Row], upload_id: str, issuer: str | None, primary: str | N
         statement_date=stmt_date.isoformat() if stmt_date else None,
         due_date=summary.due_date.isoformat() if summary.due_date else None, previous_balance=summary.previous_balance,
         total_due=summary.total_due, minimum_due=summary.minimum_due, credit_limit=summary.credit_limit,
+        printed_debits=summary.printed_debits, printed_credits=summary.printed_credits,
         debits=round(sum(t.amount for t in result.transactions if t.direction == "debit"), 2),
         credits=round(sum(t.amount for t in result.transactions if t.direction == "credit"), 2),
         rows=len(result.transactions),
@@ -748,17 +927,6 @@ def _period_from(detection: Detection) -> tuple[date, date] | None:
     return None
 
 
-def _fix_year(row: Row, anchor: date) -> Row:
-    """A date printed without its year ("20 Aug") is in the weeks before the statement date: December's
-    purchases on January's statement are last year's."""
-    if row.day > anchor + timedelta(days=5):
-        try:
-            row.day = row.day.replace(year=row.day.year - 1)
-        except ValueError:
-            pass
-    return row
-
-
 def _clock(raw: str) -> time:
     m = re.match(r"(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?", raw or "", re.IGNORECASE)
     if not m:
@@ -767,19 +935,25 @@ def _clock(raw: str) -> time:
     return time(min(hour, 23), int(m[2]), int(m[3] or 0))
 
 
-_TOLERANCE = 1.5  # rupees: rounding on the statement
 # How long before a statement's cycle a row can be dated and still belong to it (purchases that posted late).
 OUTSIDE_PERIOD = timedelta(days=62)
 
 
 def _check(s: CardStatement, result: ParseResult) -> None:
-    """The rows must account for the statement's own figures: previous balance − credits + debits = total due."""
+    """The rows must account for the statement's own figures: previous balance − credits + debits = total due; or, when
+    it prints no balances (a year's summary), its own totals of debits and of credits, each to the paisa."""
     if s.previous_balance is None or s.total_due is None:
         s.check = "unchecked"
+        if s.printed_debits is not None and s.printed_credits is not None:
+            off_debits, off_credits = round(s.debits - s.printed_debits, 2), round(s.credits - s.printed_credits, 2)
+            s.difference = off_debits if abs(off_debits) >= abs(off_credits) else off_credits
+            s.check = "matched" if abs(off_debits) <= 0.005 and abs(off_credits) <= 0.005 else "mismatch"
         return
     expected = round(s.previous_balance - s.credits + s.debits, 2)
     s.difference = round(s.total_due - expected, 2)
-    s.check = "matched" if abs(s.difference) <= _TOLERANCE else "mismatch"
+    # to the paisa; a total due printed in whole rupees was rounded by the bank, so up to 50 paise either way
+    whole = abs(s.total_due - round(s.total_due)) < 0.005
+    s.check = "matched" if abs(s.difference) <= (0.505 if whole else 0.005) else "mismatch"
 
 
 def _describe(s: CardStatement, result: ParseResult, from_table: bool) -> None:
@@ -797,9 +971,16 @@ def _describe(s: CardStatement, result: ParseResult, from_table: bool) -> None:
     others = [f"{count[k]} {label if count[k] == 1 else label.replace('entry', 'entrie') + 's'}" for k, label in labels if count[k]]
     if others:
         result.notes.append("Also: " + ", ".join(others))
-    if s.check == "matched":
+    totals = s.previous_balance is None or s.total_due is None  # checked against its totals of debits and credits
+    if s.check == "matched" and totals:
+        result.notes.append(f"Adds up: debits {inr(s.debits)} and credits {inr(s.credits)}, the statement's own totals ✓")
+    elif s.check == "matched":
         result.notes.append(f"Adds up: previous balance {inr(s.previous_balance or 0)} − credits {inr(s.credits)} + debits "
                             f"{inr(s.debits)} = total due {inr(s.total_due or 0)} ✓")
+    elif s.check == "mismatch" and totals:
+        result.warnings.append(f"Doesn't add up: the rows read come to debits {inr(s.debits)} and credits {inr(s.credits)}; the "
+                               f"statement's totals are {inr(s.printed_debits or 0)} and {inr(s.printed_credits or 0)}. Some rows may be "
+                               f"missing or misread; check this statement.")
     elif s.check == "mismatch":
         result.warnings.append(f"Doesn't add up: by the rows read, the total due would be "
                                f"{inr((s.previous_balance or 0) - s.credits + s.debits)}, the statement says {inr(s.total_due or 0)} "

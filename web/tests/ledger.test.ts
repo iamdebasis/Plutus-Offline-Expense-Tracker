@@ -1,8 +1,9 @@
 // How payments are bucketed, placed in months, and told apart by card. Fake data only.
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { bucketOf, cardsOnUpi, cycleShares, describeSource, monthShares, statementMonths, viewFor } from '../src/lib/ledger'
+import { bucketOf, cardsOnUpi, countsAs, cycleShares, describeSource, isCardBill, monthShares, rowTag, statementMonths, viewFor } from '../src/lib/ledger'
 import { inr, inrExact } from '../src/lib/money'
+import type { Transaction } from '../src/types'
 import { bill, card, ledger, statement, txn } from './fixtures'
 
 describe('months', () => {
@@ -80,4 +81,38 @@ describe('money', () => {
     assert.equal(inrExact(980), '₹980')
     assert.equal(inrExact(45.3), '₹45.30')
   })
+})
+
+test("paying your card is neither spending nor money in, either side of it, until it's filed as something else", () => {
+  const received = txn('2026-08-22', 9000, { direction: 'credit', kind: 'bill_payment', channel: 'card', category: 'transfers.card_bill' })
+  const fromBank = txn('2026-08-21', 9000, { kind: 'bill_payment', category: 'transfers.card_bill' })
+  for (const t of [received, fromBank]) {
+    assert.equal(isCardBill(t), true)
+    assert.equal(bucketOf(t), 'cardBill')
+  }
+  // what the page warns about before it's changed: it would start counting
+  assert.equal(countsAs(received, 'shopping.online'), 'in')
+  assert.equal(countsAs(fromBank, 'home.rent'), 'spent')
+  assert.equal(countsAs(received, 'ignored'), 'ignored') // counted nowhere either: nothing to warn about
+  assert.equal(isCardBill(txn('2026-08-22', 1, { direction: 'credit', kind: 'income', category: 'income.received' })), false)
+})
+
+test('every row where money comes in has a green tag; of the rows going out, only a card bill paid from the bank has one', () => {
+  const at = '2026-08-22'
+  const tagOf = (over: Partial<Transaction>) => {
+    const tag = rowTag(txn(at, 100, over))
+    return tag && `${tag.text}${tag.inward ? ' (green)' : ''}`
+  }
+  assert.equal(tagOf({ direction: 'credit', kind: 'bill_payment', channel: 'card', category: 'transfers.card_bill' }), 'Bill paid (green)')
+  assert.equal(tagOf({ direction: 'credit', kind: 'refund', category: 'income.refund' }), 'Refund (green)')
+  assert.equal(tagOf({ direction: 'credit', kind: 'refund', refundOf: 't0' }), 'Refund (green)')
+  assert.equal(tagOf({ direction: 'credit', kind: 'cashback', category: 'income.cashback' }), 'Cashback (green)')
+  assert.equal(tagOf({ direction: 'credit', kind: 'income', category: 'income.received' }), 'Received (green)')
+  assert.equal(tagOf({ direction: 'credit', kind: 'transfer', category: 'ignored' }), 'Transfer in (green)')
+  // a payment to the card you filed as something else is money that came in, like any other
+  assert.equal(tagOf({ direction: 'credit', kind: 'bill_payment', channel: 'card', category: 'income.received' }), 'Received (green)')
+
+  assert.equal(tagOf({ kind: 'bill_payment', category: 'transfers.card_bill' }), 'Bill paid') // paid from your bank: neutral
+  assert.equal(tagOf({}), null) // a purchase
+  assert.equal(tagOf({ category: 'transfers.p2p' }), null)
 })

@@ -22,7 +22,9 @@ class Settings:
     max_upload_bytes: int = 50 * 1024 * 1024
 
     ollama_host: str = _loopback_only(os.environ.get("ET_OLLAMA_HOST", "127.0.0.1:11434"))
-    ollama_model: str = os.environ.get("ET_OLLAMA_MODEL", "qwen3-vl:8b")
+    # A model to use whatever is chosen in the Local AI panel; unset, Plutus uses your choice there, else the best
+    # model downloaded for this Mac (app/llm/setup.py)
+    ollama_model: str | None = os.environ.get("ET_OLLAMA_MODEL") or None
     # How long the model stays loaded after the last job before we unload it / stop the server.
     ollama_idle_seconds: float = float(os.environ.get("ET_OLLAMA_IDLE_SECONDS", "90"))
 

@@ -27,8 +27,10 @@ no cloud, no telemetry. It is named for the Greek god of wealth.
 - **Counts every rupee once.** One payment often shows up in several files. A RuPay card used on UPI appears in the
   UPI app and on the card statement; a card bill appears in CRED and again as a UPI payment. Plutus matches these
   across files and keeps one copy.
-- **Checks the bank's own arithmetic.** Every card statement must satisfy previous balance − credits + debits = total
-  due, to the rupee. A statement that doesn't is still imported, with the gap shown, so a misread can't hide.
+- **Proves its numbers, or holds them.** A card statement is counted only when the bank's own arithmetic accounts for
+  every row: previous balance − credits + debits = total due, to the paisa (or a running balance, line by line). One
+  that can't be proven is held, counting nothing, until you check it in Your vault, with each row shown on the PDF's
+  page.
 - **Fills in what statements don't say.** Some months have only a bill from CRED and no statement. Plutus then
   estimates that month's card spending from the bill, less what's already counted, and places it in the billing
   cycle the bill paid for.
@@ -49,14 +51,16 @@ Plutus is built on four rules. This is what enforces each one:
 | **Your data never leaves your Mac.** No file, transaction or name is sent to any server. | The server listens on `127.0.0.1` only. The UI loads no CDN scripts, web fonts or analytics. The app's only outbound connection is to a local Ollama, and `config.py` refuses any AI host that isn't loopback. Every test runs with non-loopback sockets blocked. |
 | **No personal data in the code.** | Names, card and account digits, card networks and your choices are all user data, never code. The code ships only what is the same for everyone: categories, public merchants, card designs and parsing rules. A test fails if a module holds a real-looking account number. Tests and the demo use obviously fake data ("Mr Fake Landlord", cards ending in 1111). |
 | **Everything about you lives in `data/`.** | One module, `userdata.py`, lists every user file and is the only way into the data folder; a test fails if code goes around it. Original files go to `data/uploads/`, and the tools' temporary copies to `data/run/`. A fresh clone starts empty and gets personal as you add files. Deleting `data/` is a complete reset. |
-| **Processing and AI stay local.** | PDFs are read with PyMuPDF, scans and screenshots with Apple's on-device OCR (Vision). The optional AI runs in Ollama on your Mac. Plutus starts it on demand and unloads it after 90 seconds idle, and the app works fully without it. |
+| **Processing and AI stay local.** | PDFs are read with PyMuPDF, scans and screenshots with Apple's on-device OCR (Vision). The optional AI runs in Ollama on your Mac. Plutus starts it on demand and unloads it after 90 seconds idle, and the app works fully without it. Plutus never downloads a model or installs anything: it suggests the model that suits your Mac and shows you the steps. |
 
 `.gitignore` and a pre-commit hook (switched on by `make setup`) also keep `data/`, statements, exports and
 screenshots out of git, even with `git add -f`. A fork can't publish anyone's finances by accident.
 
 ## Try it
 
-You need macOS, Python 3.12+, Node 22.18+ and pnpm. `make check` lists anything missing and how to install it.
+You need macOS, Python 3.12+, Node 22.18+ and pnpm. `make check` lists anything missing and how to install it,
+and which local AI model suits your Mac, if you want one (optional: click **Local AI** in the app for the same
+advice, with copy buttons).
 
 ```bash
 make setup    # once: installs the Python and web packages, switches on the commit guard
@@ -66,7 +70,8 @@ make test     # the backend's tests with the network blocked, the dashboard's mo
 ```
 
 The [guide](docs/GUIDE.md) covers everything else: each source and how it's read, how the numbers add up, where each
-file lives, the local AI, and the tools.
+file lives, the local AI, and the tools. [How Plutus reads card statements](docs/READERS.md) is for whoever maintains
+the readers: how banks make their statements, how each step reads and proves them, and how to change a reader safely.
 
 ## How it works
 
@@ -92,10 +97,15 @@ the billing step places each card bill in the cycle it paid for.
 - **Decoding scrambled PDFs.** CRED's PDFs use fonts with shuffled character codes, so their text layer reads as
   gibberish. Plutus runs on-device OCR on the page and uses it as a key to rebuild each font's character table. It
   then reads the exact text, and accepts the result only if every amount matches between the decoded text and OCR.
-- **One reader for every bank.** There's no parser per bank. A single table engine finds the transactions header by
-  meaning ("Date", "Transaction details", "Amount", "Cr"…), takes the columns from where the header sits, and reads
-  each row from its date to its amount. It skips reward-points boxes, EMI schedules and the worked examples in the
-  terms, and the bank's own totals check every read.
+- **Any bank's statement, without a parser per bank.** Each statement is read two ways, by its table header and by
+  its shape: dates and amounts found however they're printed, glued or marked, and the amount column found by where
+  figures line up. Every reading is tried under every meaning the marks could have (is "+" a credit? is a lone "C" the
+  rupee sign?), and the statement's own arithmetic picks the one that's proven. Exactly one reading must add up to the
+  paisa, or nothing is counted. A year's download is split into its statements, each proven on its own figures.
+- **The local AI points, the arithmetic decides.** When the rules can't prove a statement, the local model reads it in
+  short chunks with every amount tagged, and answers with tags, never figures, so it can't invent a number. Its
+  reading counts only if the statement's figures prove it (or, with nothing to check against, if it matches the rules'
+  row for row).
 - **Never double counting.** A card bill, the purchases it pays for, and the same card used on UPI are three views of
   the same money. Bills are placed in their billing cycle (learned from a single statement, or estimated), netted
   against what's already itemized, and spread over the cycle's days. One rule is tested for every year, every card
@@ -105,10 +115,12 @@ the billing step places each card bill in the cycle it paid for.
   payments, while PhonePe listing one refund twice is still one.
 - **Plain files, written safely.** There's no database, by choice: one JSON file per kind of record, written to a
   temporary file beside it and atomically swapped in, so a crash never leaves half a ledger.
-- **Tests on generated statements.** `backend/tests/fake_cards.py` renders credit card statement PDFs in the shapes
-  real banks use: Cr markers or signs, debit and credit columns, points boxes beside rows, add-on cards, statements
-  that cross the new year without years in their dates. `fake_takeout.py` builds a Google Takeout export the same
-  way. No real statement is ever in the repo.
+- **Tested against statements nobody wrote by hand.** `backend/tests/statement_gen.py` makes a new random statement
+  from every seed: monthly, yearly or any span, in any of the layouts banks use (date formats and separators, column
+  orders, reward points and reference columns, forms of ₹, credit marks, wrapped rows, missing headers, EMI schedules
+  and worked examples beside the transactions). Every one must be proven exactly or held with the right rows, and
+  none counted wrong: on a thousand of them the reader proves every one that prints its figures. `fake_cards.py` and
+  `fake_takeout.py` add fixed layouts and a Google Takeout export. No real statement is ever in the repo.
 
 <details>
 <summary><b>More screenshots</b>: credit cards, UPI, transactions, your files</summary>
@@ -129,7 +141,7 @@ the billing step places each card bill in the cycle it paid for.
 |---|---|
 | **Backend** | Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx |
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS 4, Motion, Lucide, pdf.js |
-| **Local AI** (optional) | Ollama with `qwen3-vl:8b`, on `127.0.0.1` only |
+| **Local AI** (optional) | Ollama with a model that suits your Mac (Plutus suggests one: `qwen3.5:4b` for 16 GB), on `127.0.0.1` only |
 | **Storage** | JSON files in `data/`, written atomically |
 | **Tests** | pytest (228 tests), Node's built-in test runner for the dashboard's arithmetic, `tsc` |
 
@@ -140,7 +152,7 @@ backend/app/
   ledger.py        merge and deduplicate across files
   categorize.py    your answers → rules → merchant dictionary → local AI
   billing.py       which card, which billing cycle, what each bill paid for
-  llm/             Ollama, started on demand and unloaded when idle
+  llm/             Ollama, started on demand and unloaded when idle; which model suits your Mac
   tools/           the demo, plus inspect and redact for sharing a layout without its contents
   userdata.py      the one list of everything kept in data/
 backend/tests/     tests, with fake statements generated in code

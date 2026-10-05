@@ -10,6 +10,10 @@ is unloaded from memory and, if this app started the server, the server process 
 An Ollama that was already running (the Ollama app in the menu bar runs its own) is left running: it's
 someone else's process. Only the model is unloaded, which is what frees the memory, so the status says
 "asleep" whenever the model isn't loaded, whoever runs the server.
+
+Which model: a fixed one when given (ET_OLLAMA_MODEL, or a test's), else `choose` picks it before each job and
+whenever the page asks for the status (app/llm/setup.py: your choice, or the best one downloaded for this Mac).
+With none, the local AI is "not set up" and nothing is started. This never downloads a model.
 """
 
 import asyncio
@@ -20,22 +24,17 @@ import subprocess
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Literal
+from typing import AsyncIterator, Awaitable, Callable, Literal
 
 import httpx
 
 from app import logs, userdata
+from app.llm.advice import BINARIES, Downloaded
 
 State = Literal["off", "starting", "ready", "busy", "stopping", "external", "unavailable"]
 # What the page shows: the model's state, not the server's.
 Shown = Literal["unavailable", "asleep", "starting", "working", "awake", "stopping"]
 log = logs.get("llm")
-
-_CANDIDATE_BINARIES = [
-    "/usr/local/bin/ollama",
-    "/opt/homebrew/bin/ollama",
-    "/Applications/Ollama.app/Contents/Resources/ollama",
-]
 
 
 class LLMUnavailable(RuntimeError):
@@ -46,11 +45,12 @@ class OllamaManager:
     def __init__(
         self,
         host: str,
-        model: str,
+        model: str | None,
         idle_seconds: float,
         binary: str | None = None,
         run_dir: Path | None = None,
         start_timeout: float = 30.0,
+        choose: Callable[[], Awaitable[None]] | None = None,
     ):
         self.host = host
         self.base_url = f"http://{host}"
@@ -59,6 +59,9 @@ class OllamaManager:
         self.start_timeout = start_timeout
         self._binary = binary
         self._run_dir = run_dir
+        self._choose = choose
+        self._warm: str | None = None  # the model a job last used: what's in memory, even if the choice changed since
+        self._capabilities: dict[str, list[str] | None] = {}  # what each downloaded model can do, by its digest
         self._proc: subprocess.Popen | None = None
         self._owned_pid: int | None = None
         self._active = 0
@@ -90,7 +93,7 @@ class OllamaManager:
     def binary(self) -> str | None:
         if self._binary:
             return self._binary
-        for candidate in [shutil.which("ollama"), *_CANDIDATE_BINARIES]:
+        for candidate in [shutil.which("ollama"), *BINARIES]:
             if candidate and Path(candidate).exists():
                 return candidate
         return None
@@ -98,6 +101,11 @@ class OllamaManager:
     @property
     def owns_server(self) -> bool:
         return self._owned_pid is not None
+
+    @property
+    def busy(self) -> bool:
+        """A job is using the model: its choice can't change until the job ends."""
+        return self._active > 0
 
     # ---- public API ----------------------------------------------------------------------
 
@@ -108,6 +116,10 @@ class OllamaManager:
                 self._idle_task.cancel()
                 self._idle_task = None
             self._idle_since = None
+            if self._active == 0 and self._choose:
+                await self._choose()  # a model downloaded or chosen since the last job counts from this one
+            if not self.model:  # nothing to start Ollama for; the caller says what waits for you instead
+                raise LLMUnavailable("No local model is set up. Click Local AI in Plutus for the steps.")
             await self._start()
             await self._require_model()
             self._active += 1
@@ -123,18 +135,23 @@ class OllamaManager:
                     self._idle_since = time.monotonic()
                     self._idle_task = asyncio.create_task(self._stop_when_idle())
 
-    async def chat(self, messages: list[dict], schema: dict | None = None, timeout: float = 300, purpose: str = "a question") -> str:
-        """One non-streaming chat call. Pass a JSON schema to force structured output.
-        Images go in a message as {"images": [<base64>]}."""
+    async def chat(self, messages: list[dict], schema: dict | None = None, timeout: float = 300, purpose: str = "a question",
+                   context: int | None = None, limit: int | None = None) -> str:
+        """One non-streaming chat call. Pass a JSON schema to force structured output, `context` (tokens) when the
+        question is longer than the model's default window, and `limit` (tokens) to stop an answer that runs on (a
+        small model can loop on a long list). Images go in a message as {"images": [<base64>]}."""
         if self._active == 0:
             raise RuntimeError("chat() must be called inside `async with llm.session()`")
+        if not self.model:
+            raise LLMUnavailable("No local model is set up")
+        self._warm = self.model
         started = time.monotonic()
         payload: dict = {
             "model": self.model,
             "messages": messages,
             "stream": False,
             "think": False,
-            "options": {"temperature": 0},
+            "options": {"temperature": 0, **({"num_ctx": context} if context else {}), **({"num_predict": limit} if limit else {})},
             # Ollama's own unload timer is a backstop; normally we unload explicitly when idle.
             "keep_alive": f"{int(self.idle_seconds) + 60}s",
         }
@@ -162,7 +179,9 @@ class OllamaManager:
     async def status(self) -> dict:
         """What the page shows. `state` is the model's: asleep unless it's loaded, whoever runs the server.
         `server` says who does: "plutus" (started for a job, stopped after), "ollama" (the Ollama app or a
-        server you started; left running), or None."""
+        server you started; left running), or None. "unavailable" (not set up): no Ollama, or no model to use."""
+        if self._active == 0 and self._choose and not self._lock.locked():  # not while a job starts or ends
+            await self._choose()  # notices a model you've just downloaded, or chosen
         up = await self.is_up()
         loaded = up and await self._loaded()
         busy = {"starting": "starting", "busy": "working", "stopping": "stopping"}
@@ -170,7 +189,7 @@ class OllamaManager:
             shown: Shown = busy[self.state]  # type: ignore[assignment]
         elif loaded:
             shown = "awake"
-        elif not up and not self.binary():
+        elif not self.model or (not up and not self.binary()):
             shown = "unavailable"
         else:
             shown = "asleep"
@@ -214,6 +233,35 @@ class OllamaManager:
                 return (await client.get("/api/version")).status_code == 200
         except httpx.HTTPError:
             return False
+
+    async def server_version(self) -> str | None:
+        """The running server's version (what answers Plutus's questions), or None when none is running."""
+        try:
+            async with self._client(1.0) as client:
+                version = (await client.get("/api/version")).json().get("version")
+            return version if isinstance(version, str) else None
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return None
+
+    async def models(self, details: bool = False) -> list[Downloaded] | None:
+        """What the running server has downloaded (None when none is running). With `details`, what each can do (reads
+        images, answers questions), asked once per model: it's how the Local AI panel judges a model it doesn't know."""
+        try:
+            async with self._client(5.0) as client:
+                listed = (await client.get("/api/tags")).json().get("models", [])
+                found = []
+                for m in listed:
+                    name, key = m["name"], m.get("digest") or m["name"]
+                    if details and key not in self._capabilities:
+                        resp = await client.post("/api/show", json={"model": name})
+                        self._capabilities[key] = resp.json().get("capabilities") if resp.status_code == 200 else None
+                    caps = self._capabilities.get(key)
+                    found.append(Downloaded(name, round(m.get("size", 0) / 1e9, 1),
+                                            vision=None if caps is None else "vision" in caps,
+                                            chat=None if caps is None else "completion" in caps))
+            return sorted(found, key=lambda d: d.name)
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
+            return None
 
     # ---- lifecycle -----------------------------------------------------------------------
 
@@ -269,6 +317,8 @@ class OllamaManager:
         raise LLMUnavailable(f"Ollama did not start within {self.start_timeout:.0f}s. See {self.logfile}")
 
     async def _require_model(self) -> None:
+        if not self.model:
+            raise LLMUnavailable("No local model is set up. Click Local AI in Plutus for the steps.")
         installed = await self._model_installed()
         if installed is False:
             log.error("model %s isn't installed. Run: ollama pull %s", self.model, self.model)
@@ -276,6 +326,8 @@ class OllamaManager:
 
     async def _loaded(self) -> bool:
         """Whether the model is in memory right now (Ollama's own list of loaded models)."""
+        if not self.model:
+            return False
         try:
             async with self._client(2.0) as client:
                 resp = await client.get("/api/ps")
@@ -286,6 +338,8 @@ class OllamaManager:
 
     async def _model_installed(self) -> bool | None:
         """True/False when the server can tell us; otherwise fall back to Ollama's manifest folder."""
+        if not self.model:
+            return False
         try:
             async with self._client(2.0) as client:
                 resp = await client.get("/api/tags")
@@ -311,9 +365,10 @@ class OllamaManager:
         self.state = "stopping"
         self._idle_since = None
         owned = self.owns_server
-        if await self.is_up():
-            await self._unload_model()
-            log.info("%s unloaded from memory", self.model)
+        if await self.is_up() and (model := self._warm or self.model):
+            await self._unload_model(model)
+            log.info("%s unloaded from memory", model)
+        self._warm = None
         await self._stop_process()
         self.state = "external" if await self.is_up() else "off"
         if owned:
@@ -321,10 +376,10 @@ class OllamaManager:
         elif self.state == "external":
             log.info("Ollama left running: it was running before the app needed it")
 
-    async def _unload_model(self) -> None:
+    async def _unload_model(self, model: str) -> None:
         try:
             async with self._client(10.0) as client:
-                await client.post("/api/generate", json={"model": self.model, "keep_alive": 0})
+                await client.post("/api/generate", json={"model": model, "keep_alive": 0})
         except httpx.HTTPError:
             pass
 

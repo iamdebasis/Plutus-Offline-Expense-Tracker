@@ -68,7 +68,9 @@ export type LlmState = 'unavailable' | 'asleep' | 'starting' | 'working' | 'awak
 
 export interface LlmStatus {
   state: LlmState
-  model: string
+  /** The model Plutus uses: your choice in the Local AI panel, or the best one downloaded for this Mac; null when
+   *  none is set up ("unavailable"). */
+  model: string | null
   installed: boolean
   modelInstalled: boolean | null
   /** In memory right now. */
@@ -78,6 +80,57 @@ export interface LlmStatus {
   /** Seconds until it's unloaded, while awake and idle. */
   sleepsIn: number | null
   idleSeconds: number
+  /** You've answered the one-time hint about the local AI. */
+  hintSeen: boolean
+}
+
+/** A model Ollama has downloaded, and how it fits this Mac. */
+export interface AiModel {
+  name: string
+  sizeGb: number
+  fit: 'suits' | 'heavy' | 'too_big'
+  /** One Plutus suggests or knows works well; others are "not tested with Plutus". */
+  known: boolean
+  /** Reads images (payment screenshots); null when Plutus can't tell. */
+  vision: boolean | null
+  /** Answers questions (an embedding model doesn't). */
+  usable: boolean
+  note: string
+  inUse: boolean
+}
+
+/** One thing to do, for you: Plutus never downloads or installs anything itself. */
+export interface AiStep {
+  text: string
+  /** For Terminal, with a copy button. */
+  command: string | null
+  link: string | null
+  optional: boolean
+}
+
+/** The Local AI panel (/api/llm/setup): this Mac, Ollama, what's downloaded, and the steps to what suits it. */
+export interface AiSetup {
+  headline: string
+  ready: boolean
+  inUse: string | null
+  chosen: string | null
+  /** Set by ET_OLLAMA_MODEL: wins over any choice here. */
+  override: string | null
+  mac: { chip: string; appleSilicon: boolean; memoryGb: number; freeGb: number; macos: string }
+  ollama: {
+    installed: boolean
+    app: boolean
+    homebrew: 'cask' | 'formula' | null
+    version: string | null
+    minVersion: string
+    running: boolean
+    versionOk: boolean | null
+  }
+  suggestion: { model: string; sizeGb: number; why: string; downloaded: boolean } | null
+  models: AiModel[]
+  notes: string[]
+  steps: AiStep[]
+  hintSeen: boolean
 }
 
 /** One of your own bank accounts (data/accounts.json): transfers to and from it are left out. */
@@ -103,6 +156,8 @@ export interface ImportStatus {
   duplicates: number
   /** payees to review */
   needsReview: number
+  /** rows of a statement on hold: read, not counted until you confirm them */
+  held?: number
   error: string | null
   finishedAt: string | null
   /** For an export with many parts (Google Pay Takeout): what each held and what became of it. */
@@ -110,6 +165,15 @@ export interface ImportStatus {
 }
 
 export type TxnKind = 'spend' | 'refund' | 'cashback' | 'income' | 'transfer' | 'bill_payment'
+
+/** How a payment was sorted, to put it back after a change of several (undo). */
+export interface PaymentState {
+  id: string
+  category: string
+  categorizedBy: Transaction['categorizedBy']
+  confidence: number
+  needsReview: boolean
+}
 
 export interface Transaction {
   id: string
@@ -127,7 +191,8 @@ export interface Transaction {
   confidence: number
   needsReview: boolean
   refs: Record<string, string>
-  sources: { upload: string; page: number | null }[]
+  /** The files it was read from; a statement's row also says where on its page (y, in points from the top). */
+  sources: { upload: string; page: number | null; y?: number | null }[]
   note: string
   /** For a refund: the payment it gives money back for. */
   refundOf?: string | null
@@ -156,6 +221,9 @@ export interface CardStatement {
   totalDue: number | null
   minimumDue: number | null
   creditLimit: number | null
+  /** Its own totals of debits and of credits, as printed: what a year's summary (no balances) is checked against. */
+  printedDebits: number | null
+  printedCredits: number | null
   debits: number
   credits: number
   rows: number
@@ -164,6 +232,27 @@ export interface CardStatement {
   /** Lines inside the transactions table that weren't read as rows though they carry an amount: where a missing
    *  row is, when the rows don't add up. */
   unread: string[]
+  /** proven: its own arithmetic accounts for every row. exact: read from a file's own cells. agreed: the rules and
+   *  the local AI read the same rows. confirmed: you checked it. on_hold: none of those, so its rows aren't counted
+   *  until you confirm them. null: read before statements had a status. */
+  status: 'proven' | 'exact' | 'agreed' | 'confirmed' | 'on_hold' | null
+  /** How it was proven, or why it couldn't be, in words. */
+  proof: string
+  /** A statement on hold's rows, waiting for you. */
+  held: Transaction[]
+  /** You corrected its held rows. */
+  edited: boolean
+  /** The file's pages it was read from, when the file holds several statements (a year's download); empty: all. */
+  pages: number[]
+}
+
+/** A row of a statement on hold, as you corrected it. */
+export interface HeldRow {
+  at: string
+  amount: number
+  direction: 'debit' | 'credit'
+  description: string
+  page: number
 }
 
 export interface CardPayment {

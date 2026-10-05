@@ -9,6 +9,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import pymupdf
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from app import ledger, logs, storage, vault
 from app.config import settings
@@ -23,6 +24,18 @@ log = logs.get("upload")
 @router.get("/uploads")
 def list_uploads() -> list[UploadRecord]:
     return sorted(vault.list_uploads(), key=lambda u: u.uploaded_at, reverse=True)
+
+
+@router.get("/uploads/{upload_id}/file")
+def upload_file(upload_id: str) -> FileResponse:
+    """The file as you added it, for this app's own page to show (a statement's page, to check a row against). Other
+    sites can't ask for it: app/main.py refuses every cross-site request."""
+    rec = vault.find_upload(upload_id)
+    path = storage.file_path(rec) if rec else None
+    if rec is None or path is None or not path.is_file():
+        raise HTTPException(404, {"code": "not_found", "message": "No such file"})
+    return FileResponse(path, media_type=rec.media_type or "application/octet-stream",
+                        headers={"Cache-Control": "no-store", "Content-Disposition": "inline"})
 
 
 @router.post("/uploads/{upload_id}/reimport")

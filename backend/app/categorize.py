@@ -1,14 +1,17 @@
 """Decide each transaction's category, cheapest and most certain source first:
 
+  0. your answer for that very row    (data/row_answers.json: you set this one payment, or ticked it with others)
   1. money in / cashback / refunds    (from the transaction itself; money from a known shop is a refund)
+     a statement's bill payment       "PAYMENT RECEIVED - THANK YOU" → Credit card bills, before anything learned
+                                      by name: a bank's wording for your payment isn't a shop
   2. your payee table                 "Mr Fake Payee" → Water
   3. your corrections                 remembered per merchant (data/merchant_memory.json, by="user")
   4. transfers to your own accounts   to or from an account you pay from, or one you said is yours
                                       (data/accounts.json) → Ignored (moving your own money around isn't
                                       spending, and showing it only confuses the totals)
-     card statement rows               your bill payment → Credit card bills; an EMI instalment → Ignored (the
-                                      purchase counted when you made it); forex, GST, late, annual fees and
-                                      interest → Fees & Charges; cash withdrawals → Cash
+     card statement rows               a loan's instalment → Ignored (the loan went to your bank account);
+                                      forex, GST, late, annual fees and interest → Fees & Charges; cash
+                                      withdrawals → Cash
   5. card bill payments               "Federal One Credit card", "CRED …"
   6. merchant dictionary              seed/merchants.json, with name variants
   7. what the local AI said before    remembered per merchant (by="llm"), then the bank's own category
@@ -71,6 +74,7 @@ class Context:
     payees: list[Payee]
     own_digits: set[str]
     memory: dict[str, dict] = field(default_factory=dict)
+    rows: dict[str, str] = field(default_factory=dict)  # your answer for one payment, by its row (row_key)
 
 
 # ---- names ---------------------------------------------------------------------------------
@@ -186,7 +190,7 @@ def _card_rule(t: Transaction) -> "Verdict | None":
     if t.kind == "bill_payment":
         return Verdict("transfers.card_bill", "rule", 0.95)
     if t.kind == "transfer":
-        return Verdict("ignored", "rule", 0.9)  # an EMI conversion or instalment: the purchase counted when made
+        return Verdict("ignored", "rule", 0.9)  # a loan's instalment: the loan went to your bank account
     if t.direction == "debit":
         text = f"{t.payee} {t.note}"
         for category, pattern in _CARD_FEES:
@@ -213,12 +217,23 @@ def looks_like_person(raw: str) -> bool:
     return 2 <= len(words) <= 4 and all(w.isalpha() for w in words) and not _BUSINESS_WORDS.search(raw) and not merchant_name(raw)
 
 
+def statement_bill(t: Transaction) -> bool:
+    """A card statement's row for a payment to the card (you paying its bill), read as such from the statement."""
+    return "cardRow" in t.refs and t.kind == "bill_payment"
+
+
 def decide(t: Transaction, ctx: Context) -> Verdict | None:
     """Everything except the LLM. None means: ask the local AI."""
+    if category := ctx.rows.get(row_key(t)):
+        return Verdict(category, "user", 1.0)  # you set this very payment: its file was added again
     if t.kind == "cashback":
         return Verdict("income.cashback", "heuristic", 1.0)
     if t.kind == "refund":
         return Verdict("income.refund", "heuristic", 0.9)
+    if statement_bill(t):
+        # A statement saying you paid the card ("PAYMENT RECEIVED - THANK YOU"): never spending or money in, whatever
+        # was learned about a name; only an answer for this very row (above) changes it.
+        return Verdict("transfers.card_bill", "rule", 0.95)
 
     unnamed = t.payee == NO_NAME  # many different payees behind one placeholder: nothing about the name applies
     if not unnamed and (payee := payee_table.match_payee(t.payee, ctx.payees)):
@@ -317,6 +332,32 @@ def remember(entries: dict[str, str], by: str) -> None:
     _memory_file().update(apply_)
 
 
+def row_key(t: Transaction) -> str:
+    """What finds one payment again when its file is added again: its row on a card statement, or the app's own
+    ID for it; else its id."""
+    if row := t.refs.get("cardRow"):
+        return f"card:{row}"
+    if ref := t.refs.get("txnId") or t.refs.get("utr"):
+        return f"ref:{ref}:{t.direction}"
+    return f"id:{t.id}"
+
+
+def _row_file() -> JsonFile:
+    return userdata.json_file("row_answers.json", default=dict)
+
+
+def remember_rows(txns: list[Transaction]) -> None:
+    """Your category for these payments, one by one: a file deleted and added again gets them back."""
+    answers = {row_key(t): t.category for t in txns}
+    _row_file().update(lambda rows: {**rows, **answers})
+
+
+def forget_rows(txns: list[Transaction]) -> None:
+    """These payments are no longer yours to have set (an undo): their rows' answers go."""
+    keys = {row_key(t) for t in txns}
+    _row_file().update(lambda rows: {k: v for k, v in rows.items() if k not in keys})
+
+
 def forget(names: list[str]) -> None:
     """Drop what's remembered for these payee names, your corrections included."""
     keys = {normalize(n) or n.lower() for n in names}
@@ -329,7 +370,7 @@ def build_context(txns: list[Transaction]) -> Context:
     own = {d for t in txns if t.paid_from and (d := re.sub(r"\D", "", t.paid_from)) and len(d) >= 4}
     own |= {i.last4 for i in vault.list_instruments()}
     own |= {a.last4 for a in accounts.list_accounts()}
-    return Context(payees=payee_table.list_payees(), own_digits=own, memory=load_memory())
+    return Context(payees=payee_table.list_payees(), own_digits=own, memory=load_memory(), rows=_row_file().read())
 
 
 def categorize_offline(txns: list[Transaction], ctx: Context) -> list[Transaction]:
@@ -408,7 +449,11 @@ def link_refunds(txns: list[Transaction]) -> None:
     rather than counted as money in: by the app's transaction ID (PhonePe gives a refund its payment's),
     else the latest earlier payment to the same shop, within REFUND_WINDOW, with enough left to refund.
     A refund whose payment isn't in the ledger (paid by card, or before your first statement) stays
-    under Refunds. Changes `txns` in place."""
+    under Refunds. A purchase turned into EMIs is credited back with its exact amount, but rarely its shop's name:
+    it's matched by amount on the same card, and without its purchase in the ledger it's left out (its instalments
+    carry the cost). Changes `txns` in place."""
+    from app.parsers.card_statement import is_emi
+
     payments = [t for t in txns if t.direction == "debit"]
     by_ref = {t.refs["txnId"]: t for t in payments if t.refs.get("txnId")}
     by_shop: dict[str, list[Transaction]] = defaultdict(list)
@@ -419,10 +464,22 @@ def link_refunds(txns: list[Transaction]) -> None:
     for r in sorted((t for t in txns if t.kind == "refund" and t.direction == "credit"), key=lambda t: t.at):
         fits = lambda p: left[p.id] + 0.005 >= r.amount  # noqa: E731
         orig = by_ref.get(r.refs.get("txnId", ""))
+        emi = r.channel == "card" and is_emi(r.note or "")
+        if emi:  # the same card's purchase of exactly this amount, the latest before it
+            orig = max((p for p in payments if p.card == r.card and abs(p.amount - r.amount) <= 0.005 and p.at <= r.at
+                        and r.at - p.at <= REFUND_WINDOW and fits(p) and not is_emi(p.note or "")), key=lambda p: p.at, default=None)
+            if orig is None:
+                r.refund_of = None
+                if r.categorized_by != "user":
+                    r.category, r.categorized_by, r.confidence, r.needs_review = "ignored", "rule", 0.9, False
+                continue
         if orig is None or not fits(orig):
             earlier = [p for p in by_shop.get(_refund_key(r.payee), []) if p.at <= r.at and r.at - p.at <= REFUND_WINDOW and fits(p)]
             # the same amount first (a full refund), then the most recent
             orig = min(earlier, key=lambda p: (abs(p.amount - r.amount) > 0.005, r.at - p.at), default=None)
+        if orig is None and r.channel == "card" and r.card:  # a card's refund under another name: its purchase of exactly that much
+            orig = max((p for p in payments if p.card == r.card and abs(p.amount - r.amount) <= 0.005 and p.at <= r.at
+                        and r.at - p.at <= REFUND_WINDOW and fits(p)), key=lambda p: p.at, default=None)
         if orig is None:
             r.refund_of = None
             if r.categorized_by == "refund":
@@ -444,7 +501,8 @@ def apply_new_rules() -> int | None:
     fingerprint = payee_table.fingerprint()
     if seen.get("rulesVersion") == RULES_VERSION and seen.get("payeesFingerprint") == fingerprint:
         return None
-    changed = recategorize(ledger.load_transactions())
+    with ledger.editing():
+        changed = recategorize(ledger.load_transactions())
     state.update(lambda s: {**s, "rulesVersion": RULES_VERSION, "payeesFingerprint": fingerprint})
     return changed
 

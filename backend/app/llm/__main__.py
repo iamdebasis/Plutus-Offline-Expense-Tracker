@@ -7,7 +7,7 @@ import time
 from importlib import resources
 
 from app import logs
-from app.llm import llm
+from app.llm import llm, setup
 
 logs.setup()
 
@@ -18,8 +18,11 @@ def _category_ids() -> list[str]:
 
 
 async def main(with_prompt: bool) -> None:
+    await setup.choose()
     print(f"binary        : {llm.binary()}")
-    print(f"model         : {llm.model}")
+    print(f"model         : {llm.model or 'none set up: ' + await setup.summary()}")
+    if not llm.model:
+        return
     print(f"already up    : {await llm.is_up()}")
     started = time.monotonic()
     async with llm.session() as ai:

@@ -65,6 +65,7 @@ class ImportStatus(Model):
     added: int = 0
     duplicates: int = 0
     needs_review: int = 0  # payees to review
+    held: int = 0  # rows of a statement on hold: read, not counted until you confirm them
     error: str | None = None
     details: list[str] = []  # per part of a many-part export: what it held and what became of it
     finished_at: datetime | None = None
@@ -123,6 +124,7 @@ class Payee(Model):
 class SourceRef(Model):
     upload: str
     page: int | None = None
+    y: float | None = None  # a statement row: where on its page, in points from the top (to show it to you)
 
 
 # A payment whose source shows no payee name. One placeholder for many different payees, so nothing is ever
@@ -191,6 +193,11 @@ class CardPayment(Model):
 
 
 StatementCheck = Literal["matched", "mismatch", "unchecked"]
+# proven: the statement's own arithmetic accounts for every row (its totals, or a running balance). exact: read from a
+# file's own cells (a CSV or Excel export). agreed: nothing to check against, but the rules and the local AI read the
+# same rows. confirmed: you looked and said so. on_hold: none of those; its rows aren't counted until one is.
+# None: read before statements had a status, counted as they always were.
+StatementStatus = Literal["proven", "exact", "agreed", "confirmed", "on_hold"]
 
 
 class CardStatement(Model):
@@ -212,11 +219,24 @@ class CardStatement(Model):
     total_due: float | None = None
     minimum_due: float | None = None
     credit_limit: float | None = None
+    # Its totals of debits and of credits, as printed: what a year's summary, with no balances, is checked against.
+    printed_debits: float | None = None
+    printed_credits: float | None = None
     debits: float = 0.0  # the rows read: purchases, fees, cash
     credits: float = 0.0  # payments, refunds, cashback
     rows: int = 0
     check: StatementCheck = "unchecked"
     difference: float | None = None  # by how much the rows miss the bank's figures, when they do
+    status: StatementStatus | None = None
+    proof: str = ""  # how its rows were proven, or why they couldn't be, in words
+    # The rows of a statement on hold: read, shown in Your vault, not in the ledger until you confirm them.
+    held: list[Transaction] = []
+    edited: bool = False  # you corrected its held rows: a reader that can't prove its own reading leaves yours alone
+    # Rows a summary of several statements lists outside their cycles (a year's file listing the month after its last
+    # statement): no figure on the file covers them, so they wait for you, or for that month's statement.
+    outside_cycles: bool = False
+    # The file's pages it was read from, when the file holds several statements (a year's download); empty: all of them.
+    pages: list[int] = []
     # Lines inside the transactions table that weren't read as rows though they carry an amount (a total, or a row
     # in a shape the reader didn't expect): where a missing row is, when the rows don't add up. Yours, kept in data/.
     unread: list[str] = []

@@ -40,6 +40,10 @@ CC_MARKERS = [
     "previous balance", "finance charges", "card number",
 ]
 BANK_MARKERS = ["opening balance", "closing balance", "ifsc", "account statement", "account number", "withdrawal"]
+# A table of transactions: lines that start with a date, and amounts (a PDF's text often puts each cell on its own line)
+_DATED_LINE = re.compile(r"^[ \t]*(?:\d{1,2}[/.\- ](?:\d{1,2}|[A-Za-z]{3,9})[/.\- ,]*\d{2,4}|[A-Za-z]{3,9} \d{1,2},? \d{4}|\d{4}-\d{2}-\d{2})\b",
+                         re.MULTILINE)
+_AMOUNT = re.compile(r"\d[\d,]*\.\d{2}\b")
 
 # A card as CRED lists it, alone on its line: "HSBC FAKE PLUS 2468".
 CARD_LINE = re.compile(r"^[ \t]*([A-Z][A-Z0-9 &.'\-]{1,60}?)[ \t]+(\d{4})[ \t]*$", re.MULTILINE)
@@ -149,6 +153,15 @@ def classify_text(text: str) -> Detection:
         ))
 
     bank_hits = sum(marker in low for marker in BANK_MARKERS)
+    if cc_hits < 2 and bank_hits < 3 and ("credit card" in low or MASKED_RUN.search(text)) \
+            and len(_DATED_LINE.findall(text)) >= 3 and len(_AMOUNT.findall(text)) >= 3:
+        # a card's transactions exported from the bank's site ("Credit Card Transactions", "Card No", a table of
+        # dated amounts): no statement's words, but a card and its transactions
+        issuer, last4 = detect_issuer(text), _card_last4(text)
+        candidates.append(Detection(
+            kind="cc_statement", source=issuer, confidence=0.5, cards=[CardRef(issuer=issuer, last4=last4, network=detect_network(text))] if last4 else [],
+            label=f"{issuer or 'Credit card'} transactions" + (f" ••{last4}" if last4 else ""), period=_period(text),
+        ))
     if bank_hits >= 3:
         issuer = detect_issuer(text)
         candidates.append(Detection(kind="bank_statement", source=issuer, confidence=min(0.15 * bank_hits, 0.8),

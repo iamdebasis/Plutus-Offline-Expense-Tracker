@@ -25,6 +25,13 @@ class ParseResult:
     notes: list[str] = field(default_factory=list)
     # A credit card statement's own figures (period, totals) and whether its rows add up to them
     statement: CardStatement | None = None
+    # A file holding several statements (a year's download): the others after the first, each with its own figures.
+    # A statement on hold keeps its rows in its own `held`; `transactions` are only the rows that are counted.
+    more_statements: list[CardStatement] = field(default_factory=list)
+
+    @property
+    def statements(self) -> list[CardStatement]:
+        return ([self.statement] if self.statement else []) + self.more_statements
 
 
 def money(raw: str) -> float | None:

@@ -48,12 +48,19 @@ else
   missing=1
 fi
 
-# Optional: the local AI. Plutus works without it; see "Local AI" in the README.
-ollama=$(command -v ollama 2>/dev/null || ls /Applications/Ollama.app/Contents/Resources/ollama 2>/dev/null || true)
-if [ -n "$ollama" ]; then
-  row "✓" "Ollama (optional local AI)" "found"
+# Optional: the local AI. Plutus works without it. What suits this Mac and the steps to get it (Plutus never
+# downloads or installs anything itself: you run the steps); the same advice as Local AI in the app.
+advice=""
+[ -n "$py" ] && advice=$("$py" "$(dirname "$0")/../backend/app/llm/advice.py" 2>/dev/null)
+if [ -n "$advice" ]; then
+  echo "$advice"
 else
-  row "–" "Ollama (optional local AI)" "not installed: fine. Without it, new payees wait for you in \"Needs your eyes\"."
+  ollama=$(command -v ollama 2>/dev/null || ls /Applications/Ollama.app/Contents/Resources/ollama 2>/dev/null || true)
+  if [ -n "$ollama" ]; then
+    row "✓" "Ollama (optional local AI)" "found"
+  else
+    row "–" "Ollama (optional local AI)" "not installed: fine. Without it, new payees wait for you in \"Needs your eyes\"."
+  fi
 fi
 
 if [ "$missing" = 1 ]; then

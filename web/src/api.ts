@@ -1,4 +1,4 @@
-import type { CardPayment, CardStatement, CategoryNode, DeclaredKind, Instrument, LlmStatus, OwnAccount, Preferences, StorageInfo, Transaction, UploadRecord } from './types'
+import type { AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, StorageInfo, Transaction, UploadRecord } from './types'
 
 export class ApiError extends Error {
   readonly code: string | undefined
@@ -24,7 +24,27 @@ export const api = {
   reimport: (id: string) => request<UploadRecord>(`/api/uploads/${id}/reimport`, { method: 'POST' }),
   instruments: () => request<Instrument[]>('/api/instruments'),
   cardArt: () => request<string[]>('/api/card-art'),
+  /** The file as you added it, for showing a page of it on this Mac. */
+  uploadFile: (id: string) => `/api/uploads/${encodeURIComponent(id)}/file`,
+  correctHeld: (id: string, rows: HeldRow[]) =>
+    request<CardStatement>(`/api/card-statements/${encodeURIComponent(id)}/held`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rows),
+    }),
+  confirmHeld: (id: string) => request<CardStatement>(`/api/card-statements/${encodeURIComponent(id)}/confirm`, { method: 'POST' }),
   llmStatus: () => request<LlmStatus>('/api/llm/status'),
+  /** The Local AI panel: this Mac, Ollama, what's downloaded, and the steps to what suits it. */
+  aiSetup: () => request<AiSetup>('/api/llm/setup'),
+  /** Use this downloaded model from now on; null lets Plutus pick the best one for this Mac again. */
+  chooseModel: (model: string | null) =>
+    request<AiSetup>('/api/llm/model', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
+    }),
+  /** The one-time hint about the local AI was answered: it doesn't show again. */
+  aiHintSeen: () => request<void>('/api/llm/hint-seen', { method: 'POST' }),
   deleteUpload: (id: string) => request<void>(`/api/uploads/${id}`, { method: 'DELETE' }),
   setCardNetwork: (id: string, network: string | null) =>
     request<Instrument>(`/api/instruments/${id}`, {
@@ -45,6 +65,21 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payees, category }),
+    }),
+  /** Payments you ticked, one by one: each takes the category as if set alone; their payee learns nothing (one payee
+   *  can stand for several kinds of bill). `before` is how they were, for undoPayments. */
+  categorizePayments: (transactionIds: string[], category: string) =>
+    request<{ updated: number; before: PaymentState[] }>('/api/categorize/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionIds, category }),
+    }),
+  /** Puts payments back exactly as they were before categorizePayments. */
+  undoPayments: (before: PaymentState[]) =>
+    request<{ updated: number }>('/api/categorize/payments/undo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(before),
     }),
   /** Many payees at once, e.g. the whole review list. */
   categorizeBulk: (items: { payee: string; category: string; label?: string }[]) =>

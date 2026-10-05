@@ -1,7 +1,7 @@
 PY := backend/.venv/bin/python
 
 .DEFAULT_GOAL := help
-.PHONY: help check setup ready dev start demo screenshots build test llm-check redact inspect inspect-takeout
+.PHONY: help check setup ready dev start demo screenshots build test measure llm-check redact inspect inspect-takeout
 
 help:             ## this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/^([a-z-]+):[^#]*## /  make \1\t/' | expand -t 24
@@ -40,6 +40,9 @@ test: ready       ## backend tests (no network allowed) + the dashboard's money 
 	cd backend && .venv/bin/python -m pytest -q
 	cd web && pnpm test
 	cd web && pnpm typecheck
+
+measure: ready   ## the card statement readers on 1000 random fake statements: none wrong, none unread (see docs/READERS.md)
+	cd backend && .venv/bin/python -m tests.measure_readers 1000
 
 llm-check: ready  ## optional local AI: start Ollama, ask a few test questions, stop it again
 	$(PY) -m app.llm --prompt

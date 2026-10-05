@@ -9,7 +9,7 @@ set -euo pipefail
 blocked=$(git diff --cached --name-only --diff-filter=ACMR | grep -E \
   -e '^(data|samples)/' \
   -e '\.(pdf|zip|csv|tsv|xls|xlsx|ods|heic|heif|ofx|qif)$' \
-  -e '^(.*/)?(payees|merchant_memory|uploads|instruments|card_payments|card_networks|card_statements|accounts|settings|state)\.json$' \
+  -e '^(.*/)?(payees|merchant_memory|uploads|instruments|card_payments|card_networks|card_statements|accounts|settings|state|statement_ai)\.json$' \
   | grep -vE '^web/public/' || true)
 photos=$(git diff --cached --name-only --diff-filter=ACMR | grep -iE '\.(png|jpe?g|webp|gif)$' | grep -vE '^(web/public/brand|docs/screenshots)/' || true)
 

@@ -144,11 +144,11 @@ def test_page_headings_and_reward_tables_are_not_rows(tmp_path):
         assert "CARDHOLDER" not in notes and "Page" not in notes and "Earned" not in notes
 
 
-def test_rows_that_dont_add_up_are_imported_with_a_warning(tmp_path):
+def test_rows_that_dont_add_up_are_held_with_a_warning(tmp_path):
     result = _read(tmp_path, "axis", tamper=True)
     assert (result.statement.check, result.statement.difference) == ("mismatch", 100.00)
     assert any("₹100.00 apart" in w for w in result.warnings)
-    assert len(result.transactions) == len(fake_cards.ROWS)  # still imported
+    assert result.transactions == [] and len(result.statement.held) == len(fake_cards.ROWS)  # held for you, not counted
 
 
 def test_a_row_the_reader_missed_is_named_where_you_can_see_it(tmp_path):
@@ -423,6 +423,8 @@ def test_make_inspect_shows_the_layout_and_nothing_of_yours(tmp_path, capsys, la
     # the tool's own counts and positions aren't the statement's; everything else must be masked to 9s
     counts = (r"\bp\d+ y\s*\d+|\bx\s*\d+|\by\s*\d+\b|\d+ lines?|\d+ page|first \d+|chars on first pages \[[\d, ]+\]|pages\s*: \d+|"
               r"page \d+ spans: \d+|images: \d+|\(\d\.\d\d\)|cards: \d|rows read: \d+|headers found\s*: \d+|on page [\d, ]+|"
-              r"date: \d+|amount: \d+|not read: \d+|recognised=\d+|\(NAME 1234\)=\d+|': \d+|of page \d+")
+              r"date: \d+|amount: \d+|not read: \d+|recognised=\d+|\(NAME 1234\)=\d+|': \d+|of page \d+|"
+              r"statements in this file: \d+|statement \d+|\d+ rows|(?:amount|balance|debit|credit)@\d+|by their shape: \d+|"
+              r"line up at x [\d, ]+|pages \d+–\d+")
     left = regex.findall(r".{0,30}[0-8].{0,10}", regex.sub(counts, "", out))
     assert not left, left
