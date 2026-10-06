@@ -143,7 +143,7 @@ the billing step places each card bill in the cycle it paid for.
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS 4, Motion, Lucide, pdf.js |
 | **Local AI** (optional) | Ollama with a model that suits your Mac (Plutus suggests one: `qwen3.5:4b` for 16 GB), on `127.0.0.1` only |
 | **Storage** | JSON files in `data/`, written atomically |
-| **Tests** | pytest (228 tests), Node's built-in test runner for the dashboard's arithmetic, `tsc` |
+| **Tests** | pytest with the network blocked, Node's built-in test runner for the dashboard's arithmetic, `tsc` |
 
 ```
 backend/app/
@@ -159,15 +159,28 @@ backend/tests/     tests, with fake statements generated in code
 web/src/
   lib/             the dashboard's arithmetic, tested in web/tests/
   components/      dashboard sections, charts, card faces
-docs/              the guide and these screenshots
+docs/              the guide, the architecture map, decisions, roadmap, the readers' guide, these screenshots
 scripts/           requirements check, dev server, commit guard, screenshots
 ```
+
+## Working on Plutus
+
+Whether you change Plutus yourself or with an AI agent (Claude Code, Codex, Cursor, Copilot, Gemini CLI, Aider, a
+local model), start with [AGENTS.md](AGENTS.md): the four core values, the rules that keep a user's data on their Mac,
+and how to work on it. Most agents read it on their own; `CLAUDE.md` and `GEMINI.md` point to it.
+
+- [Architecture](docs/ARCHITECTURE.md): the system map: how a file becomes numbers, every module, route and data
+  file, the invariants, and how to add a feature.
+- [Decisions](docs/DECISIONS.md): why Plutus is built the way it is.
+- [Roadmap](docs/ROADMAP.md): what's been discussed but not built, and the known limits.
+
+A test keeps the map complete: a new module, route or data file fails `make test` until it has its line.
 
 ## Status
 
 Plutus is a personal project, in daily use. It runs on macOS only, because it relies on Apple's on-device OCR; the
 rest is portable Python and TypeScript. Possible next steps: a reader for Google Pay's PDF statement, other UPI apps'
-screenshots without the AI, and an OCR engine for Linux.
+screenshots without the AI, and an OCR engine for Linux; the [roadmap](docs/ROADMAP.md) has these and more.
 
 ## License
 
