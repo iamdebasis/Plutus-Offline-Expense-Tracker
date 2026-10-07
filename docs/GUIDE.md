@@ -149,9 +149,17 @@ their line's end, since lines can cross anywhere and more colours would be too c
   transactions list says which card it paid. The bill is counted once, in the Credit cards section.
   In the transactions list every card bill payment, either side of it, is marked **Bill paid**, its amount grey: it's
   neither money in nor spending (the tag is green on the card's side, where the payment comes in, like every row where
-  money comes in: Refund, Cashback, Received, Transfer in). Filing one as something else (a payment through CRED that was really rent, say) asks
-  first, the row on its own or among ticked payments ("Leave it out" changes the rest), because it would then count;
-  moving it to Ignored doesn't ask. The ticked payments' total leaves card bills out.
+  money comes in: Refund, Cashback, Received, Transfer in).
+  **One payment, one row**: a bill you paid from your account (to CRED, or straight to the card's biller) and the
+  statement's "PAYMENT RECEIVED" for it are the same money, so the list shows it once, on the side you paid from,
+  marked **+ Statement** (hover it for the statement and its date). Its second line says whose bill it was, and "via
+  CRED" with what CRED rewards paid when it went through CRED. Pick **Cards** and the statement's side shows on its own,
+  saying where it was paid from. A payment straight to the biller is matched to the statement's only when nothing else
+  could be it: the same amount, posted within five days after. A file's own rows (*Show these rows*) and an answer's
+  payments are shown as they are.
+  Filing one as something else (a payment through CRED that was really rent, say) asks first, the row on its own or
+  among ticked payments ("Leave it out" changes the rest), because it would then count; both sides of the payment
+  change together. Moving it to Ignored doesn't ask. The ticked payments' total leaves card bills out.
 - **Investments** (SIPs, brokers, mutual funds): the **Count investments** switch next to the years decides. Off
   (the default, for when you track investments elsewhere) leaves them out of everything: every total, chart, list,
   the transactions table and "Needs your eyes", with refunds of them too; the bar under the years says how much

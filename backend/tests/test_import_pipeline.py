@@ -203,3 +203,24 @@ def test_placing_the_bills_again_rewrites_nothing(client, tmp_path, monkeypatch)
     ledger.place_cards()
     ledger.place_cards()
     assert "card_payments.json" not in writes
+
+
+def test_a_bill_paid_straight_to_the_card_is_one_payment(client, tmp_path):
+    """Paid to the card's biller in a UPI app, no CRED: the UPI payment and the statement's "PAYMENT RECEIVED" point to
+    the same bill, and stay so in the saved ledger."""
+    from datetime import datetime
+
+    from app import ledger
+    from app.models import SourceRef, Transaction
+    from app.parsers import IST
+    from tests import fake_cards
+
+    ledger.upsert_transactions([Transaction(
+        id="upi-bill", at=datetime(2026, 8, 20, 10, 0, tzinfo=IST), amount=9000.0, direction="debit", channel="upi",
+        app="phonepe", payee="FAKE BANK CREDIT CARD", paid_from="XX4141", refs={"utr": "900000000777"},
+        sources=[SourceRef(upload="u_upi")])])
+    _wait(client, _upload(client, fake_cards.axis(tmp_path / "axis.pdf")))
+    txns = {t["id"]: t for t in client.get("/api/transactions").json()}
+    row = next(t for t in txns.values() if t["kind"] == "bill_payment" and "cardRow" in t["refs"])
+    assert txns["upi-bill"]["settles"] == row["settles"] == f"bill-{row['id']}"
+    assert [b["id"] for b in client.get("/api/card-payments").json()] == [row["settles"]]

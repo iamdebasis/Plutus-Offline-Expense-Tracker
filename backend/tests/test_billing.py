@@ -224,9 +224,68 @@ def test_a_statements_bill_is_placed_like_any_other():
     assert (app.pays_to, rest.pays_to, app.estimate + rest.estimate) == (date(2026, 8, 12), date(2026, 8, 12), 9000.0)
 
 
-def test_only_the_apps_bills_are_linked_to_payments_to_cred():
-    """A UPI payment to CRED is linked to the bill in your CRED history; a statement's bill isn't one to link to."""
-    to_cred = _on_upi(9000.0, _day(2026, 8, 22), payee="CRED", paid_from="XX4141", category="transfers.card_bill")
-    [from_statement] = billing.statement_bills([_paid_row(9000.0, to_cred.at)], [], [_fake_card()])
-    categorize.link_card_bills([to_cred], [from_statement])
-    assert to_cred.settles is None
+def test_a_payment_to_cred_without_its_record_is_the_payment_the_statement_shows():
+    """Before your CRED history is added, a UPI payment to CRED is the payment the statement shows it received (the same
+    amount, posted after it); the CRED record, once added, is the bill they both point to."""
+    to_cred = _paid_to("CRED", 9000.0, _day(2026, 8, 20))
+    row = _paid_row(9000.0, _day(2026, 8, 22))
+    [from_statement] = billing.statement_bills([to_cred, row], [], [_fake_card()])
+    categorize.link_card_bills([to_cred, row], [from_statement])
+    assert to_cred.settles == row.settles == from_statement.id
+    cred = _bill("b1", to_cred.at, 9000.0)
+    bills = [cred, *billing.statement_bills([to_cred, row], [cred], [_fake_card()])]
+    categorize.link_card_bills([to_cred, row], bills)
+    assert (len(bills), to_cred.settles, row.settles) == (1, "b1", "b1")
+
+
+# ---- one payment, one row: each side of a bill points to it ---------------------------------------------------
+
+
+def _paid_to(payee: str, amount: float, at: datetime, n: int = 1) -> Transaction:
+    """A UPI payment from your bank account to pay a card: to CRED, or to the card's biller."""
+    return _on_upi(amount, at, mask="XX4141", n=n, payee=payee, kind="bill_payment", category="transfers.card_bill")
+
+
+def test_each_side_of_a_bill_points_to_it():
+    """Paid in CRED with PhonePe: the UPI payment, CRED's record and the statement's "PAYMENT RECEIVED" are one payment;
+    the UPI payment and the statement's row both point to CRED's bill."""
+    cred = _bill("b1", datetime(2026, 8, 20, 21, 0, tzinfo=IST), 9000.0)
+    upi = _paid_to("CRED Club", 9000.0, cred.at)
+    row = _paid_row(9000.0, _day(2026, 8, 22))
+    assert billing.statement_bills([upi, row], [cred], [_fake_card()]) == []
+    categorize.link_card_bills([upi, row], [cred])
+    assert (upi.settles, row.settles) == ("b1", "b1")
+
+
+def test_a_bill_paid_straight_to_the_card_is_the_payment_its_statement_shows():
+    """Paid to the card's biller in a UPI app, no CRED: the statement's row is the bill, and the UPI payment of the same
+    amount, posted a few days after, points to it."""
+    upi = _paid_to("FAKE BANK CREDIT CARD", 9000.0, _day(2026, 8, 20))
+    row = _paid_row(9000.0, _day(2026, 8, 22))
+    bills = billing.statement_bills([upi, row], [], [_fake_card()])
+    categorize.link_card_bills([upi, row], bills)
+    assert (row.settles, upi.settles) == (bills[0].id, bills[0].id)
+
+
+def test_a_payment_is_linked_only_when_it_can_only_be_that_bill():
+    """Another amount, posted before it was paid or long after, or two of the same amount that could be either: not
+    linked, rather than linked wrong."""
+    for upi, rows in [
+        (_paid_to("FAKE BANK CREDIT CARD", 8999.0, _day(2026, 8, 20)), [_paid_row(9000.0, _day(2026, 8, 22))]),
+        (_paid_to("FAKE BANK CREDIT CARD", 9000.0, _day(2026, 8, 24)), [_paid_row(9000.0, _day(2026, 8, 22))]),
+        (_paid_to("FAKE BANK CREDIT CARD", 9000.0, _day(2026, 8, 10)), [_paid_row(9000.0, _day(2026, 8, 22))]),
+        (_paid_to("FAKE BANK CREDIT CARD", 9000.0, _day(2026, 8, 20)),
+         [_paid_row(9000.0, _day(2026, 8, 21)), _paid_row(9000.0, _day(2026, 8, 22), n=2, card="card-other-2222")]),
+    ]:
+        cards = [_fake_card(), _card("card-other-2222", "2222")]
+        categorize.link_card_bills([upi, *rows], billing.statement_bills([upi, *rows], [], cards))
+        assert upi.settles is None, (upi.amount, upi.at, [r.at for r in rows])
+
+
+def test_a_row_stops_pointing_to_a_bill_when_it_stops_being_one():
+    row = _paid_row(9000.0, _day(2026, 8, 22))
+    billing.statement_bills([row], [], [_fake_card()])
+    assert row.settles == f"bill-{row.id}"
+    row.category = "income.refund"  # you re-filed it: it wasn't a payment to the card
+    billing.statement_bills([row], [], [_fake_card()])
+    assert row.settles is None

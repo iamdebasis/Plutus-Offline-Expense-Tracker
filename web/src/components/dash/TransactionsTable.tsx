@@ -2,7 +2,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { AlertCircle, Check, CornerDownRight, Search, Sparkles, Undo2, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
-import { NO_NAME, countsAs, isCardBill, isIgnored, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
+import { cardName } from '../../lib/cards'
+import { NO_NAME, billNote, billSides, cardSide, countsAs, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
 import { plural } from '../../lib/format'
 import { inrExact } from '../../lib/money'
 import { dayLabel, timeLabel } from '../../lib/periods'
@@ -69,7 +70,7 @@ export function TransactionsTable({
   everything?: Transaction[]
   cards?: Instrument[]
   accounts?: OwnAccount[]
-  /** Card bills from CRED, to say which card a UPI payment to CRED paid. */
+  /** Card bills (from CRED, or a statement's own payment row), to say what each side of a bill payment is. */
   payments: CardPayment[]
   tree: CategoryNode[]
   category: string | null
@@ -80,12 +81,20 @@ export function TransactionsTable({
   notify: (text: string) => void
 }) {
   const bills = useMemo(() => new Map(payments.map((p) => [p.id, p])), [payments])
-  const detail = (t: Transaction) => {
-    const bill = t.settles ? bills.get(t.settles) : undefined
-    if (!bill) return t.payeeHandle ?? (t.note && t.note !== t.payee ? t.note : '') // a card's own wording, when it says more
-    const rewards = bill.amount - t.amount // what CRED coins or cashback paid
-    return `Bill for ${bill.cardTitle}, via CRED${rewards >= 0.01 ? ` · ${inrExact(rewards)} covered by CRED rewards` : ''}`
+  // one payment, one row: the sides of a card bill payment (the UPI payment, the statement's "PAYMENT RECEIVED") are
+  // shown once, and changed together
+  const sides = useMemo(() => billSides(everything), [everything])
+  const sidesOf = (t: Transaction) => (t.settles && sides.get(t.settles)) || [t]
+  const names = {
+    card: (id: string) => {
+      const c = cards.find((c) => c.id === id)
+      return c ? cardName(c) : (bills.get(id)?.cardTitle ?? 'your card')
+    },
+    paidFrom: (t: Transaction) => paidFromLabel(t, cards, accounts).title,
   }
+  const detail = (t: Transaction) =>
+    billNote(t, t.settles ? bills.get(t.settles) : undefined, sides, names) ??
+    (t.payeeHandle ?? (t.note && t.note !== t.payee ? t.note : '')) // a card's own wording, when it says more
   const [query, setQuery] = useState('')
   const [onlyReview, setOnlyReview] = useState(false)
   const [showIgnored, setShowIgnored] = useState(false)
@@ -121,8 +130,9 @@ export function TransactionsTable({
       .filter((t) => showIgnored || category === 'ignored' || !isIgnored(t))
       .filter((t) => !q || t.payee.toLowerCase().includes(q) || (t.payeeHandle ?? '').toLowerCase().includes(q) || String(t.amount).includes(q))
     if (held && !out.some((t) => t.id === held.id)) out.push(txns.find((t) => t.id === held.id) ?? held)
-    return out.sort((a, b) => b.at.localeCompare(a.at))
-  }, [txns, everything, file, source, category, onlyReview, showIgnored, query, held])
+    // a file's own rows, or an answer's exact payments, are shown as they are; otherwise each payment once
+    return (file ? out : oneRowPerPayment(out, sides)).sort((a, b) => b.at.localeCompare(a.at))
+  }, [txns, everything, file, source, category, onlyReview, showIgnored, query, held, sides])
 
   const leavesView = (id: string) => leftOut.includes(topOf(id))
 
@@ -155,14 +165,16 @@ export function TransactionsTable({
       return
     }
     const skip = new Set(choice === 'skipBills' ? tickedBills.map((t) => t.id) : [])
-    const ids = [...ticked].filter((id) => !skip.has(id))
+    const picked = rows.filter((t) => ticked.has(t.id) && !skip.has(t.id))
     setWarnBills(false)
-    if (!ids.length) return
+    if (!picked.length) return
     setBulk({ state: 'saving', text: 'Saving…' })
     try {
+      // a bill payment's every side goes with it (one payment, one row)
+      const ids = [...new Set(picked.flatMap((t) => sidesOf(t).map((s) => s.id)))]
       const res = await api.categorizePayments(ids, target)
       const gone = leavesView(target) ? ', now left out of the dashboard' : ''
-      setBulk({ state: 'done', text: `${plural(res.updated, 'payment')} → ${labelOf(tree, target)}${gone}`, before: res.before })
+      setBulk({ state: 'done', text: `${plural(picked.length, 'payment')} → ${labelOf(tree, target)}${gone}`, before: res.before })
       setTicked(new Set())
       setLastTicked(null)
       setTarget('')
@@ -206,6 +218,13 @@ export function TransactionsTable({
   }
 
   const fileOne = async (t: Transaction, next: string) => {
+    if (sidesOf(t).length > 1) {
+      // one payment seen from both sides (your account's, the card's): both take the category
+      await api.categorizePayments(sidesOf(t).map((s) => s.id), next)
+      setOffer(null)
+      onChanged()
+      return
+    }
     const res = await api.categorize({ transactionId: t.id, category: next })
     const names = (res.related ?? []).map((n) => ({ payee: n.payee, pending: n.count - n.already, ticked: true })).filter((n) => n.pending > 0)
     const account = res.account && typeof res.account === 'object' ? res.account.last4 : undefined
@@ -453,10 +472,11 @@ export function TransactionsTable({
                       </span>
                     )}
                     {tag(t)}
+                    {statementChip(cardSide(t, sides), names.card)}
                     {t.needsReview && <AlertCircle aria-label="Needs review" className="size-3.5 shrink-0 text-[var(--color-status-warning)]" />}
                     {t.categorizedBy === 'llm' && <Sparkles aria-label="Categorised by the local AI" className="size-3.5 shrink-0 text-zinc-500" />}
                   </div>
-                  {detail(t) && <div className="truncate text-xs text-zinc-500">{detail(t)}</div>}
+                  {detail(t) && <div className="truncate text-xs text-zinc-500" title={detail(t) || undefined}>{detail(t)}</div>}
                 </td>
                 <td className="py-2 pr-4">
                   <div className="w-44">
@@ -628,6 +648,20 @@ function OfferRow({
 
 /** A category's name as the dropdown shows it: a top-level category with sub-categories reads "Groceries (general)". */
 /** A row's tag (rowTag): green where money comes in, neutral otherwise. */
+/** "+ Statement" on the row of a bill payment whose card's side (the statement's "PAYMENT RECEIVED") is folded into it:
+ *  one payment, shown once. */
+function statementChip(onCard: Transaction | undefined, card: (id: string) => string) {
+  if (!onCard) return null
+  return (
+    <span
+      title={`Also on your ${card(onCard.card ?? '')} statement, ${dayLabel(onCard.at)}: the same payment, shown once`}
+      className="shrink-0 rounded bg-white/[0.06] px-1.5 py-px text-[10px] font-medium tracking-wide whitespace-nowrap text-zinc-400 uppercase"
+    >
+      + Statement
+    </span>
+  )
+}
+
 function tag(t: Transaction) {
   const it = rowTag(t)
   if (!it) return null

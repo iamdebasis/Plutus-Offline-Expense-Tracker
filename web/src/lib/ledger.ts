@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import type { CardPayment, CardStatement, CategoryNode, Instrument, OwnAccount, Preferences, Transaction, UploadRecord } from '../types'
-import { inPeriod, monthKey, monthsOf, yearOf, type PeriodKey } from './periods'
+import { inrExact } from './money'
+import { dayLabel, inPeriod, monthKey, monthsOf, yearOf, type PeriodKey } from './periods'
 
 export interface Category {
   id: string
@@ -113,6 +114,58 @@ export function rowTag(t: Transaction): { text: string; title: string; inward: b
   if (t.kind === 'cashback' || t.category === 'income.cashback') return { text: 'Cashback', title: 'Cashback or a reward, credited to you', inward: true }
   if (t.kind === 'transfer') return { text: 'Transfer in', title: 'Moved in from one of your own accounts: counted nowhere', inward: true }
   return { text: 'Received', title: 'Money sent to you', inward: true }
+}
+
+// ---- one payment, one row ------------------------------------------------------------------------------------
+
+/** The sides of each card bill payment that has more than one: the rows that point to the same bill (`settles`, set
+ *  by the server, backend/app/categorize.py `link_card_bills`), the side you paid from first (the UPI or bank
+ *  payment), then the card's (the statement's "PAYMENT RECEIVED"). Keyed by the bill. */
+export function billSides(txns: Transaction[]): Map<string, Transaction[]> {
+  const groups = new Map<string, Transaction[]>()
+  for (const t of txns) if (t.settles) groups.set(t.settles, [...(groups.get(t.settles) ?? []), t])
+  for (const [bill, sides] of groups) {
+    if (sides.length < 2) groups.delete(bill)
+    else sides.sort((a, b) => (a.direction === b.direction ? a.at.localeCompare(b.at) : a.direction === 'debit' ? -1 : 1))
+  }
+  return groups
+}
+
+/** A list's rows with each bill payment once: a side is folded into its bill's first side when that's in the list
+ *  too. A side shown without it (the other was paid in another year, or is filtered out) stays. */
+export function oneRowPerPayment(rows: Transaction[], sides: Map<string, Transaction[]>): Transaction[] {
+  const shown = new Set(rows.map((t) => t.id))
+  return rows.filter((t) => {
+    const group = t.settles ? sides.get(t.settles) : undefined
+    return !group || group[0].id === t.id || !shown.has(group[0].id)
+  })
+}
+
+/** The card's side of the payment `t` paid (the statement's "PAYMENT RECEIVED"), when `t` is the side you paid from:
+ *  shown on its row as "+ Statement", the same payment shown once. */
+export function cardSide(t: Transaction, sides: Map<string, Transaction[]>): Transaction | undefined {
+  if (t.direction !== 'debit' || !t.settles) return undefined
+  return sides.get(t.settles)?.find((s) => s.direction === 'credit')
+}
+
+/** A bill payment's row in words: whose bill it is and through what (CRED, and what its rewards paid); on the card's
+ *  side, where it was paid from. null when there's nothing to add. */
+export function billNote(t: Transaction, bill: CardPayment | undefined, sides: Map<string, Transaction[]>,
+  names: { card: (id: string) => string; paidFrom: (t: Transaction) => string }): string | null {
+  const others = ((t.settles && sides.get(t.settles)) || []).filter((s) => s.id !== t.id)
+  const viaCred = bill?.origin !== 'statement' && !!bill
+  const parts: string[] = []
+  if (t.direction === 'debit') {
+    if (!bill) return null
+    parts.push(`Bill for ${names.card(bill.card)}${viaCred ? ', via CRED' : ''}`)
+    const rewards = bill.amount - t.amount // what CRED coins or cashback paid
+    if (viaCred && rewards >= 0.01) parts.push(`${inrExact(rewards)} covered by CRED rewards`)
+  } else {
+    const paid = others.find((s) => s.direction === 'debit')
+    if (paid) parts.push(`Paid from ${names.paidFrom(paid)} on ${dayLabel(paid.at)}${viaCred ? ', via CRED' : ''}`)
+    else if (viaCred) parts.push('Paid through CRED')
+  }
+  return parts.length ? parts.join(' · ') : null
 }
 
 const CARD_BILL_TITLE = "A payment to your credit card: not spending, and not money in. The card's purchases are what count."

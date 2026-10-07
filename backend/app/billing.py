@@ -26,7 +26,7 @@ from calendar import monthrange
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-from app.categorize import CARD_BILL_TOLERANCE, statement_bill
+from app.categorize import CARD_BILL_TOLERANCE, POSTED_WITHIN, statement_bill
 from app.models import CardPayment, CardStatement, Instrument, Transaction
 
 # A statement found a day or two off the card's usual billing day (a holiday, a cycle the bank moved) is still it.
@@ -35,8 +35,6 @@ SAME_CYCLE = 3
 GUESS_BILLED_BEFORE = timedelta(days=10)
 
 _ON_CARD = re.compile(r"X{4}(\d{2})")
-# An app records a bill when you pay it; the bank posts it to the card a day or a few later.
-POSTED_WITHIN = timedelta(days=5)
 
 
 def card_for(t: Transaction, cards: list[Instrument]) -> str | None:
@@ -71,18 +69,26 @@ def statement_bills(txns: list[Transaction], app_bills: list[CardPayment], cards
     """Bills paid as your statements list them: each counted statement's (or export's) row for a payment to the card,
     still filed as a card bill, that no app's bill already records. An app's bill is the same payment when it's the
     same card, paid within POSTED_WITHIN before or after, for about the same amount (rewards can pay a little of it);
-    each app bill stands for one row. A held statement's rows aren't in the ledger, so they pay nothing."""
+    each app bill stands for one row. A held statement's rows aren't in the ledger, so they pay nothing. Each row
+    points to the bill it is (`settles`: the app's, or its own); a row that isn't a bill any more, to none. Changes
+    `txns` in place."""
     titles = {c.id: f"{c.issuer or 'Card'} ••{c.last4}" for c in cards}
     free = list(app_bills)
     out = []
     for t in sorted(txns, key=lambda t: t.at):
-        if not (statement_bill(t) and t.category == "transfers.card_bill" and t.card):
+        if not statement_bill(t):
+            continue
+        if not (t.category == "transfers.card_bill" and t.card):
+            t.settles = None
             continue
         same = [b for b in free if b.card == t.card and abs(b.amount - t.amount) <= b.amount * CARD_BILL_TOLERANCE
                 and abs(_day(b.at) - _day(t.at)) <= POSTED_WITHIN]
         if same:
-            free.remove(min(same, key=lambda b: (abs(b.amount - t.amount) > 0.005, abs(_day(b.at) - _day(t.at)))))
+            bill = min(same, key=lambda b: (abs(b.amount - t.amount) > 0.005, abs(_day(b.at) - _day(t.at))))
+            free.remove(bill)
+            t.settles = bill.id
             continue
+        t.settles = f"bill-{t.id}"
         out.append(CardPayment(
             id=f"bill-{t.id}", at=t.at, amount=t.amount, card=t.card, card_title=titles.get(t.card, "Card"),
             refs={"txn": t.id, "cardRow": t.refs["cardRow"]}, source=t.sources[0], origin="statement",

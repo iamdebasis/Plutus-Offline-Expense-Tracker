@@ -158,8 +158,9 @@ class Transaction(Model):
     # For a refund: the payment it gives money back for (its id). Such a refund is filed where that payment
     # is and subtracted from it; one whose payment isn't in the ledger stays under Refunds in money in.
     refund_of: str | None = None
-    # For a UPI payment to CRED or a card biller: the card bill in your CRED history it is (its id). The same
-    # payment seen from the bank account's side; it's counted once, as that card's bill, never as spending.
+    # For a side of a card bill payment: the bill it is (a CardPayment's id). The UPI payment to CRED or a card's
+    # biller (the bank account's side) and the statement's "PAYMENT RECEIVED" (the card's side) of one payment point
+    # to the same bill: counted once, as that card's bill, never as spending, and shown as one payment.
     settles: str | None = None
     # For a row of a credit card statement: the card it was charged to (instrument id), and the bank's own
     # category for it ("RESTAURANTS"), a hint when the merchant isn't known. A RuPay card used on UPI is seen

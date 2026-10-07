@@ -174,6 +174,10 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   Years and colour slots come from the unscoped ledger. Browser storage is only for how panels were left (collapsed,
   ticks), never for choices that change numbers.
 - Rows where money comes in carry a green tag (`rowTag` in `lib/ledger.ts`); a card bill's amount is grey, unsigned.
+- One payment, one row: every side of a card bill payment points to its bill (`settles`: the UPI payment, the
+  statement's "PAYMENT RECEIVED"; set in `categorize.link_card_bills` and `billing.statement_bills` when bills are
+  placed). The transactions list folds them into the side you paid from (`oneRowPerPayment`, "+ Statement"), and a
+  change of category changes every side. A file's own rows and an answer's payments are never folded.
 - Ask Plutus (the gold orb in the dashboard's corner, `components/AskOrb.tsx`): the AI reads the question, Plutus
   computes the answer. Rules in the page (`lib/askRules.ts`) read it into a query; only when they're unsure does the
   local AI (`app/ask.py`, `POST /api/ask`) read it, given the question, today and the category tree, **never a

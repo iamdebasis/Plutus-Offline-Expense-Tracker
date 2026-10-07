@@ -180,3 +180,19 @@ payment count differently by where you read it.
 an app's bill paid more than five days from the bank's posting, for a different amount, would be counted as two.
 **Where**: `app/billing.py` (`statement_bills`), `app/ledger.py` (`_place`, `exclusive`), `app/models.py`
 (`CardPayment.origin`); tests in `tests/test_billing.py` and `tests/test_import_pipeline.py`.
+
+## 20. One payment, one row
+
+**Decision**: every side of a card bill payment points to the bill it is (`Transaction.settles`): the UPI or bank
+payment that paid it (to CRED's record by the same minute and amount; straight to the card's biller, to the payment
+the statement shows, the same amount posted within five days after, and only when nothing else could be it either
+way), and the statement's own "PAYMENT RECEIVED" (to the app's bill it matched, or to its own). The links are made
+whenever bills are placed. The transactions list shows each payment once, on the side you paid from, marked
+"+ Statement"; a change of its category changes every side.
+**Why**: paying a card bill is one movement of money seen from your account and from the card. Shown twice it looked
+like two payments and invited filing them differently; the totals were right, the list wasn't.
+**Costs**: a payment to a biller is linked only when unambiguous, so two equal payments in the same days stay as two
+rows; a payment and its posting in different years show in each year's list on their own (with where the other is).
+**Where**: `app/categorize.py` (`link_card_bills`), `app/billing.py` (`statement_bills`), `app/ledger.py` (`_place`);
+`web/src/lib/ledger.ts` (`billSides`, `oneRowPerPayment`, `billNote`, `cardSide`),
+`components/dash/TransactionsTable.tsx`.

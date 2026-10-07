@@ -196,7 +196,8 @@ export interface Transaction {
   note: string
   /** For a refund: the payment it gives money back for. */
   refundOf?: string | null
-  /** For a UPI payment to CRED: the card bill (in your CRED history) it paid. */
+  /** For a side of a card bill payment (the UPI payment that paid it, the statement's "PAYMENT RECEIVED"): the bill it
+   *  is. Every side of one payment points to the same bill, so it's shown once (lib/ledger.ts, `oneRowPerPayment`). */
   settles?: string | null
   /** For a row of a card statement (or a card used on UPI): the card it was charged to. */
   card?: string | null

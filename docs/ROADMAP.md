@@ -8,29 +8,13 @@ idea must keep the core values in [AGENTS.md](../AGENTS.md); [ARCHITECTURE.md](A
 The owner's list of upgrades, agreed on 7 October 2026. Each has its notes below.
 
 1. ~~Bills paid, from statements~~: done; see [DECISIONS.md](DECISIONS.md) #19.
-2. [One payment, one row](#one-payment-one-row): a card bill's sides shown as one payment.
+2. ~~One payment, one row~~: done; see [DECISIONS.md](DECISIONS.md) #20.
 3. [Seasons in the rules](#seasons-in-the-rules): "last winter", "this monsoon" read without the local AI.
 4. [Measure the suggested local models](#measure-the-suggested-local-models-on-plutuss-own-jobs): needs the model
    downloaded by its owner first; Plutus never downloads one.
 5. [Ask Plutus, next](#ask-plutus-next): why questions, saved chats if wanted, actions from the chat.
 
 ## Discussed, not built
-
-### One payment, one row
-
-Paying a card bill can appear three times: the statement's "PAYMENT RECEIVED", the UPI or bank payment that paid it,
-and the payment app's bill record. Totals are right (none of them counts as spending), but the list shows the same
-money up to three times. Proposal: link the sides (as `link_card_bills` already links a UPI payment to a CRED bill) and
-show them as one payment with its sources. Touches `app/categorize.py`, `app/ledger.py`,
-`components/dash/TransactionsTable.tsx`.
-
-### Measure the suggested local models on Plutus's own jobs
-
-The model suggestion (`app/llm/advice.py`) rests on published benchmarks and sizes, not on Plutus's own tasks. A
-benchmark with fake data only would settle it: payee names with known categories (accuracy, JSON validity, speed),
-generated statements (proven rate, time per part), fake receipts (fields right). Run it on the candidates for each
-memory level, then adjust `SUGGESTED` and the memory levels. Needs the models downloaded by whoever runs it; never by
-Plutus.
 
 ### Seasons in the rules
 

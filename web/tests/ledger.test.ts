@@ -1,7 +1,7 @@
 // How payments are bucketed, placed in months, and told apart by card. Fake data only.
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { bucketOf, cardsOnUpi, countsAs, cycleShares, describeSource, isCardBill, monthShares, rowTag, statementMonths, viewFor } from '../src/lib/ledger'
+import { billNote, billSides, bucketOf, cardSide, cardsOnUpi, countsAs, cycleShares, describeSource, isCardBill, monthShares, oneRowPerPayment, rowTag, statementMonths, viewFor } from '../src/lib/ledger'
 import { inr, inrExact } from '../src/lib/money'
 import type { Transaction } from '../src/types'
 import { bill, card, ledger, statement, txn } from './fixtures'
@@ -115,4 +115,44 @@ test('every row where money comes in has a green tag; of the rows going out, onl
   assert.equal(tagOf({ kind: 'bill_payment', category: 'transfers.card_bill' }), 'Bill paid') // paid from your bank: neutral
   assert.equal(tagOf({}), null) // a purchase
   assert.equal(tagOf({ category: 'transfers.p2p' }), null)
+})
+
+describe('one payment, one row', () => {
+  const CARD = card('fakebank-1141', '1141')
+  const sideOf = (id: string, at: string, over: Partial<Transaction>) =>
+    txn(at, 9000, { id, kind: 'bill_payment', category: 'transfers.card_bill', ...over })
+  const toCred = sideOf('upi', '2026-08-20', { payee: 'CRED Club', settles: 'b1' })
+  const received = sideOf('row', '2026-08-22', { direction: 'credit', channel: 'card', payee: 'PAYMENT RECEIVED - THANK YOU', card: CARD.id, refs: { cardRow: 'x' }, settles: 'b1' })
+  const shop = txn('2026-08-21', 500, { id: 'shop' })
+  const names = { card: () => 'Fake Bank ••1141', paidFrom: () => 'Account ••1111' }
+
+  test('the sides of one bill are one row: the side you paid from, the card’s side folded into it', () => {
+    const sides = billSides([received, shop, toCred])
+    assert.deepEqual(sides.get('b1')?.map((t) => t.id), ['upi', 'row'])
+    assert.deepEqual(oneRowPerPayment([received, shop, toCred], sides).map((t) => t.id), ['shop', 'upi'])
+    // only the card's side in the list (paid in another year, or filtered out): it stays
+    assert.deepEqual(oneRowPerPayment([received, shop], sides).map((t) => t.id), ['row', 'shop'])
+    // a bill with one side, or a payment that isn't a bill: as they are
+    const alone = sideOf('row2', '2026-09-22', { direction: 'credit', channel: 'card', card: CARD.id, refs: { cardRow: 'y' }, settles: 'bill-row2' })
+    assert.deepEqual(oneRowPerPayment([alone, shop], billSides([alone, shop])).map((t) => t.id), ['row2', 'shop'])
+  })
+
+  test('the row says what it stands for: whose bill, through what, and where else it shows', () => {
+    const cred = bill('b1', CARD.id, '2026-08-20', 9000, {})
+    const sides = billSides([toCred, received])
+    assert.equal(billNote(toCred, cred, sides, names), 'Bill for Fake Bank ••1141, via CRED')
+    assert.equal(cardSide(toCred, sides)?.id, 'row') // shown as “+ Statement” on its row
+    assert.equal(cardSide(received, sides), undefined)
+    assert.equal(billNote(received, cred, sides, names), 'Paid from Account ••1111 on 20 Aug 2026, via CRED')
+    assert.equal(billNote(received, cred, billSides([received]), names), 'Paid through CRED')
+    // CRED rewards paid part of it
+    assert.equal(billNote({ ...toCred, amount: 8900 }, cred, billSides([toCred]), names), 'Bill for Fake Bank ••1141, via CRED · ₹100 covered by CRED rewards')
+    // paid straight to the card's biller: the statement's own bill, no CRED
+    const own = bill('bill-row', CARD.id, '2026-08-22', 9000, { origin: 'statement' })
+    const direct = { ...toCred, payee: 'FAKE BANK CREDIT CARD', settles: 'bill-row' }
+    const itsRow = { ...received, settles: 'bill-row' }
+    assert.equal(billNote(direct, own, billSides([direct, itsRow]), names), 'Bill for Fake Bank ••1141')
+    assert.equal(cardSide(direct, billSides([direct, itsRow]))?.id, 'row')
+    assert.equal(billNote(itsRow, own, billSides([itsRow]), names), null) // the statement's row on its own: nothing to add
+  })
 })

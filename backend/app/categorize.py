@@ -58,6 +58,8 @@ REFUND_WINDOW = timedelta(days=180)
 # little less than the bill when CRED rewards (coins, cashback) cover part of it.
 CARD_BILL_WINDOW = timedelta(minutes=15)
 CARD_BILL_TOLERANCE = 0.05
+# An app records a bill when you pay it; the bank posts it to the card a day or a few later.
+POSTED_WITHIN = timedelta(days=5)
 
 
 @dataclass
@@ -422,14 +424,19 @@ def recategorize(txns: list[Transaction], only: set[str] | None = None) -> int:
 
 
 def link_card_bills(txns: list[Transaction], bills: list) -> None:
-    """Paying a card bill in the CRED app with PhonePe shows up twice: a UPI payment to CRED in PhonePe (the
-    bank account it left) and the bill in your CRED history (the card it paid). Link the two, by amount within
-    CARD_BILL_WINDOW, so the UPI side says which card it paid. It's a card bill either way, never spending;
-    the Credit cards section counts the bill once, from CRED. The amounts can differ a little
-    (CARD_BILL_TOLERANCE) when CRED rewards paid part of the bill; an exact amount is preferred.
-    Changes `txns` in place."""
-    free = [b for b in bills if b.origin == "app"]  # a statement's bill is the bank's side of a payment, not CRED's
+    """Each side of a card bill payment points to the bill it is (`settles`), so it's counted once and shown as one
+    payment. Paying in the CRED app with PhonePe shows up as a UPI payment to CRED (the bank account it left) and the
+    bill in your CRED history (the card it paid): linked by amount within CARD_BILL_WINDOW (the amounts can differ a
+    little, CARD_BILL_TOLERANCE, when CRED rewards paid part of it; an exact amount is preferred). Paid straight to the
+    card's biller, with no CRED: the payment the card's statement shows it received, the same amount posted within
+    POSTED_WITHIN after, and only when nothing else could be it either way. The statement's own row is linked when
+    the bills are placed (`billing.statement_bills`). It's a card bill either way, never spending. Changes `txns`
+    in place."""
+    free = [b for b in bills if b.origin == "app"]
+    waiting = []
     for t in sorted(txns, key=lambda t: t.at):
+        if statement_bill(t):
+            continue  # the card's side: linked when the bills are placed
         if t.direction != "debit" or not _CARD_BILL.search(t.payee):
             t.settles = None
             continue
@@ -438,6 +445,14 @@ def link_card_bills(txns: list[Transaction], bills: list) -> None:
         t.settles = bill.id if bill else None
         if bill:
             free.remove(bill)
+        else:
+            waiting.append(t)
+    posted = [b for b in bills if b.origin == "statement"]
+    fits = {t.id: [b for b in posted if abs(b.amount - t.amount) < 1 and timedelta(0) <= b.at.date() - t.at.date() <= POSTED_WITHIN]
+            for t in waiting}
+    for t in waiting:
+        if len(fits[t.id]) == 1 and sum(fits[t.id][0] in candidates for candidates in fits.values()) == 1:
+            t.settles = fits[t.id][0].id
 
 
 def _refund_key(payee: str) -> str:

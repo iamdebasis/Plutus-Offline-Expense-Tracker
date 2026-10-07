@@ -328,21 +328,24 @@ def place_cards() -> None:
 
 def _place(txns: list[Transaction], payments: list[CardPayment]) -> bool:
     """The bills, placed again: the apps' records, and the statements' own payment rows that no app recorded (made
-    again from the ledger each time, so a row re-filed or a file deleted takes its bill with it). Saves the bills when
-    they changed; True when transactions changed (the caller saves those)."""
-    from app import vault
+    again from the ledger each time, so a row re-filed or a file deleted takes its bill with it); and each side of a
+    bill payment pointed to its bill (`settles`). Saves the bills when they changed; True when transactions changed
+    (the caller saves those)."""
+    from app import categorize, vault
 
     in_order = lambda bills: sorted(bills, key=lambda p: (p.at, p.id))  # noqa: E731
     before = [p.model_dump(mode="json") for p in in_order(payments)]
+    links = {t.id: t.settles for t in txns}
     cards = vault.list_instruments()
     changed = billing.assign_cards(txns, cards)
     apps = [p for p in payments if p.origin == "app"]
     bills = in_order(apps + billing.statement_bills(txns, apps, cards))
+    categorize.link_card_bills(txns, bills)  # the UPI side: to CRED's record, or to the payment a statement shows
     billing.place_bills(bills, statements.counted(), txns)  # a statement on hold covers no bill: its rows aren't counted
     after = [p.model_dump(mode="json") for p in bills]
     if after != before:
         _payments().write(after)
-    return changed > 0
+    return changed > 0 or any(t.settles != links[t.id] for t in txns)
 
 
 def update_transactions(changed: list[Transaction]) -> None:
