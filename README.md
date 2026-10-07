@@ -145,7 +145,7 @@ the billing step places each card bill in the cycle it paid for.
 
 ![UPI spends: by category and month, where payments were debited from, and who you paid most](docs/screenshots/upi.png)
 
-![Your transactions: payees waiting for an answer, and every payment with its category and source](docs/screenshots/transactions.png)
+![Your transactions: payees waiting for an answer, and every payment with its category and how it was paid (PhonePe, a card, or a card on UPI)](docs/screenshots/transactions.png)
 
 ![Your vault: every file added, what it was read as, and whether each statement adds up](docs/screenshots/vault.png)
 

@@ -1,7 +1,7 @@
 // How payments are bucketed, placed in months, and told apart by card. Fake data only.
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { billNote, billSides, bucketOf, cardSide, cardsOnUpi, countsAs, cycleShares, describeSource, isCardBill, monthShares, oneRowPerPayment, rowTag, statementMonths, viewFor } from '../src/lib/ledger'
+import { billNote, billSides, bucketOf, cardSide, cardsOnUpi, countsAs, cycleShares, describeSource, howPaid, isCardBill, monthShares, oneRowPerPayment, rowTag, statementMonths, viewFor } from '../src/lib/ledger'
 import { inr, inrExact } from '../src/lib/money'
 import type { Transaction } from '../src/types'
 import { bill, card, ledger, statement, txn } from './fixtures'
@@ -154,5 +154,45 @@ describe('one payment, one row', () => {
     assert.equal(billNote(direct, own, billSides([direct, itsRow]), names), 'Bill for Fake Bank ••1141')
     assert.equal(cardSide(direct, billSides([direct, itsRow]))?.id, 'row')
     assert.equal(billNote(itsRow, own, billSides([itsRow]), names), null) // the statement's row on its own: nothing to add
+  })
+})
+
+describe('how it was paid', () => {
+  const CARD = card('fakebank-1141', '1141')
+  const parts = (over: Partial<Transaction>) => howPaid(txn('2026-08-20', 500, over))?.parts
+  const title = (over: Partial<Transaction>) => howPaid(txn('2026-08-20', 500, over))?.title ?? ''
+
+  test('with the card: its number, or the card through an app', () => {
+    // a card statement's purchase: shop, tap or online, which a statement doesn't say, so it isn't guessed
+    const bought = { channel: 'card' as const, app: null, card: CARD.id, paidFrom: 'XXXX1141' }
+    assert.deepEqual(parts(bought), ['Card'])
+    assert.match(title(bought), /in a shop, tapped, or online/)
+    assert.match(title({ ...bought, direction: 'credit', kind: 'refund' }), /^On your card/)
+    // a RuPay credit card on UPI, in PhonePe: known card, or only its "XXXX41" from the app
+    assert.deepEqual(parts({ channel: 'upi', app: 'phonepe', card: CARD.id }), ['Card', 'PhonePe'])
+    assert.deepEqual(parts({ channel: 'upi', app: 'phonepe', card: null, paidFrom: 'XXXX41' }), ['Card', 'PhonePe'])
+    // a card on UPI only the card's statement shows: the app isn't known
+    assert.deepEqual(parts({ channel: 'upi', app: null, card: CARD.id, paidFrom: 'XXXX1141' }), ['Card', 'UPI'])
+    assert.match(title({ channel: 'upi', app: null, card: CARD.id }), /the app isn't known/)
+    // Google Pay paying with a card (the Play Store and the like)
+    assert.deepEqual(parts({ channel: 'card', app: 'gpay', card: null, paidFrom: 'XXXX1141' }), ['Card', 'GPay'])
+  })
+
+  test('on UPI from your account: the app it was paid in, or just UPI', () => {
+    assert.deepEqual(parts({ app: 'phonepe', paidFrom: 'XX1111' }), ['PhonePe'])
+    assert.deepEqual(parts({ app: 'gpay', paidFrom: 'XX1111' }), ['GPay'])
+    assert.deepEqual(parts({ app: 'paytm', paidFrom: 'XX1111' }), ['Paytm'])
+    assert.deepEqual(parts({ app: null, paidFrom: 'XX1111' }), ['UPI'])
+    assert.deepEqual(parts({ app: 'some-new-app', paidFrom: 'XX1111' }), ['UPI']) // an app Plutus doesn't know isn't named
+    assert.match(title({ app: 'gpay' }), /^Paid on UPI in Google Pay/)
+    assert.match(title({ app: 'phonepe', direction: 'credit', kind: 'income' }), /^Received on UPI in PhonePe/)
+    // an account's last four digits that happen to look like a card's: an account, unless one of your cards has them
+    assert.deepEqual(parts({ app: 'phonepe', card: null, paidFrom: 'XXXX4321' }), ['PhonePe'])
+  })
+
+  test('a PhonePe gift card balance is PhonePe, not UPI; anything else unknown shows nothing', () => {
+    assert.deepEqual(parts({ app: 'phonepe', paidFrom: 'Gift card' }), ['PhonePe'])
+    assert.match(title({ app: 'phonepe', paidFrom: 'Gift card' }), /gift card balance/)
+    assert.equal(howPaid(txn('2026-08-20', 500, { channel: 'other' })), null)
   })
 })

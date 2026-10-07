@@ -186,6 +186,13 @@ their line's end, since lines can cross anywhere and more colours would be too c
 - **Who you paid most** lists people and shops, never card bills: a bill pays your own card, and what the card bought
   is in the Credit cards section.
 
+**Paid with**, in the transactions list, says how each payment was made, as your files show it: **Card** for a
+purchase with the card's number (in a shop, tapped, or online: a statement doesn't say which, so Plutus doesn't
+guess), **PhonePe**, **GPay** or **Paytm** for UPI in that app, **UPI** when the app isn't known, and both for a credit
+card used through an app: **Card · PhonePe** (a RuPay credit card on UPI), **Card · GPay** (a card in Google Pay), or
+**Card · UPI** when only the card's statement shows the payment. Beside it, the account or card it was paid from;
+hover the chip to have it in words.
+
 **Changing categories** in the transactions list:
 
 - **One payment**: its category dropdown. You're then offered to change that payee's other payments too ("Change

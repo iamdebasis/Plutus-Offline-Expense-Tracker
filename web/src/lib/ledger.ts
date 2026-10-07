@@ -510,6 +510,40 @@ export function paidFromLabel(t: Transaction, cards: Instrument[], accounts: Own
   return t.paidFrom ? describeSource(t.paidFrom, cards, accounts) : { title: '—', detail: '' }
 }
 
+/** The UPI apps whose histories Plutus reads (a short name for the chip, the full one for words). */
+const APPS: Record<string, { chip: string; name: string }> = {
+  phonepe: { chip: 'PhonePe', name: 'PhonePe' },
+  gpay: { chip: 'GPay', name: 'Google Pay' },
+  paytm: { chip: 'Paytm', name: 'Paytm' },
+}
+
+/** How a payment was made, for the transactions list's "Paid with": the card's number ("Card"), a UPI app
+ *  ("PhonePe", "GPay", "Paytm", or "UPI" when the app isn't known), or a card through an app ("Card · PhonePe": a
+ *  RuPay credit card on UPI; "Card · GPay": a card in Google Pay). A card is known the way `describeSource` knows it:
+ *  a card's row, a card of yours, or an app's "XXXX99". Only what the files say: a statement doesn't say whether a
+ *  card was tapped, swiped or used online, so none of that is guessed. */
+export function howPaid(t: Transaction): { parts: string[]; title: string } | null {
+  if (t.channel === 'other') return null
+  const app = t.app ? APPS[t.app] : undefined // an app Plutus doesn't know isn't named
+  const received = t.direction === 'credit'
+  if (/^gift card$/i.test(t.paidFrom ?? '')) return { parts: [app?.chip ?? 'PhonePe'], title: 'Paid in PhonePe from your gift card balance' }
+  if (t.channel === 'card') {
+    if (app) return { parts: ['Card', app.chip], title: `${received ? 'Back to your card' : 'Paid with your card'} in ${app.name}` }
+    return received
+      ? { parts: ['Card'], title: 'On your card: money back to it, or a payment to it' }
+      : { parts: ['Card'], title: "Paid with your card's number: in a shop, tapped, or online (the statement doesn't say which)" }
+  }
+  const withCard = !!t.card || /^X{4}\d{2}$/i.test(t.paidFrom ?? '')
+  if (withCard) {
+    return app
+      ? { parts: ['Card', app.chip], title: `${received ? 'Back to your credit card' : 'Paid with your credit card'} on UPI, in ${app.name}` }
+      : { parts: ['Card', 'UPI'], title: `${received ? 'Back to your credit card' : 'Paid with your credit card'} on UPI: your card's statement shows it, the app isn't known` }
+  }
+  return app
+    ? { parts: [app.chip], title: `${received ? 'Received' : 'Paid'} on UPI in ${app.name}` }
+    : { parts: ['UPI'], title: `${received ? 'Received' : 'Paid'} on UPI; the app isn't known` }
+}
+
 /** "XX4321" → Account ••4321, "XXXX99" → Card ••99 (+ which card of yours it is), "XXXX4321" → that card. */
 export function describeSource(mask: string, cards: Instrument[], accounts: OwnAccount[] = []): { title: string; detail: string } {
   if (/^gift card$/i.test(mask)) return { title: 'PhonePe gift card', detail: 'Cashback balance' }

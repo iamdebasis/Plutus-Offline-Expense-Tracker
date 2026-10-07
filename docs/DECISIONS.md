@@ -196,3 +196,19 @@ rows; a payment and its posting in different years show in each year's list on t
 **Where**: `app/categorize.py` (`link_card_bills`), `app/billing.py` (`statement_bills`), `app/ledger.py` (`_place`);
 `web/src/lib/ledger.ts` (`billSides`, `oneRowPerPayment`, `billNote`, `cardSide`),
 `components/dash/TransactionsTable.tsx`.
+
+## 21. How a payment was made: one chip, from what the files say
+
+**Decision**: each row of the transactions list says how the payment was made in one neutral chip in the "Paid with"
+column (right after the payee, before the category: Date, Payee, Paid with, Category, Amount, as the owner set it),
+beside the account or card: **Card** (the card's number), **PhonePe**, **GPay** or **Paytm** (UPI in that
+app), **UPI** (the app isn't known), or a card through an app in one chip of two parts (**Card · PhonePe**, a RuPay
+credit card on UPI; **Card · GPay**; **Card · UPI** when only the card's statement shows it). A card is known the
+way the "Paid from" label knows it; the app is the one whose history the payment came from. Its tooltip says it in
+words.
+**Why**: the owner asked for card, card-on-UPI and each app to be told apart. Kept in its own column, the chips line
+up for scanning and sit with the account they describe; the payee column keeps only status tags (Bill paid, Refund,
++ Statement). No brand colours or logos: the look stays neutral, and the app names only identify where a payment was
+read. Tap, swipe and online aren't told apart because statements don't reliably say which, and Plutus doesn't guess.
+**Where**: `web/src/lib/ledger.ts` (`howPaid`), `components/dash/TransactionsTable.tsx`; tests in
+`web/tests/ledger.test.ts`.

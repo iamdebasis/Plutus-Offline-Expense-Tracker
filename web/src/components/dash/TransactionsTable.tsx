@@ -3,7 +3,7 @@ import { AlertCircle, Check, CornerDownRight, Search, Sparkles, Undo2, X } from 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api'
 import { cardName } from '../../lib/cards'
-import { NO_NAME, billNote, billSides, cardSide, countsAs, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
+import { NO_NAME, billNote, billSides, cardSide, countsAs, howPaid, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
 import { plural } from '../../lib/format'
 import { inrExact } from '../../lib/money'
 import { dayLabel, timeLabel } from '../../lib/periods'
@@ -423,8 +423,8 @@ export function TransactionsTable({
               </th>
               <th className="py-2 pr-4 font-normal">Date</th>
               <th className="py-2 pr-4 font-normal">Payee</th>
+              <th className="py-2 pr-4 font-normal">Paid with</th>
               <th className="py-2 pr-4 font-normal">Category</th>
-              <th className="py-2 pr-4 font-normal">Paid from</th>
               <th className="py-2 text-right font-normal">Amount</th>
             </tr>
           </thead>
@@ -463,14 +463,6 @@ export function TransactionsTable({
                         {t.payee}
                       </span>
                     )}
-                    {t.channel === 'card' && (
-                      <span
-                        title="From a credit card statement"
-                        className="shrink-0 rounded bg-white/[0.06] px-1.5 py-px text-[10px] font-medium tracking-wide text-zinc-400 uppercase"
-                      >
-                        Card
-                      </span>
-                    )}
                     {tag(t)}
                     {statementChip(cardSide(t, sides), names.card)}
                     {t.needsReview && <AlertCircle aria-label="Needs review" className="size-3.5 shrink-0 text-[var(--color-status-warning)]" />}
@@ -478,14 +470,18 @@ export function TransactionsTable({
                   </div>
                   {detail(t) && <div className="truncate text-xs text-zinc-500" title={detail(t) || undefined}>{detail(t)}</div>}
                 </td>
+                <td className="py-2 pr-4 text-xs text-zinc-500">
+                  <div className="flex max-w-60 items-center gap-2">
+                    {methodChip(t)}
+                    {/* a long card name is cut short: the whole of it, and what it is, on hover */}
+                    <span className="min-w-0 truncate" title={[paidFromLabel(t, cards, accounts).title, paidFromLabel(t, cards, accounts).detail].filter(Boolean).join(' · ')}>
+                      {paidFromLabel(t, cards, accounts).title}
+                    </span>
+                  </div>
+                </td>
                 <td className="py-2 pr-4">
                   <div className="w-44">
                     <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
-                  </div>
-                </td>
-                <td className="py-2 pr-4 text-xs text-zinc-500">
-                  <div className="max-w-40 truncate" title={paidFromLabel(t, cards, accounts).detail || undefined}>
-                    {paidFromLabel(t, cards, accounts).title}
                   </div>
                 </td>
                 {/* a card bill is neither money in nor spending: no sign, no colour */}
@@ -648,6 +644,25 @@ function OfferRow({
 
 /** A category's name as the dropdown shows it: a top-level category with sub-categories reads "Groceries (general)". */
 /** A row's tag (rowTag): green where money comes in, neutral otherwise. */
+/** How a payment was made ("Paid with"): one chip, in two parts for a card through an app ("Card · PhonePe"). Its
+ *  tooltip says it in words. */
+function methodChip(t: Transaction) {
+  const how = howPaid(t)
+  if (!how) return null
+  return (
+    <span
+      title={how.title}
+      className="inline-flex shrink-0 items-center rounded bg-white/[0.06] text-[10px] font-medium tracking-wide whitespace-nowrap text-zinc-400 uppercase"
+    >
+      {how.parts.map((part, i) => (
+        <span key={part} className={`px-1.5 py-px ${i ? 'border-l border-white/10' : ''}`}>
+          {part}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 /** "+ Statement" on the row of a bill payment whose card's side (the statement's "PAYMENT RECEIVED") is folded into it:
  *  one payment, shown once. */
 function statementChip(onCard: Transaction | undefined, card: (id: string) => string) {

@@ -316,7 +316,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 
 | File | What it does |
 |---|---|
-| `lib/ledger.ts` | The ledger as the page uses it: buckets, card bills, row tags, one payment one row (a bill's sides folded: `billSides`, `oneRowPerPayment`, `billNote`), the view for a period |
+| `lib/ledger.ts` | The ledger as the page uses it: buckets, card bills, row tags, how each payment was paid (`howPaid`: the list's "Paid with"), one payment one row (a bill's sides folded: `billSides`, `oneRowPerPayment`, `billNote`), the view for a period |
 | `lib/totals.ts` | Total spend for a period, cards and UPI together, counted once; colours fixed per category |
 | `lib/cards.ts` | Spending per card (card-number purchases only); colours per card |
 | `lib/periods.ts` | Calendar years, months, labels |
