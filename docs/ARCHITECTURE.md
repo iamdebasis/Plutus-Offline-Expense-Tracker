@@ -339,7 +339,8 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/storage.ts` | Where files are kept, shared by the components that show it |
 
 **Design**: a neutral dark UI (zinc greys, glass panels, no teal); green only for money coming in; amber for "look at
-this", rose for danger. Charts follow the validated palette in `web/src/index.css` (`--color-series-*`): thin marks,
+this", rose for danger; the transactions list's "Paid with" chips tinted by kind (a card in the palette's blue, UPI in
+its violet). Charts follow the validated palette in `web/src/index.css` (`--color-series-*`): thin marks,
 one filter row, a table view for every chart, and colours that follow the entity (a category's or card's colour is
 fixed from all-time totals, never by rank in a period). Every state has a calm, worded version: empty, busy, error,
 done.

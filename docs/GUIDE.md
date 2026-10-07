@@ -190,8 +190,9 @@ their line's end, since lines can cross anywhere and more colours would be too c
 purchase with the card's number (in a shop, tapped, or online: a statement doesn't say which, so Plutus doesn't
 guess), **PhonePe**, **GPay** or **Paytm** for UPI in that app, **UPI** when the app isn't known, and both for a credit
 card used through an app: **Card · PhonePe** (a RuPay credit card on UPI), **Card · GPay** (a card in Google Pay), or
-**Card · UPI** when only the card's statement shows the payment. Beside it, the account or card it was paid from;
-hover the chip to have it in words.
+**Card · UPI** when only the card's statement shows the payment. A card's chip is blue, UPI's violet; under the
+chips, the account or card it was paid from (hover it for a long name in full, and the chips for all of it in
+words).
 
 **Changing categories** in the transactions list:
 

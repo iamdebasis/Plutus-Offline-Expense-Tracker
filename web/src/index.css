@@ -48,6 +48,19 @@
   }
 }
 
+/* "Paid with" chips (components/dash/TransactionsTable.tsx): a card in the charts' blue, UPI in their violet, the
+   shape of a row's tag; never the green of money in, the amber of "look at this" or the rose of danger */
+@utility chip-card {
+  color: color-mix(in oklab, var(--color-series-1) 50%, white);
+  background: color-mix(in oklab, var(--color-series-1) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-series-1) 40%, transparent);
+}
+@utility chip-upi {
+  color: color-mix(in oklab, var(--color-series-7) 60%, white);
+  background: color-mix(in oklab, var(--color-series-7) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-series-7) 40%, transparent);
+}
+
 @utility text-gradient {
   background: linear-gradient(100deg, #ffe08a 0%, #f7b32d 50%, #e8921a 100%);
   -webkit-background-clip: text;

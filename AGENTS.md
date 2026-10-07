@@ -174,8 +174,9 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   Years and colour slots come from the unscoped ledger. Browser storage is only for how panels were left (collapsed,
   ticks), never for choices that change numbers.
 - Rows where money comes in carry a green tag (`rowTag` in `lib/ledger.ts`); a card bill's amount is grey, unsigned.
-  How a payment was made is one neutral chip in the list's "Paid with" column (`howPaid`): only what the files say
-  (the channel, the app whose history it came from, a card), never a guess (tap, swipe or online).
+  How a payment was made shows in the list's "Paid with" column (`howPaid`): a chip each, a card in blue
+  (`chip-card`), UPI and its apps in violet (`chip-upi`), the account or card below; only what the files say (the
+  channel, the app whose history it came from, a card), never a guess (tap, swipe or online).
 - One payment, one row: every side of a card bill payment points to its bill (`settles`: the UPI payment, the
   statement's "PAYMENT RECEIVED"; set in `categorize.link_card_bills` and `billing.statement_bills` when bills are
   placed). The transactions list folds them into the side you paid from (`oneRowPerPayment`, "+ Statement"), and a

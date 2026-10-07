@@ -197,18 +197,21 @@ rows; a payment and its posting in different years show in each year's list on t
 `web/src/lib/ledger.ts` (`billSides`, `oneRowPerPayment`, `billNote`, `cardSide`),
 `components/dash/TransactionsTable.tsx`.
 
-## 21. How a payment was made: one chip, from what the files say
+## 21. How a payment was made: chips from what the files say
 
-**Decision**: each row of the transactions list says how the payment was made in one neutral chip in the "Paid with"
-column (right after the payee, before the category: Date, Payee, Paid with, Category, Amount, as the owner set it),
-beside the account or card: **Card** (the card's number), **PhonePe**, **GPay** or **Paytm** (UPI in that
-app), **UPI** (the app isn't known), or a card through an app in one chip of two parts (**Card · PhonePe**, a RuPay
-credit card on UPI; **Card · GPay**; **Card · UPI** when only the card's statement shows it). A card is known the
-way the "Paid from" label knows it; the app is the one whose history the payment came from. Its tooltip says it in
-words.
+**Decision**: each row of the transactions list says how the payment was made in the "Paid with" column (right after
+the payee, before the category: Date, Payee, Paid with, Category, Amount, as the owner set it): a chip each on top,
+the account or card on the line below. **Card** (the card's number), **PhonePe**, **GPay** or **Paytm** (UPI in that
+app), **UPI** (the app isn't known); a card through an app is both chips (**Card** **PhonePe**, a RuPay credit card
+on UPI; **Card** **GPay**; **Card** **UPI** when only the card's statement shows it). A card is known the way the
+"Paid from" label knows it; the app is the one whose history the payment came from. The chips' tooltip says it in
+words. They have a row tag's shape, tinted by kind as the owner chose: a card in the charts' blue
+(`--color-series-1`), UPI and its apps in their violet (`--color-series-7`), the text mixed lighter (9:1 and 8:1
+contrast); never green (money in), amber or rose.
 **Why**: the owner asked for card, card-on-UPI and each app to be told apart. Kept in its own column, the chips line
 up for scanning and sit with the account they describe; the payee column keeps only status tags (Bill paid, Refund,
-+ Statement). No brand colours or logos: the look stays neutral, and the app names only identify where a payment was
-read. Tap, swipe and online aren't told apart because statements don't reliably say which, and Plutus doesn't guess.
-**Where**: `web/src/lib/ledger.ts` (`howPaid`), `components/dash/TransactionsTable.tsx`; tests in
-`web/tests/ledger.test.ts`.
++ Statement). Two tints tell a card from UPI at a glance; no brand colours or logos (every UPI app shares one violet),
+and the app names only identify where a payment was read. Tap, swipe and online aren't told apart because statements
+don't reliably say which, and Plutus doesn't guess.
+**Where**: `web/src/lib/ledger.ts` (`howPaid`), `components/dash/TransactionsTable.tsx` (`paidWith`), the
+`chip-card` and `chip-upi` styles in `web/src/index.css`; tests in `web/tests/ledger.test.ts`.

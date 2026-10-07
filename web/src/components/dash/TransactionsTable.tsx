@@ -470,15 +470,7 @@ export function TransactionsTable({
                   </div>
                   {detail(t) && <div className="truncate text-xs text-zinc-500" title={detail(t) || undefined}>{detail(t)}</div>}
                 </td>
-                <td className="py-2 pr-4 text-xs text-zinc-500">
-                  <div className="flex max-w-60 items-center gap-2">
-                    {methodChip(t)}
-                    {/* a long card name is cut short: the whole of it, and what it is, on hover */}
-                    <span className="min-w-0 truncate" title={[paidFromLabel(t, cards, accounts).title, paidFromLabel(t, cards, accounts).detail].filter(Boolean).join(' · ')}>
-                      {paidFromLabel(t, cards, accounts).title}
-                    </span>
-                  </div>
-                </td>
+                <td className="py-2 pr-4">{paidWith(t, paidFromLabel(t, cards, accounts))}</td>
                 <td className="py-2 pr-4">
                   <div className="w-44">
                     <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
@@ -644,22 +636,31 @@ function OfferRow({
 
 /** A category's name as the dropdown shows it: a top-level category with sub-categories reads "Groceries (general)". */
 /** A row's tag (rowTag): green where money comes in, neutral otherwise. */
-/** How a payment was made ("Paid with"): one chip, in two parts for a card through an app ("Card · PhonePe"). Its
- *  tooltip says it in words. */
-function methodChip(t: Transaction) {
+/** "Paid with": how the payment was made, a chip each (a card in blue, UPI and its apps in violet; their tooltip says it
+ *  in words), and under them the account or card it was paid from (the whole of a long name, and what it is, on
+ *  hover). Nothing under them when the file doesn't say where it came from. */
+function paidWith(t: Transaction, from: { title: string; detail: string }) {
   const how = howPaid(t)
-  if (!how) return null
   return (
-    <span
-      title={how.title}
-      className="inline-flex shrink-0 items-center rounded bg-white/[0.06] text-[10px] font-medium tracking-wide whitespace-nowrap text-zinc-400 uppercase"
-    >
-      {how.parts.map((part, i) => (
-        <span key={part} className={`px-1.5 py-px ${i ? 'border-l border-white/10' : ''}`}>
-          {part}
-        </span>
-      ))}
-    </span>
+    <div className="max-w-60">
+      {how && (
+        <div data-how={how.parts.join('|')} title={how.title} className="flex flex-wrap gap-1">
+          {how.parts.map((part) => (
+            <span
+              key={part}
+              className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium tracking-wide whitespace-nowrap uppercase ${part === 'Card' ? 'chip-card' : 'chip-upi'}`}
+            >
+              {part}
+            </span>
+          ))}
+        </div>
+      )}
+      {from.title !== '—' && (
+        <div className="mt-1 truncate text-xs text-zinc-500" title={[from.title, from.detail].filter(Boolean).join(' · ')}>
+          {from.title}
+        </div>
+      )}
+    </div>
   )
 }
 
