@@ -474,3 +474,23 @@ def test_change_all_moves_the_whole_shop_and_remembers_it(fakeclub):
     ledger.upsert_transactions([_pay("Fakeclub1", 300, id="later", at=AT + timedelta(days=30))])
     got = _placed(ledger.load_transactions())
     assert got["later"].category == "groceries"
+
+
+def test_mutual_fund_orders_paid_to_the_clearing_house_are_investments():
+    """Mutual fund orders are paid to ICCL (Indian Clearing Corporation, BSE's clearing house), often with the broker's
+    name glued on: "ICCLGroww", "ICCLZerodha". The broker is recognised through it; ICCL alone, or by its full name, is
+    an investment too. A name that only has those letters in it isn't."""
+    from app.categorize import merchant_name
+
+    assert [merchant_name(n) for n in ("ICCLGroww", "ICCLZerodha", "ICCL Groww", "ICCL-ZERODHA")] == ["Groww", "Zerodha", "Groww", "Zerodha"]
+    assert [merchant_name(n) for n in ("ICCL", "INDIAN CLEARING CORPORATION LTD", "Indian Clearing Corporation Limited")] == ["ICCL"] * 3
+    assert merchant_name("PICCLES CAFE") is None
+    for name in ("ICCLGroww", "ICCL", "INDIAN CLEARING CORPORATION LTD"):
+        assert verdict(name) == ("investments", "dictionary"), name
+
+
+def test_money_back_from_the_clearing_house_comes_off_the_order():
+    """An order that wasn't allotted is paid back: like money back from any known shop, a refund taken off the order."""
+    pay = _pay("ICCLGroww", 5000, at=AT - timedelta(days=1), id="pay")
+    got = _placed([pay, _credit("ICCLGroww", 5000, AT, kind="income", id="back")])
+    assert (got["pay"].category, got["back"].kind, got["back"].refund_of) == ("investments", "refund", "pay")

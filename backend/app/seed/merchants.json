@@ -640,6 +640,11 @@
     "pattern": "\\bmutual fund\\b|\\bbse star mf\\b|\\bcams\\b|\\bkfintech\\b"
   },
   {
+    "name": "ICCL",
+    "category": "investments",
+    "pattern": "\\biccl\\b|\\bindian clearing\\b"
+  },
+  {
     "name": "SBI e-Pay",
     "category": "fees",
     "pattern": "\\bsb ?mops\\b|\\bsbi epay\\b"

@@ -51,7 +51,9 @@ log = logs.get("category")
 #     nothing charged to a card (a RuPay card on UPI included) is taken for a payment to a person.
 # 12: a shop's name glued to a payment gateway is recognised for every known merchant; regional utilities, dairies,
 #     metros and supermarket chains are known across India.
-RULES_VERSION = 12
+# 13: a mutual fund order paid to ICCL (BSE's clearing house) is an investment, the broker's name glued on or not
+#     ("ICCLGroww" is Groww); money back for an order is a refund taken off it, not money in.
+RULES_VERSION = 13
 # How long after a payment its refund can arrive, when there's no shared transaction ID to go by.
 REFUND_WINDOW = timedelta(days=180)
 # CRED records a bill payment within a minute or two of the UPI payment that funds it. The UPI side can be a
@@ -84,8 +86,9 @@ class Context:
 _LEGAL = re.compile(r"\b(private|pvt|limited|ltd|llp|inc|india|co|company|corporation|corp|the)\b")
 
 
-# Payment gateways a shop's name can arrive glued to ("FakeshopRazorpay", "RAZORPAYFAKESHOP").
-_GATEWAYS = r"razorpay|payu|cashfree|ccavenue|billdesk|juspay|easebuzz|instamojo|paytmpg"
+# What a name can arrive glued to: payment gateways ("FakeshopRazorpay", "RAZORPAYFAKESHOP"), and ICCL, BSE's clearing
+# house, which a broker's mutual fund orders are paid to ("ICCLGroww", "ICCLZerodha").
+_GLUED_ON = r"razorpay|payu|cashfree|ccavenue|billdesk|juspay|easebuzz|instamojo|paytmpg|iccl"
 
 
 def normalize(name: str) -> str:
@@ -93,8 +96,8 @@ def normalize(name: str) -> str:
     'fakeshop razorpay'."""
     s = re.sub(r"['’`]", "", name.lower())
     s = re.sub(r"[^a-z0-9]+", " ", s)
-    s = re.sub(rf"\b([a-z]{{3,}}?)({_GATEWAYS})\b", r"\1 \2", s)  # glued after the name
-    s = re.sub(rf"\b({_GATEWAYS})([a-z]{{3,}})\b", r"\1 \2", s)  # glued before it
+    s = re.sub(rf"\b([a-z]{{3,}}?)({_GLUED_ON})\b", r"\1 \2", s)  # glued after the name
+    s = re.sub(rf"\b({_GLUED_ON})([a-z]{{3,}})\b", r"\1 \2", s)  # glued before it
     s = _LEGAL.sub(" ", s)
     s = re.sub(r"\b[a-z]?\d+[a-z]?\b", " ", s)  # store codes like z583, k226, 5
     return re.sub(r"\s+", " ", s).strip()

@@ -162,7 +162,10 @@ there are many, and **Only** on a chip shows that one alone.
   Filing one as something else (a payment through CRED that was really rent, say) asks first, the row on its own or
   among ticked payments ("Leave it out" changes the rest), because it would then count; both sides of the payment
   change together. Moving it to Ignored doesn't ask. The ticked payments' total leaves card bills out.
-- **Investments** (SIPs, brokers, mutual funds): the **Count investments** switch next to the years decides. Off
+- **Investments** (SIPs, brokers, mutual funds): known by name, a broker's (Zerodha, Groww, Upstox…) or ICCL's, BSE's
+  clearing house that mutual fund orders are paid to, often with the broker's name glued on ("ICCLGroww"); money
+  back for an order that wasn't allotted is a refund taken off it. The **Count investments** switch next to the years
+  decides. Off
   (the default, for when you track investments elsewhere) leaves them out of everything: every total, chart, list,
   the transactions table and "Needs your eyes", with refunds of them too; the bar under the years says how much
   ("Investments: ₹X left out"). Card bills still know about investments paid with a card on UPI and take them off
