@@ -3,15 +3,18 @@
 Where Plutus stands: ideas discussed and designed but not built, and the limits it has today. Pick up from here. Each
 idea must keep the core values in [AGENTS.md](../AGENTS.md); [ARCHITECTURE.md](ARCHITECTURE.md) says where things go.
 
+## Next, in order
+
+The owner's list of upgrades, agreed on 7 October 2026. Each has its notes below.
+
+1. ~~Bills paid, from statements~~: done; see [DECISIONS.md](DECISIONS.md) #19.
+2. [One payment, one row](#one-payment-one-row): a card bill's sides shown as one payment.
+3. [Seasons in the rules](#seasons-in-the-rules): "last winter", "this monsoon" read without the local AI.
+4. [Measure the suggested local models](#measure-the-suggested-local-models-on-plutuss-own-jobs): needs the model
+   downloaded by its owner first; Plutus never downloads one.
+5. [Ask Plutus, next](#ask-plutus-next): why questions, saved chats if wanted, actions from the chat.
+
 ## Discussed, not built
-
-### Bills paid, from statements
-
-The Credit cards section's "bills paid" comes only from a payment app's history (CRED and similar,
-`data/card_payments.json`). Someone who adds only statements sees no bills paid, though every statement lists the
-payment it received. Proposal: count a statement's bill payment row (`categorize.statement_bill`) as a bill paid when
-no payment-app record exists for that card's cycle, matched by card, amount and date, so a payment is never counted
-twice. Touches `app/billing.py`, `web/src/lib/ledger.ts` (`cardBillsPaid`), and the totals' tests.
 
 ### One payment, one row
 
@@ -28,6 +31,15 @@ benchmark with fake data only would settle it: payee names with known categories
 generated statements (proven rate, time per part), fake receipts (fields right). Run it on the candidates for each
 memory level, then adjust `SUGGESTED` and the memory levels. Needs the models downloaded by whoever runs it; never by
 Plutus.
+
+### Seasons in the rules
+
+Ask Plutus reads "last winter", "this monsoon" or "the summer" only with the local AI, and in the measurement it was
+the kind of question the model still got wrong ("What did I spend on cabs last winter?" read as top payees). Proposal:
+India's seasons as periods in `web/src/lib/askRules.ts`, the same as the AI is told in `app/ask.py`: winter November to
+February, summer March to June, monsoon July to September; "last winter" the latest one that has ended, "this
+monsoon" or "the monsoon" the latest one that has begun. A season with a year ("winter 2025": which winter?) stays
+unsure and goes to the AI. Tests in `web/tests/askRules.test.ts`.
 
 ### Ask Plutus, next
 
@@ -60,5 +72,7 @@ steps, each keeping the rule that the AI reads the question and Plutus computes:
   and the AI read the same rows) or confirmed by you; long ones aren't sent to the AI (`UNCHECKED_PARTS`).
 - **Card networks** are rarely printed on statements: the user sets them on the card.
 - **Google Pay** history comes only through Google Takeout.
+- **A bill that isn't a whole bill** (a part payment, an advance), from CRED or a statement, is placed like any bill:
+  it stands for the cycle it's taken to pay.
 - **Ask Plutus**: card spending known only from card bills has no category or payee, so questions about one leave it
   out (and say how much); the rules know English words only, and other languages rely on the local AI.

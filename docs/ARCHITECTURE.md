@@ -55,7 +55,8 @@ flowchart LR
 6. **Categorized** (`app/categorize.py`): your answers first, then rules, the merchant dictionary, earlier AI answers,
    keywords; payee names nothing recognises go to the local AI if one is set up, else to "Needs your eyes".
 7. **Placed**: which card each app payment used and which billing cycle each card bill paid for (`app/billing.py`,
-   run by `ledger.place_cards`).
+   run by `ledger.place_cards`, and again after every edit of the ledger). A bill is an app's record (CRED) or a
+   statement's own payment row that no app recorded.
 8. **Shown**: the page reloads the ledger (`GET /api/transactions`, `/api/card-payments`, `/api/card-statements`) and
    computes every total in the browser (`web/src/lib/`), from the same rows the tests check.
 
@@ -84,7 +85,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 |---|---|
 | `app/storage.py` | Where originals are kept (always `data/uploads/`), the folder for files being received, a warning when the project sits in a cloud-synced folder |
 | `app/vault.py` | Uploaded files and the cards found in them (`data/uploads.json`, `data/instruments.json`) |
-| `app/ledger.py` | Every transaction (`data/ledger/<year>.json`) and card bill payment; deduplication; the ledger's lock (`editing()`, `@exclusive`) so an import and your edits never overwrite each other |
+| `app/ledger.py` | Every transaction (`data/ledger/<year>.json`) and card bill payment; deduplication; the ledger's lock (`editing()`, `@exclusive`) so an import and your edits never overwrite each other, and the bills placed again after an edit |
 | `app/statements.py` | Your card statements (`data/card_statements.json`): period, the bank's figures, proven or held |
 | `app/payees.py` | Your payee table (`data/payees.json`): people you pay and what for |
 | `app/accounts.py` | Your own bank accounts, last four digits only (`data/accounts.json`): transfers between them count nowhere |
@@ -115,7 +116,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | Module | What it does |
 |---|---|
 | `app/categorize.py` | The category of every payment, cheapest and most certain source first (the order is at the top of the file); refunds linked to their payments; the local AI for unknown names |
-| `app/billing.py` | Which card an app's "XXXX99" is; each card bill's cycle; whether a statement covers it; the estimate for a cycle no statement covers |
+| `app/billing.py` | Which card an app's "XXXX99" is; the bills a statement's own payment rows record that no app did (`statement_bills`); each card bill's cycle; whether a statement covers it; the estimate for a cycle no statement covers |
 | `app/seed/` | The same for everyone: `categories.json` (the category tree), `merchants.json` (public merchants), `bank_categories.json` (banks' own labels) |
 
 **The local AI** (optional)
@@ -241,7 +242,7 @@ authoritative list and the only way in.
 | `data/uploads.json` | One record per file you added: hash, what was detected, how reading it went |
 | `data/uploads/` | Your original files, sorted by kind |
 | `data/ledger/` | Every transaction, one file per calendar year |
-| `data/card_payments.json` | Card bill payments (from CRED and similar) and the cycle each paid for |
+| `data/card_payments.json` | Card bill payments (from CRED and similar, or a statement's own payment row that no app recorded) and the cycle each paid for |
 | `data/instruments.json` | Your cards as your files name them: bank, product, last four digits, network |
 | `data/card_networks.json` | The network you set for a card |
 | `data/card_statements.json` | Your card statements: period, the bank's figures, proven or held |

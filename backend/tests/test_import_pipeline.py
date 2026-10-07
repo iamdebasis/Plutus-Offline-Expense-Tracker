@@ -149,3 +149,57 @@ def test_merchant_glued_to_its_payment_gateway():
 
     assert merchant_name("SwiggyRazorpay") == "Swiggy"
     assert merchant_name("WWW SWIGGY COM") == "Swiggy"
+
+
+def test_a_statement_alone_shows_the_bill_it_received(client, tmp_path):
+    """Bills paid, from statements: with no payment app's history, a statement's own "PAYMENT RECEIVED" row is a bill
+    paid. It pays the cycle before the statement, which no statement you added covers, so it stands for that cycle's
+    purchases. It goes when its row is re-filed as something else, and comes back when it's filed back; it goes with
+    its file."""
+    from tests import fake_cards
+
+    upload_id = _upload(client, fake_cards.axis(tmp_path / "axis.pdf"))
+    assert _wait(client, upload_id)["state"] == "done"
+    [bill] = client.get("/api/card-payments").json()
+    assert (bill["origin"], bill["amount"], bill["at"][:10], bill["source"]["upload"]) == ("statement", 9000.0, "2026-08-22", upload_id)
+    assert (bill["paysFrom"], bill["paysTo"], bill["coveredBy"], bill["estimate"]) == ("2026-07-13", "2026-08-12", None, 9000.0)
+
+    row = next(t for t in client.get("/api/transactions").json() if t["kind"] == "bill_payment")
+    assert client.post("/api/categorize", json={"category": "income.refund", "transactionId": row["id"]}).status_code == 200
+    assert client.get("/api/card-payments").json() == []
+    client.post("/api/categorize", json={"category": "transfers.card_bill", "transactionId": row["id"]})
+    assert [b["origin"] for b in client.get("/api/card-payments").json()] == ["statement"]
+
+    client.delete(f"/api/uploads/{upload_id}")
+    assert client.get("/api/card-payments").json() == []
+
+
+def test_a_payment_in_cred_and_on_the_statement_is_one_bill(client, tmp_path):
+    """CRED recorded the payment on the 20th; the bank posted it on the 22nd: one bill, CRED's, whichever came first."""
+    from tests import fake_cards
+
+    statement = _upload(client, fake_cards.axis(tmp_path / "axis.pdf"))
+    _wait(client, statement)
+    assert [b["origin"] for b in client.get("/api/card-payments").json()] == ["statement"]
+    cred = _upload(client, make_cred_pdf(tmp_path / "cred.pdf", [("20 aug 2026", "09:00 PM", "AXIS BANK 3141", "9000.00", "01AAA-1", "CV111")]),
+                   kind="cred_history")
+    assert _wait(client, cred)["state"] == "done"
+    [bill] = client.get("/api/card-payments").json()
+    assert (bill["origin"], bill["amount"]) == ("app", 9000.0)
+    client.delete(f"/api/uploads/{cred}")  # without CRED's record, the statement's row is the bill again
+    assert [b["origin"] for b in client.get("/api/card-payments").json()] == ["statement"]
+
+
+def test_placing_the_bills_again_rewrites_nothing(client, tmp_path, monkeypatch):
+    """Every edit of the ledger places the bills again; when nothing about them changed, their file isn't written."""
+    from app import ledger
+    from app.jsonstore import JsonFile
+    from tests import fake_cards
+
+    _wait(client, _upload(client, fake_cards.axis(tmp_path / "axis.pdf")))
+    writes = []
+    real = JsonFile.write
+    monkeypatch.setattr(JsonFile, "write", lambda self, data: (writes.append(self.path.name), real(self, data))[1])
+    ledger.place_cards()
+    ledger.place_cards()
+    assert "card_payments.json" not in writes

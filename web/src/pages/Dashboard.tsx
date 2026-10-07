@@ -279,7 +279,7 @@ function CreditCards({ data, everything, view, period, onChanged }: { data: Ledg
               ]
                 .filter(Boolean)
                 .join(' · ')
-            : `Nothing on cards ${when} yet.${everPaid ? ` Your CRED history covers ${everPaid}.` : ' Add a card statement or your CRED payment history.'}`
+            : `Nothing on cards ${when} yet.${everPaid ? ` Your card bills cover ${everPaid}.` : ' Add a card statement or your CRED payment history.'}`
         }
       />
 

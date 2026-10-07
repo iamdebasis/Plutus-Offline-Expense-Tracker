@@ -14,6 +14,10 @@ A bill pays for one billing cycle of purchases: the statement it pays.
 The cycle comes from the card's statements when you've added any, since a bank bills a card on the same day each
 month (an export ends whenever it was downloaded, so it says nothing about that); for a card without one, it's
 taken to end about ten days before the card's bills are usually paid.
+
+A bill is read from a payment app's history (CRED and similar), or from a statement: every statement lists the payment
+it received ("PAYMENT RECEIVED"), and that row is a bill paid unless an app recorded the same payment
+(`statement_bills`). Either way it's placed by the same rules.
 """
 
 import math
@@ -22,6 +26,7 @@ from calendar import monthrange
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
+from app.categorize import CARD_BILL_TOLERANCE, statement_bill
 from app.models import CardPayment, CardStatement, Instrument, Transaction
 
 # A statement found a day or two off the card's usual billing day (a holiday, a cycle the bank moved) is still it.
@@ -30,6 +35,8 @@ SAME_CYCLE = 3
 GUESS_BILLED_BEFORE = timedelta(days=10)
 
 _ON_CARD = re.compile(r"X{4}(\d{2})")
+# An app records a bill when you pay it; the bank posts it to the card a day or a few later.
+POSTED_WITHIN = timedelta(days=5)
 
 
 def card_for(t: Transaction, cards: list[Instrument]) -> str | None:
@@ -55,6 +62,32 @@ def assign_cards(txns: list[Transaction], cards: list[Instrument]) -> int:
             t.card = card
             changed += 1
     return changed
+
+
+# ---- bills paid, as statements list them ----------------------------------------------------------------------
+
+
+def statement_bills(txns: list[Transaction], app_bills: list[CardPayment], cards: list[Instrument]) -> list[CardPayment]:
+    """Bills paid as your statements list them: each counted statement's (or export's) row for a payment to the card,
+    still filed as a card bill, that no app's bill already records. An app's bill is the same payment when it's the
+    same card, paid within POSTED_WITHIN before or after, for about the same amount (rewards can pay a little of it);
+    each app bill stands for one row. A held statement's rows aren't in the ledger, so they pay nothing."""
+    titles = {c.id: f"{c.issuer or 'Card'} ••{c.last4}" for c in cards}
+    free = list(app_bills)
+    out = []
+    for t in sorted(txns, key=lambda t: t.at):
+        if not (statement_bill(t) and t.category == "transfers.card_bill" and t.card):
+            continue
+        same = [b for b in free if b.card == t.card and abs(b.amount - t.amount) <= b.amount * CARD_BILL_TOLERANCE
+                and abs(_day(b.at) - _day(t.at)) <= POSTED_WITHIN]
+        if same:
+            free.remove(min(same, key=lambda b: (abs(b.amount - t.amount) > 0.005, abs(_day(b.at) - _day(t.at)))))
+            continue
+        out.append(CardPayment(
+            id=f"bill-{t.id}", at=t.at, amount=t.amount, card=t.card, card_title=titles.get(t.card, "Card"),
+            refs={"txn": t.id, "cardRow": t.refs["cardRow"]}, source=t.sources[0], origin="statement",
+        ))
+    return out
 
 
 # ---- billing cycles ------------------------------------------------------------------------------------------

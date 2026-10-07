@@ -162,3 +162,21 @@ read waits a few seconds for the AI, or, without it, gets a partial answer marke
 **Where**: `web/src/lib/askRules.ts`, `web/src/lib/ask.ts`, `app/ask.py` (`POST /api/ask`, the answer checked
 against the schema and the category tree), `components/AskPanel.tsx`; parity with the dashboard in
 `web/tests/ask.test.ts`.
+
+## 19. A bill is a bill, whichever file it was read from
+
+**Decision**: a statement's (or bank export's) own row for the payment it received is a card bill paid, placed by the
+same rules as a bill from CRED: covered when you added the statement it pays, else it stands for that cycle's card
+spending, estimated. It's skipped when an app's bill is the same payment (same card, within 5% of the amount, within
+five days: the bank posts a day or a few after the app records it), each app bill standing for one row. Statement bills
+aren't stored as facts of their own but made again whenever bills are placed (`origin: "statement"`), so a row
+re-filed as something else, or a file deleted, takes its bill with it; and the bills are placed again after every edit
+of the ledger (`@ledger.exclusive`), not only after imports.
+**Why**: someone who adds only statements paid their bills too; the statement prints the payment, so the bills paid,
+the Credit cards section and Ask Plutus showed none for no reason, and the cycle before their first statement, which
+that payment pays for, was missing from Total spend. Treating the two sources differently would make the same
+payment count differently by where you read it.
+**Costs**: a payment that isn't a whole bill (a part payment, an advance) is placed like any bill, as a CRED one is;
+an app's bill paid more than five days from the bank's posting, for a different amount, would be counted as two.
+**Where**: `app/billing.py` (`statement_bills`), `app/ledger.py` (`_place`, `exclusive`), `app/models.py`
+(`CardPayment.origin`); tests in `tests/test_billing.py` and `tests/test_import_pipeline.py`.

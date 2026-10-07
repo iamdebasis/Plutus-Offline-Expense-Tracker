@@ -8,9 +8,10 @@ import { monthKey } from './periods'
  *    (RuPay), whichever file they were learned from: an app's history or the card's statement.
  *  - Purchases with a card's number, read from your card statements one by one, in their categories, on the day
  *    you bought.
- *  - Card purchases estimated from the bills you paid (CRED history) that pay no statement you added. A bill also
- *    pays for what you paid with the card on UPI in its cycle, which is counted above already, so that comes off;
- *    what's left counts in the billing cycle the bill paid for (backend/app/billing.py places each bill).
+ *  - Card purchases estimated from the bills you paid (an app's history, or a statement's own payment row) that pay
+ *    no statement you added. A bill also pays for what you paid with the card on UPI in its cycle, which is counted
+ *    above already, so that comes off; what's left counts in the billing cycle the bill paid for
+ *    (backend/app/billing.py places each bill).
  *
  *  Payments to people and anything ignored stay out, as in the UPI section; so do investments when you leave
  *  them out (lib/scope.ts). Those still come off their card's bills when paid with a card on UPI, or they'd be

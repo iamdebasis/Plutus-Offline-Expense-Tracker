@@ -169,7 +169,7 @@ class Transaction(Model):
 
 
 class CardPayment(Model):
-    """A credit card bill payment (from CRED history). Settles card spend; never counted as spend itself."""
+    """A credit card bill payment. Settles card spend; never counted as spend itself."""
 
     id: str
     at: datetime
@@ -178,6 +178,9 @@ class CardPayment(Model):
     card_title: str
     refs: dict[str, str] = {}
     source: SourceRef
+    # Where it was read: a payment app's history (CRED and similar), or a card statement's (or bank export's) own row
+    # for it, when no app recorded that payment (app/billing.py: `statement_bills`, made again whenever bills are placed).
+    origin: Literal["app", "statement"] = "app"
     verified: bool = True  # amount confirmed by two independent readings
     # The card statement this bill pays (its id), when you've added that statement: its purchases are counted
     # one by one, so the bill adds no estimate of its own.

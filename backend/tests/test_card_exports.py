@@ -79,7 +79,8 @@ def test_an_export_and_the_statement_it_overlaps_count_each_purchase_once(client
     cycles the export lists whole covered by it."""
     bill = lambda id, day, amount: CardPayment(id=id, at=datetime(2026, day[0], day[1], 12, tzinfo=IST), amount=amount,  # noqa: E731
                                                card=CARD, card_title="Axis Bank ••3141", source=SourceRef(upload="u_cred"))
-    ledger.upsert_card_payments([bill("aug", (8, 25), 5000.0), bill("sep", (9, 25), 11712.27), bill("oct", (10, 25), 3000.0)])
+    # August's is CRED's record of the payment the statement shows it received (₹9,000, posted on the 22nd): one bill
+    ledger.upsert_card_payments([bill("aug", (8, 21), 9000.0), bill("sep", (9, 25), 11712.27), bill("oct", (10, 25), 3000.0)])
     statement, _ = _upload(client, fake_cards.axis(tmp_path / "Axis.pdf"))
     export, status = _upload(client, fake_cards.csv_export(tmp_path / "Axis_card_transactions.csv", posted=1))
     assert status["state"] == "done", status
@@ -93,7 +94,8 @@ def test_an_export_and_the_statement_it_overlaps_count_each_purchase_once(client
     placed = {p["id"]: (p["coveredBy"], p["paysFrom"], p["paysTo"], p["estimate"]) for p in client.get("/api/card-payments").json()}
     assert placed["sep"] == (statement, "2026-08-13", "2026-09-12", 0.0)
     # 13 Jul – 12 Aug: the export starts on the 15th, so it isn't whole; what it lists of the cycle comes off
-    assert placed["aug"] == (None, "2026-07-13", "2026-08-12", 5000.0 - 640.0)
+    assert placed["aug"] == (None, "2026-07-13", "2026-08-12", 9000.0 - 640.0)
+    assert set(placed) == {"aug", "sep", "oct"}  # the statement's payment row is August's bill, not another
     assert placed["oct"] == (None, "2026-09-13", "2026-10-12", 3000.0 - 2000.0)
     kinds = {s["id"]: s["kind"] for s in client.get("/api/card-statements").json()}
     assert kinds == {statement: "statement", export: "export"}

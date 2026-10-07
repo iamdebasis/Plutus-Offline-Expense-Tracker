@@ -31,9 +31,9 @@ no cloud, no telemetry. It is named for the Greek god of wealth.
   every row: previous balance − credits + debits = total due, to the paisa (or a running balance, line by line). One
   that can't be proven is held, counting nothing, until you check it in Your vault, with each row shown on the PDF's
   page.
-- **Fills in what statements don't say.** Some months have only a bill from CRED and no statement. Plutus then
-  estimates that month's card spending from the bill, less what's already counted, and places it in the billing
-  cycle the bill paid for.
+- **Fills in what statements don't say.** Some months have only a bill, from CRED or the payment the next statement
+  shows it received, and no statement of their own. Plutus then estimates that month's card spending from the bill,
+  less what's already counted, and places it in the billing cycle the bill paid for.
 - **Learns your payees.** Your own answers, rules and a dictionary of public merchants sort payments into
   categories. An optional local AI suggests the rest. Answer once for a payee and every payment to them follows, past
   and future.

@@ -1,4 +1,4 @@
-import type { Transaction } from '../types'
+import type { CardPayment, Transaction } from '../types'
 import { plural } from './format'
 import { bucketOf, cycleShares, isLinkedRefund, NO_NAME, periodsIn, topOf, viewFor, type Bucket, type LedgerData } from './ledger'
 import { inr, inrExact } from './money'
@@ -415,20 +415,23 @@ function compareAnswer(data: LedgerData, q: AskQuery, base: Omit<AskAnswer, 'fig
   }
 }
 
-/** Card bills paid, as the Credit cards section counts them: the bills in your payment-app history, by the day paid. */
+/** Card bills paid, as the Credit cards section counts them: from your payment-app history and your statements, by
+ *  the day paid. */
 function billsAnswer(data: LedgerData, q: AskQuery): AskAnswer {
   const bills = data.payments.filter((p) => inPeriodOf(q.period, p.at.slice(0, 10)) && (!q.cards.length || q.cards.includes(p.card)))
   const total = round2(bills.reduce((s, p) => s + p.amount, 0))
   const when = periodPhrase(q.period)
-  const notes = ['Card bills are counted from your payment-app history (CRED and similar). They pay for purchases already counted, so they’re never added to your spending.']
+  const notes = ['Card bills are counted from your payment-app history (CRED and similar) and the payments your card statements list. They pay for purchases already counted, so they’re never added to your spending.']
   const base = { query: q, ids: [], matchedPayees: [], notes, lines: [] as AskLine[], amount: null as number | null, payments: bills.length }
-  if (!bills.length) return { ...base, figure: null, sentence: `No card bills paid ${when} in your payment-app history.` }
+  // the card as the chat names it everywhere, whichever file the bill was read from (each words a card its own way)
+  const cardOf = (p: CardPayment) => (data.cards.some((c) => c.id === p.card) ? cardLabel(data, p.card) : p.cardTitle)
+  if (!bills.length) return { ...base, figure: null, sentence: `No card bills paid ${when} in your files.` }
   if (q.kind === 'last') {
     const last = [...bills].sort((a, b) => b.at.localeCompare(a.at))[0]
-    return { ...base, amount: last.amount, payments: 1, figure: dayLabel(last.at), sentence: `Your last card bill was ${inrExact(last.amount)} for ${last.cardTitle}, paid on ${dayLabel(last.at)}.` }
+    return { ...base, amount: last.amount, payments: 1, figure: dayLabel(last.at), sentence: `Your last card bill was ${inrExact(last.amount)} for ${cardOf(last)}, paid on ${dayLabel(last.at)}.` }
   }
   if (q.kind === 'list' || q.kind === 'largest' || q.kind === 'trend' || q.kind === 'top') {
-    const lines = [...bills].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20).map((p) => ({ label: p.cardTitle, amount: p.amount, detail: dayLabel(p.at) }))
+    const lines = [...bills].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20).map((p) => ({ label: cardOf(p), amount: p.amount, detail: dayLabel(p.at) }))
     return { ...base, figure: null, lines, sentence: `${plural(bills.length, 'card bill')} paid ${when}, ${inr(total)} in all:` }
   }
   return { ...base, amount: total, figure: inr(total), sentence: `${inr(total)} paid in card bills ${when}, across ${plural(bills.length, 'bill')}.` }

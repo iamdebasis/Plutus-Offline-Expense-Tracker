@@ -154,3 +154,79 @@ def test_a_card_on_upi_never_pays_a_person():
     honorific = _on_upi(250.0, _day(2026, 9, 1), payee="Mr Fake Name")
     assert categorize.decide(honorific, ctx) is None  # a shop with a person's name: the local AI is asked
     assert categorize.decide(honorific.model_copy(update={"paid_from": "XX4141"}), ctx).category == "transfers.p2p"
+
+
+# ---- bills paid, from statements ------------------------------------------------------------------------------
+
+
+def _paid_row(amount: float, at: datetime, n: int = 1, card: str | None = CARD, upload: str = "u_stmt", **kw) -> Transaction:
+    """A card statement's row for a payment to the card ("PAYMENT RECEIVED - THANK YOU")."""
+    fields = dict(id=f"row{n}", at=at, amount=amount, direction="credit", kind="bill_payment", channel="card",
+                  payee="PAYMENT RECEIVED - THANK YOU", card=card, category="transfers.card_bill",
+                  refs={"cardRow": f"1141:{at:%Y%m%d}:c:{amount:.2f}:{n}"}, sources=[SourceRef(upload=upload, page=1, y=300.0)])
+    return Transaction(**{**fields, **kw})
+
+
+def _fake_card() -> Instrument:
+    return _card(CARD, "1141").model_copy(update={"issuer": "Fake Bank"})
+
+
+def test_a_statements_payment_row_is_a_bill_paid():
+    row = _paid_row(9000.0, _day(2026, 8, 22))
+    [bill] = billing.statement_bills([row], [], [_fake_card()])
+    assert (bill.origin, bill.card, bill.amount, bill.at, bill.card_title) == ("statement", CARD, 9000.0, row.at, "Fake Bank ••1141")
+    assert bill.source == row.sources[0] and bill.refs["txn"] == row.id  # it cites the statement's row
+    assert billing.statement_bills([row], [], [_fake_card()])[0].id == bill.id  # the same id every time
+
+
+def test_a_payment_the_app_recorded_is_counted_once():
+    """CRED records the bill when you pay; the bank posts it a day or few later, sometimes a little different (rewards)."""
+    row = _paid_row(9000.0, _day(2026, 8, 22))
+    assert billing.statement_bills([row], [_bill("b1", _day(2026, 8, 20), 9000.0)], [_fake_card()]) == []
+    assert billing.statement_bills([row], [_bill("b1", _day(2026, 8, 21), 8800.0)], [_fake_card()]) == []
+    # not the same payment: another card, long before, or another amount
+    for other in (_bill("b1", _day(2026, 8, 21), 9000.0, card="card-other-2222"), _bill("b1", _day(2026, 8, 1), 9000.0),
+                  _bill("b1", _day(2026, 8, 21), 4500.0)):
+        assert len(billing.statement_bills([row], [other], [_fake_card()])) == 1, other
+    # one app bill is one payment: two rows of the same amount, one of them is it
+    rows = [row, _paid_row(9000.0, _day(2026, 8, 23), n=2)]
+    assert [b.refs["txn"] for b in billing.statement_bills(rows, [_bill("b1", _day(2026, 8, 21), 9000.0)], [_fake_card()])] == ["row2"]
+
+
+def test_only_a_statements_counted_card_bill_row_is_a_bill():
+    """A row you re-filed (it wasn't a payment to the card), one whose card isn't known, and the UPI side of paying a
+    bill (a card bill too, but from the account it left) are not bills paid."""
+    refiled = _paid_row(9000.0, _day(2026, 8, 22), category="income.refund")
+    no_card = _paid_row(9000.0, _day(2026, 8, 22), n=2, card=None)
+    upi_side = _on_upi(9000.0, _day(2026, 8, 22), payee="CRED", kind="bill_payment", category="transfers.card_bill")
+    assert billing.statement_bills([refiled, no_card, upi_side], [], [_fake_card()]) == []
+
+
+def test_a_statements_bill_is_placed_like_any_other():
+    """Paid in August's statement, it pays July's cycle: covered when you added July's statement, else it stands for that
+    cycle's purchases, less what was paid with the card on UPI. With an app's bill in the same cycle, they pay it
+    together."""
+    july = _statement("s_jul", "2026-07-13", "2026-08-12")
+    [covered] = billing.statement_bills([_paid_row(9000.0, _day(2026, 8, 22))], [], [_fake_card()])
+    billing.place_bills([covered], [july], [])
+    assert (covered.covered_by, covered.pays_from, covered.pays_to, covered.estimate) == ("s_jul", date(2026, 7, 13), date(2026, 8, 12), 0.0)
+
+    august = _statement("s_aug", "2026-08-13", "2026-09-12")
+    [first] = billing.statement_bills([_paid_row(9000.0, _day(2026, 8, 22))], [], [_fake_card()])
+    on_upi = _on_upi(1000.0, _day(2026, 8, 1), card=CARD)  # in July's cycle, already in UPI spends
+    billing.place_bills([first], [august], [on_upi])
+    assert (first.covered_by, first.pays_from, first.pays_to, first.counted, first.estimate) == (
+        None, date(2026, 7, 13), date(2026, 8, 12), 1000.0, 8000.0)
+
+    app = _bill("b1", _day(2026, 8, 15), 6000.0)  # a part paid with CRED, the rest straight to the bank
+    [rest] = billing.statement_bills([_paid_row(3000.0, _day(2026, 8, 22))], [app], [_fake_card()])
+    billing.place_bills([app, rest], [august], [])
+    assert (app.pays_to, rest.pays_to, app.estimate + rest.estimate) == (date(2026, 8, 12), date(2026, 8, 12), 9000.0)
+
+
+def test_only_the_apps_bills_are_linked_to_payments_to_cred():
+    """A UPI payment to CRED is linked to the bill in your CRED history; a statement's bill isn't one to link to."""
+    to_cred = _on_upi(9000.0, _day(2026, 8, 22), payee="CRED", paid_from="XX4141", category="transfers.card_bill")
+    [from_statement] = billing.statement_bills([_paid_row(9000.0, to_cred.at)], [], [_fake_card()])
+    categorize.link_card_bills([to_cred], [from_statement])
+    assert to_cred.settles is None

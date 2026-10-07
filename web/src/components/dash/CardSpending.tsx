@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
-import { cardColours, cardFigures, cardName, cardTrends, cardsOnly } from '../../lib/cards'
+import { billsFrom, cardColours, cardFigures, cardName, cardTrends, cardsOnly } from '../../lib/cards'
 import { plural } from '../../lib/format'
 import { NO_NAME, bucketOf, topOf, viewFor, type LedgerData, type PeriodView } from '../../lib/ledger'
 import { inr, inrExact } from '../../lib/money'
@@ -95,7 +95,7 @@ export function CardSpending(props: {
               )}
             </div>
             <div className="grid grid-cols-2 gap-4 lg:col-span-7">
-              <Tile label="Bills paid" value={inr(f.billsPaid)} caption={f.billsCount ? `${plural(f.billsCount, 'bill')} paid, from your CRED history` : 'No bills in your CRED history for this period'} />
+              <Tile label="Bills paid" value={inr(f.billsPaid)} caption={f.billsCount ? `${plural(f.billsCount, 'bill')} paid, from ${billsFrom(f)}` : 'No bills paid in this period'} />
               <Tile
                 label="Per month"
                 value={covered.size ? inr(spent / covered.size) : '—'}

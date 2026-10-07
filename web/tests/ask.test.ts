@@ -131,10 +131,15 @@ describe('what an answer says', () => {
     assert.deepEqual(invested.notes, ['Investments are left out of your spending (your setting); this is what you put into them.'])
   })
 
-  test('card bills are never spending: asked about, they come from the payment-app history', () => {
+  test('card bills are never spending: asked about, they come from the payment-app history and the statements', () => {
     const bills = ask(data, { period: yearPeriod(2025), categories: ['transfers.card_bill'] })
     near(bills.amount, 13999, 'bills paid in 2025')
     assert.match(bills.notes[0], /never added to your spending/)
+    assert.match(bills.notes[0], /statements/)
+    // a bill only a statement records (no app had it) is a bill paid too, named like every card in the chat
+    const fromStatement = bill('stmt', CARD.id, '2025-12-22', 5000, { origin: 'statement', cardTitle: 'Card ••1141' })
+    const both = ask({ ...data, payments: [...data.payments, fromStatement] }, { kind: 'list', period: yearPeriod(2025), categories: ['transfers.card_bill'] })
+    assert.deepEqual(both.lines.map((l) => [l.label, l.amount]), [['Fake Bank ••1141', 5000], ['Fake Bank ••1141', 9000], ['Fake Bank ••1141', 4999]])
     assert.ok(!ask(data, { period: yearPeriod(2025) }).ids.some((id) => data.txns.find((t) => t.id === id)?.category === 'transfers.card_bill'))
   })
 

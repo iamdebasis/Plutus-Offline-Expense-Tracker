@@ -143,8 +143,10 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   row, whatever its channel. `card_export.py` reads the bank's CSV/XLSX exports of a span into the same rows.
 - `app/billing.py`: which card an app's "XXXX99" is (RuPay first, never guessed when unclear) and what each bill paid
   for: its cycle (`pays_from`/`pays_to`, from the card's statements or guessed), `covered_by` a statement or an export
-  that lists the cycle whole, and `estimate` (bill − what's counted one by one in the cycle). Runs at startup, after
-  imports, deletes and network changes (`ledger.place_cards`).
+  that lists the cycle whole, and `estimate` (bill − what's counted one by one in the cycle). A bill is an app's
+  record (CRED) or, when no app recorded that payment, a statement's own payment row (`statement_bills`,
+  `origin: "statement"`, made again each time); both are placed alike. Runs at startup, after imports, deletes and
+  network changes (`ledger.place_cards`), and after every edit of the ledger (`@ledger.exclusive`).
 - Card bill payments, either side, are never spending or money in. A statement's bill payment
   (`categorize.statement_bill`) is never moved by a name-based answer; the page asks before one row is filed elsewhere.
 - Google Pay: don't ask for a user's export. They run `make inspect-takeout` (masked structure only) and share that if
@@ -153,7 +155,7 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   `storage.file_path(rec)`.
 - `app/imports.py`: background worker (parse → ledger upsert → categorize → LLM for new names).
 - `app/ledger.py`: dedupe rules live in `_keys` / `_can_be_same`; see the tests before changing them. Edits hold the
-  ledger's lock (`ledger.editing()`, `@ledger.exclusive`).
+  ledger's lock (`ledger.editing()`, `@ledger.exclusive`, which places the bills again once the edit is saved).
 - `app/categorize.py`: rule order is documented at the top of the file. Only use the LLM via `llm.session()`.
 
 ## UI

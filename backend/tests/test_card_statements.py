@@ -361,12 +361,14 @@ def test_two_identical_card_payments_on_upi_stay_two(client, tmp_path):
 
 
 def test_a_bill_paying_a_statement_you_added_is_covered(client, tmp_path):
-    bill = lambda id, day: CardPayment(id=id, at=datetime(2026, day[0], day[1], 12, tzinfo=IST), amount=11737.82,  # noqa: E731
-                                       card=CARD, card_title="Axis Bank ••3141", source=SourceRef(upload="u_cred"))
-    ledger.upsert_card_payments([bill("before", (8, 22)), bill("after", (9, 25))])
+    bill = lambda id, day, amount: CardPayment(id=id, at=datetime(2026, day[0], day[1], 12, tzinfo=IST), amount=amount,  # noqa: E731
+                                               card=CARD, card_title="Axis Bank ••3141", source=SourceRef(upload="u_cred"))
+    # CRED's records of the payment the statement shows it received (₹9,000 on 22 Aug: one bill, CRED's), and of the
+    # next one, which pays this statement's amount due
+    ledger.upsert_card_payments([bill("before", (8, 22), 9000.0), bill("after", (9, 25), 11737.82)])
     upload_id, _ = _upload(client, fake_cards.axis(tmp_path / "Axis.pdf"))
     covered = {p["id"]: (p["coveredBy"], p["paysFrom"], p["paysTo"], p["cycle"], p["estimate"]) for p in client.get("/api/card-payments").json()}
-    assert covered == {"before": (None, "2026-07-13", "2026-08-12", "card", 11737.82),
+    assert covered == {"before": (None, "2026-07-13", "2026-08-12", "card", 9000.0),
                        "after": (upload_id, "2026-08-13", "2026-09-12", "statement", 0.0)}
 
     # deleting the statement takes its rows and its record, and the bill counts again

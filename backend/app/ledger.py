@@ -7,6 +7,7 @@ A match merges the new source into the existing record instead of adding a copy.
 
 import functools
 import hashlib
+import inspect
 import re
 import threading
 from dataclasses import dataclass, field
@@ -39,11 +40,18 @@ def _payments() -> JsonFile:
 
 
 def exclusive(fn):
-    """A route that reads, changes and saves the ledger holds it throughout (see `editing`)."""
+    """A route that reads, changes and saves the ledger holds it throughout (see `editing`), and then the card bills
+    are placed again from what it saved: a payment filed as a card bill, or taken out of one, changes which bills
+    there are and what each stands for."""
+    if inspect.iscoroutinefunction(fn):
+        raise TypeError(f"{fn.__name__}: an edit of the ledger runs whole under its lock, so it can't be async")
+
     @functools.wraps(fn)
     def run(*args, **kwargs):
         with _lock:
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            place_cards()
+            return result
     return run
 
 
@@ -319,12 +327,21 @@ def place_cards() -> None:
 
 
 def _place(txns: list[Transaction], payments: list[CardPayment]) -> bool:
-    """Saves the bills when they changed; True when transactions changed (the caller saves those)."""
+    """The bills, placed again: the apps' records, and the statements' own payment rows that no app recorded (made
+    again from the ledger each time, so a row re-filed or a file deleted takes its bill with it). Saves the bills when
+    they changed; True when transactions changed (the caller saves those)."""
     from app import vault
 
-    changed = billing.assign_cards(txns, vault.list_instruments())
-    if billing.place_bills(payments, statements.counted(), txns):  # a statement on hold covers no bill: its rows aren't counted
-        _payments().write([p.model_dump(mode="json") for p in sorted(payments, key=lambda p: p.at)])
+    in_order = lambda bills: sorted(bills, key=lambda p: (p.at, p.id))  # noqa: E731
+    before = [p.model_dump(mode="json") for p in in_order(payments)]
+    cards = vault.list_instruments()
+    changed = billing.assign_cards(txns, cards)
+    apps = [p for p in payments if p.origin == "app"]
+    bills = in_order(apps + billing.statement_bills(txns, apps, cards))
+    billing.place_bills(bills, statements.counted(), txns)  # a statement on hold covers no bill: its rows aren't counted
+    after = [p.model_dump(mode="json") for p in bills]
+    if after != before:
+        _payments().write(after)
     return changed > 0
 
 

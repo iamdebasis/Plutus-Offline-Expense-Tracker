@@ -264,6 +264,9 @@ export interface CardPayment {
   refs: Record<string, string>
   source: { upload: string; page: number | null }
   verified: boolean
+  /** Where it was read: a payment app's history (CRED and similar), or a card statement's own row for it, when no app
+   *  recorded that payment (backend/app/billing.py, `statement_bills`). Placed the same way either way. */
+  origin?: 'app' | 'statement'
   /** The card statement this bill pays, when you added it: its purchases are counted one by one instead. */
   coveredBy?: string | null
   /** The billing cycle it pays for: its statement's period, the card's cycle as its statements show it, or a guess

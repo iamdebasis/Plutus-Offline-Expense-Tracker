@@ -116,7 +116,8 @@ File names, counts and timings only; never your transactions.
   (the UPI app's history, or the card's statement);
 - purchases with a card's number, from your **card statements** and the bank's exports, one by one, in their
   categories, on the day you bought;
-- for card bills that pay no statement you added, *card purchases* estimated from the bill (CRED history): the bill,
+- for card bills that pay no statement you added, *card purchases* estimated from the bill (from your CRED history,
+  or the payment a statement shows it received): the bill,
   less what's already counted one by one in the billing cycle it paid for (UPI payments made with that card, and any
   part of the cycle an export lists). What's left is card spending that can't be itemized, shown per card and counted
   in that cycle, spread over its days, so December's spending stays in December when the bill is paid in January. A
@@ -136,7 +137,12 @@ their line's end, since lines can cross anywhere and more colours would be too c
 
 - **Spent**: payments for things and services, minus what was refunded (below).
 - **Sent to people**: UPI to individuals. Label a person once (e.g. "Water delivery") and they move into spending.
-- **Card bills paid**: from CRED. Settles card spending, so it's never added to "Spent" (no double counting).
+- **Card bills paid**: from CRED, and from your statements. Every statement lists the payment it received ("PAYMENT
+  RECEIVED"); that row is a bill paid unless your CRED history has the same payment (same card, about the same
+  amount, within five days), so with statements alone you still see your bills, and one paid through CRED is counted
+  once. A statement's payment pays the cycle before it: covered when you've added that statement, else it stands for
+  that cycle's card spending like any bill. Settles card spending, so it's never added to "Spent" (no double
+  counting).
   Paying a bill in the CRED app with PhonePe shows up in both files: the bill in your CRED history and a UPI payment
   to "CRED" / "CRED Club" / "CredClub" / Dreamplug in PhonePe. The UPI side is always a card bill, never spending, and
   is linked to its bill (same minute, same amount, or up to 5% less when CRED rewards paid part of it), so the
@@ -400,7 +406,7 @@ the page or *Clear the chat* empties it. Nothing about a question is saved, and 
 | `data/uploads/` | Your original files, sorted into `credit-card-statements/`, `cred/`, `upi/`, `screenshots/`… |
 | `data/uploads.json` | One record per file: hash, what was detected, import result |
 | `data/ledger/<year>.json` | Every transaction, flat, one file per calendar year |
-| `data/card_payments.json` | Credit card bill payments, and the billing cycle each paid for |
+| `data/card_payments.json` | Credit card bill payments (from CRED, or a statement's own payment row), and the billing cycle each paid for |
 | `data/instruments.json` | Cards discovered from statements and CRED history |
 | `data/card_networks.json` | The network you set for each card; survives deleting the files that found it |
 | `data/card_statements.json` | Your card statements and exports: period, due date, the bank's totals, and whether the rows add up |

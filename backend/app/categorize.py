@@ -428,7 +428,7 @@ def link_card_bills(txns: list[Transaction], bills: list) -> None:
     the Credit cards section counts the bill once, from CRED. The amounts can differ a little
     (CARD_BILL_TOLERANCE) when CRED rewards paid part of the bill; an exact amount is preferred.
     Changes `txns` in place."""
-    free = list(bills)
+    free = [b for b in bills if b.origin == "app"]  # a statement's bill is the bank's side of a payment, not CRED's
     for t in sorted(txns, key=lambda t: t.at):
         if t.direction != "debit" or not _CARD_BILL.search(t.payee):
             t.settles = None

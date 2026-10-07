@@ -72,6 +72,15 @@ describe('total spend', () => {
     near(cardsIn(false).viaUpi, 0, 'the SIP on UPI is left out too')
   })
 
+  test('a bill only a statement records is a bill like any other: the totals still add up, and it says where it came from', () => {
+    const fromApp = bill('app', RUPAY.id, '2026-11-25', 6000, { paysFrom: '2026-10-13', paysTo: '2026-11-12', cycle: 'card', counted: 0, estimate: 6000 })
+    const fromStatement = bill('stmt', RUPAY.id, '2026-12-22', 4000, { origin: 'statement', paysFrom: '2026-11-13', paysTo: '2026-12-12', cycle: 'card', counted: 0, estimate: 4000 })
+    const data = ledger({ cards: [RUPAY], txns: [txn('2026-11-20', 500, onUpi(RUPAY.id))], payments: [fromApp, fromStatement] })
+    holds(data)
+    const f = cardFigures(viewFor(cardsOnly(data, null), 2026, null), viewFor(data, 2026, null), null)
+    assert.deepEqual([f.billsCount, f.billsFromStatements, f.billsPaid, f.estimated], [2, 1, 10000, 10000])
+  })
+
   test('a refund back to the card goes with the UPI payment it refunds', () => {
     const sweets = txn('2026-12-20', 1000, onUpi(RUPAY.id))
     const refund = txn('2026-12-28', 400, { ...byNumber(RUPAY.id), direction: 'credit', kind: 'refund', refundOf: sweets.id })

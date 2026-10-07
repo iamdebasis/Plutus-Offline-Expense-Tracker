@@ -82,6 +82,8 @@ export interface CardFigures {
   cashback: number
   billsPaid: number
   billsCount: number
+  /** Of `billsCount`: bills only a statement records (no app's history had them). */
+  billsFromStatements: number
 }
 
 export function cardFigures(cardView: PeriodView, all: PeriodView, card: string | null): CardFigures {
@@ -97,9 +99,14 @@ export function cardFigures(cardView: PeriodView, all: PeriodView, card: string 
     cashback: cardView.totals.cashback,
     billsPaid: cardView.totals.cardBillsPaid,
     billsCount: cardView.payments.length,
+    billsFromStatements: cardView.payments.filter((p) => p.origin === 'statement').length,
   }
 }
 
+
+/** Where a period's bills paid were read: a payment app's history, the statements' own payment rows, or both. */
+export const billsFrom = (f: CardFigures) =>
+  f.billsFromStatements === 0 ? 'your CRED history' : f.billsFromStatements === f.billsCount ? 'your statements' : 'CRED and your statements'
 
 /** A card's name where space is short: "Regalia ••1234" (its product, else its bank). */
 export const cardName = (c: Instrument) => `${c.product ?? c.issuer ?? 'Card'} ••${c.last4}`
