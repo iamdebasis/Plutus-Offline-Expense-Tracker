@@ -126,6 +126,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | `app/llm/advice.py` | Which model suits this Mac (memory, chip, macOS, Ollama's version) and the steps to get it; standard library only, so `make check` runs it; never downloads |
 | `app/llm/setup.py` | The Local AI panel's data and the model Plutus uses: `ET_OLLAMA_MODEL`, else your pick, else the best downloaded for this Mac |
 | `app/llm/__main__.py` | `make llm-check`: a live round trip with the model Plutus uses |
+| `app/ask.py` | Ask Plutus: a question the page's rules couldn't read, turned into a query of a fixed shape by the local AI and checked here; the model sees the question, the category tree and today's date, never a transaction |
 
 **The API** (all under `/api`, JSON in camelCase)
 
@@ -134,7 +135,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | `app/routes/uploads.py` | `GET /api/uploads`, `POST /api/uploads`, `POST /api/uploads/folder`, `GET /api/uploads/{upload_id}/file`, `POST /api/uploads/{upload_id}/reimport`, `DELETE /api/uploads/{upload_id}`, `GET /api/instruments`, `PUT /api/instruments/{instrument_id}` |
 | `app/routes/ledger.py` | `GET /api/transactions`, `GET /api/card-payments`, `GET /api/card-statements`, `PUT /api/card-statements/{statement_id}/held`, `POST /api/card-statements/{statement_id}/confirm`, `POST /api/categorize`, `POST /api/categorize/shop`, `POST /api/categorize/payments`, `POST /api/categorize/payments/undo`, `POST /api/categorize/bulk`, `POST /api/recategorize`, `GET /api/accounts`, `POST /api/accounts`, `DELETE /api/accounts/{last4}` |
 | `app/routes/storage.py` | `GET /api/storage`, `POST /api/storage/reveal` |
-| `app/routes/system.py` | `GET /api/status`, `GET /api/preferences`, `PUT /api/preferences`, `GET /api/card-art`, `GET /api/card-art/{name}`, `GET /api/reset`, `POST /api/reset`, `GET /api/llm/status`, `GET /api/llm/setup`, `PUT /api/llm/model`, `POST /api/llm/hint-seen`, `GET /api/categories`, `GET /api/payees`, `PUT /api/payees/{payee_id}`, `DELETE /api/payees/{payee_id}` |
+| `app/routes/system.py` | `GET /api/status`, `GET /api/preferences`, `PUT /api/preferences`, `GET /api/card-art`, `GET /api/card-art/{name}`, `GET /api/reset`, `POST /api/reset`, `GET /api/llm/status`, `GET /api/llm/setup`, `PUT /api/llm/model`, `POST /api/llm/hint-seen`, `POST /api/ask`, `GET /api/categories`, `GET /api/payees`, `PUT /api/payees/{payee_id}`, `DELETE /api/payees/{payee_id}` |
 
 Errors are `{"detail": {"code": "...", "message": "..."}}` with a message written for the person reading it.
 
@@ -185,9 +186,9 @@ statements through it all.
 
 ## The local AI
 
-Optional; Plutus works fully without it. Three fallback jobs: payees nothing recognises (names and a typical amount
+Optional; Plutus works fully without it. Four fallback jobs: payees nothing recognises (names and a typical amount
 only), held or unreadable statements (tagged lines in 20-line parts; it answers with ids), screenshots in unknown
-layouts (vision). Every call is one non-streaming chat with a JSON schema, thinking off, temperature 0, to
+layouts (vision), and questions to Ask Plutus the rules couldn't read (the question only; it answers with a query). Every call is one non-streaming chat with a JSON schema, thinking off, temperature 0, to
 `127.0.0.1` only (httpx with `trust_env=False`: no proxy can route it elsewhere).
 
 - **Lifecycle** (`app/llm/ollama.py`): the first job starts `ollama serve` (unless one is running), the model is
@@ -197,6 +198,38 @@ layouts (vision). Every call is one non-streaming chat with a JSON schema, think
   8–15 GB `qwen3.5:2b`, 16–23 GB `qwen3.5:4b`, 24 GB+ `qwen3.5:9b`; none on Intel or under 8 GB.
 - **Never downloads or installs**: the panel shows the steps (install Ollama, `ollama pull …`); Ollama must be
   0.32.7+ (JSON with thinking off).
+
+## Ask Plutus
+
+Questions about your spending, in a panel opened from the orb in the dashboard's corner. **The AI reads the question;
+Plutus computes the answer.** No model is trained on, or shown, your transactions.
+
+```mermaid
+flowchart LR
+  q["Your question"] --> rules["Rules in the page<br/>lib/askRules.ts"]
+  rules -->|"sure"| query["A query<br/>kind, categories, payees,<br/>cards, channel, period"]
+  rules -->|"unsure, AI set up"| ai["POST /api/ask<br/>app/ask.py → Ollama"]
+  ai -->|"checked query"| query
+  query --> engine["The answer, in the page<br/>lib/ask.ts"]
+  ledger[("The ledger the dashboard shows")] --> engine
+  engine --> panel["components/AskPanel.tsx"]
+```
+
+- **Rules first** (`lib/askRules.ts`): periods (years, India's financial years, months, "last 3 months", "since…"),
+  categories by name or a common word ("petrol", "food orders"), payees by the words of their names, cards by their
+  last four digits or bank, and follow-ups ("and in 2024?"). A word they don't know makes them unsure.
+- **The local AI only when unsure** (`app/ask.py`, `POST /api/ask`): it gets the question, today's date, the category
+  tree (the same for everyone) and, for a follow-up, the last query; it answers in a JSON schema, and the server keeps
+  only known categories, real dates and sane limits. Without the AI the rules answer what they understood, marked
+  unsure, or say they couldn't read it.
+- **Plutus computes** (`lib/ask.ts`): from the same scoped ledger, with the dashboard's own counting (`bucketOf`,
+  refunds dated on their payment's day, card bills' estimates over their cycles), so the total for a year equals Total
+  spend, a category's equals its bar, a payee's equals its row. `web/tests/ask.test.ts` checks that for every year,
+  with investments counted and left out.
+- **Every answer shows how it was read** (chips you can change or remove), what it leaves out (card spending known
+  only from bills has no category or payee; a held statement; where your files start) and "Show these payments": the
+  exact rows, in the transactions list.
+- History lives in the page only: nothing about a question is stored, and the server never logs one.
 
 ## The data folder
 
@@ -238,7 +271,7 @@ files and following their reading live here), `api.ts` (every call to `/api`), `
 sends them).
 
 **Pages**: `pages/Welcome.tsx` (first run: what Plutus reads, drop files, the vault), `pages/Dashboard.tsx` (the
-year tabs and every section), `pages/CardGallery.tsx` (every card design, at `/#card-gallery`).
+year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card design, at `/#card-gallery`).
 
 **Components**
 
@@ -256,6 +289,8 @@ year tabs and every section), `pages/CardGallery.tsx` (every card design, at `/#
 | `components/Vault.tsx` | Your vault: files, cards, each statement's check, held statements to review |
 | `components/PagePeek.tsx` | A page of a file you added, drawn here, with the row in question marked |
 | `components/StoragePanel.tsx` | Where your files are kept, with a cloud-sync warning |
+| `components/AskPanel.tsx` | Ask Plutus: the chat, each answer with its figure, lines, how it was read (chips to change) and the payments behind it |
+| `components/AskOrb.tsx` | The way into Ask Plutus: the gold mark in a glass orb, bottom-right whatever the scroll; opens into "Ask Plutus" on hover, its drips run while a question is read |
 | `components/StartOver.tsx` | Start over: what goes to the Trash, typed confirmation, then a fresh start |
 | `components/Toasts.tsx` | Short notices |
 | `components/Backdrop.tsx` | The background grid and glows |
@@ -285,6 +320,8 @@ year tabs and every section), `pages/CardGallery.tsx` (every card design, at `/#
 | `lib/cards.ts` | Spending per card (card-number purchases only); colours per card |
 | `lib/periods.ts` | Calendar years, months, labels |
 | `lib/scope.ts` | Investments left out or counted |
+| `lib/ask.ts` | Ask Plutus's answers: a query worked out from the ledger with the dashboard's own counting; questions to start with |
+| `lib/askRules.ts` | Ask Plutus's rules: a question read into a query in the page, and whether they're sure of it |
 | `lib/selection.ts` | Ticking payments; what the ticked ones add up to |
 | `lib/useSelection.ts` | The files picked to add, before they're sent |
 | `lib/useImportActivity.ts` | What the server is reading, polled for the whole page |
@@ -378,4 +415,5 @@ End-to-end checks run against a scratch server: `ET_DATA_DIR` set to a scratch f
 | **Instrument** | A card, as your files name it |
 | **Row answer** | A category you set for one payment, kept with its row |
 | **Needs your eyes** | Payees nothing recognised, waiting for your answer |
+| **Query** | What a question to Ask Plutus asks, in a fixed shape (what kind of answer, categories, payees, cards, channel, period); Plutus works out its answer |
 | **Start over** | Everything in the data folder to the Trash; Plutus as a fresh clone |

@@ -1,12 +1,14 @@
 import json
 import re
+from datetime import date
 from importlib import resources
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app import categorize, ledger, logs, payees, preferences, reset, userdata, vault
-from app.llm import llm, setup
+from app import ask as asking
+from app.llm import LLMUnavailable, llm, setup
 from app.models import Model, Payee
 
 router = APIRouter(prefix="/api")
@@ -103,6 +105,23 @@ async def choose_model(choice: ModelChoice) -> dict:
         return await setup.use(choice.model)
     except ValueError as exc:
         raise HTTPException(400, {"code": "model_unusable", "message": str(exc)}) from exc
+
+
+class AskRequest(Model):
+    question: str
+    previous: dict | None = None  # the last reading in this chat, for a follow-up
+
+
+@router.post("/ask")
+async def ask(req: AskRequest) -> dict:
+    """A question the page's rules couldn't read, read by the local AI into a query the page answers from your ledger.
+    The model gets the question, the category tree and today's date; never a transaction. 409 without a local AI."""
+    try:
+        return await asking.read_question(req.question, req.previous, date.today())
+    except ValueError as exc:
+        raise HTTPException(400, {"code": "bad_question", "message": str(exc)}) from exc
+    except LLMUnavailable as exc:
+        raise HTTPException(409, {"code": "no_ai", "message": str(exc)}) from exc
 
 
 @router.post("/llm/hint-seen", status_code=204)

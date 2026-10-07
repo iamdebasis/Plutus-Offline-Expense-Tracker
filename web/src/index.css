@@ -101,6 +101,23 @@
   to { transform: translateX(100%); }
 }
 
+/* Ask Plutus's orb (components/AskOrb.tsx): a short gold arc sweeps its rim, then rests */
+.ask-orb-gleam {
+  padding: 1px;
+  background: conic-gradient(from 0deg, transparent 0 76%, rgb(247 179 45 / 0.75) 90%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: ask-orb-gleam 7s ease-in-out infinite;
+}
+@keyframes ask-orb-gleam {
+  0% { transform: rotate(0deg); opacity: 0; }
+  8%, 30% { opacity: 1; }
+  40%, 100% { transform: rotate(360deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shimmer, .plutus-drip, .plutus-drop, .plutus-shine { animation: none; }
+  .ask-orb-gleam { animation: none; opacity: 0; }
 }

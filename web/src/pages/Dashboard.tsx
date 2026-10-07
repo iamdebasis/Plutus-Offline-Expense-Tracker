@@ -2,6 +2,7 @@ import { motion } from 'motion/react'
 import { CircleCheck, CirclePause, CreditCard, ListChecks, Plus, Smartphone, TrendingUp, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../api'
+import { AskPanel } from '../components/AskPanel'
 import { Backdrop } from '../components/Backdrop'
 import { CardFace } from '../components/CardFace'
 import { CardSpending } from '../components/dash/CardSpending'
@@ -82,6 +83,12 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
   const totals = useMemo(() => totalSpendFor(data, all), [data, all])
   const categoryLabel = category ? data.categories.get(category)?.label : null
 
+  // Ask Plutus: questions about your spending, answered from these same numbers (the orb in the corner opens it;
+  // components/AskPanel.tsx)
+  const [asking, setAsking] = useState(false)
+  const openAsk = useMemo(() => () => setAsking(true), [])
+  const closeAsk = useMemo(() => () => setAsking(false), [])
+
   // "Show them" (payments with no name) and "Show these rows" (a statement's): open them in the transactions list
   const [request, setRequest] = useState<ShowRequest | null>(null)
   const show = (what: Omit<ShowRequest, 'at'>) => {
@@ -113,6 +120,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
           </button>
         }
       />
+      <AskPanel open={asking} onOpen={openAsk} onClose={closeAsk} data={data} onShow={(ids, label) => show({ ids, label })} />
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* the timeline: one row that scopes everything below it */}

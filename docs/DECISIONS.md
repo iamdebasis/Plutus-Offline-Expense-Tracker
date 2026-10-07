@@ -146,3 +146,19 @@ is fixed from all-time totals, never by rank in a period. Every state is worded:
 **Decision**: [AGENTS.md](../AGENTS.md) is the single entry point for AI agents and people; `CLAUDE.md` and
 `GEMINI.md` import it. [ARCHITECTURE.md](ARCHITECTURE.md) is the map, checked by `tests/test_docs.py`.
 **Why**: whoever picks Plutus up next, with whichever agent, should start from where the project is, not from zero.
+
+## 18. Ask Plutus: the AI reads the question, Plutus computes the answer
+
+**Decision**: a question is read into a query of a fixed shape (what kind of answer, categories, payees, cards,
+channel, period) by rules in the page, and by the local AI only when the rules are unsure; the page then works out the
+answer from the ledger with the dashboard's own counting. The model is never trained on, fine-tuned with or shown a
+transaction: it sees the question, today's date and the category tree. Nothing about a question is stored or logged;
+the chat lives in the page until it's closed or reloaded.
+**Why**: a model that reads the ledger and writes the answer can add wrongly, invent a payment, or contradict the
+dashboard, and a small local model would do so often; one that only reads the question can't get a number wrong. The
+rules answer most questions instantly and keep the chat working without Ollama (core value 4: the AI is optional).
+**Costs**: only questions the query shape can express ("why", advice and actions aren't); a question the rules can't
+read waits a few seconds for the AI, or, without it, gets a partial answer marked unsure, or questions to try.
+**Where**: `web/src/lib/askRules.ts`, `web/src/lib/ask.ts`, `app/ask.py` (`POST /api/ask`, the answer checked
+against the schema and the category tree), `components/AskPanel.tsx`; parity with the dashboard in
+`web/tests/ask.test.ts`.

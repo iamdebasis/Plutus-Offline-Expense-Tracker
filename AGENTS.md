@@ -172,5 +172,10 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   Years and colour slots come from the unscoped ledger. Browser storage is only for how panels were left (collapsed,
   ticks), never for choices that change numbers.
 - Rows where money comes in carry a green tag (`rowTag` in `lib/ledger.ts`); a card bill's amount is grey, unsigned.
+- Ask Plutus (the gold orb in the dashboard's corner, `components/AskOrb.tsx`): the AI reads the question, Plutus
+  computes the answer. Rules in the page (`lib/askRules.ts`) read it into a query; only when they're unsure does the
+  local AI (`app/ask.py`, `POST /api/ask`) read it, given the question, today and the category tree, **never a
+  transaction**. `lib/ask.ts` works out the answer with the dashboard's own functions; `web/tests/ask.test.ts` holds it
+  equal to the dashboard. A new kind of question is a new query kind there, never a model writing the answer.
 - Own accounts: `app/accounts.py` (`data/accounts.json`, last four digits only). Ignoring a bank-account payee marks
   it; the AI pill shows the model's state (`asleep` unless loaded), never the server's.

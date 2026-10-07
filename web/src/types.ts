@@ -300,3 +300,19 @@ export interface ResetPreview {
   folder: string
   busy: string | null
 }
+
+/** The local AI's reading of a question (POST /api/ask): a query the page answers, with periods as days only (the page
+ *  names them). See lib/ask.ts `AskQuery`. */
+export interface AiQuery {
+  kind: 'total' | 'count' | 'average' | 'top' | 'largest' | 'compare' | 'trend' | 'list' | 'last'
+  categories: string[]
+  payees: string[]
+  cards: string[]
+  channel: 'all' | 'upi' | 'cards'
+  money: 'out' | 'in'
+  period: { from: string; to: string } | null
+  compareTo: { from: string; to: string } | null
+  by: 'payee' | 'category'
+  per: 'payment' | 'month'
+  limit: number
+}

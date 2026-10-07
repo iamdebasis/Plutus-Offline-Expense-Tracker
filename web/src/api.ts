@@ -1,4 +1,5 @@
-import type { AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, ResetPreview, StorageInfo, Transaction, UploadRecord } from './types'
+import type { AskQuery } from './lib/ask'
+import type { AiQuery, AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, ResetPreview, StorageInfo, Transaction, UploadRecord } from './types'
 
 export class ApiError extends Error {
   readonly code: string | undefined
@@ -51,6 +52,14 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model }),
+    }),
+  /** A question the page's rules couldn't read, read by the local AI into a query (the page answers it from the
+   *  ledger). The model gets the question, the categories and today's date; never a transaction. 409: no local AI. */
+  ask: (question: string, previous: AskQuery | null) =>
+    request<{ understood: boolean; query: AiQuery | null }>('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, previous }),
     }),
   /** The one-time hint about the local AI was answered: it doesn't show again. */
   aiHintSeen: () => request<void>('/api/llm/hint-seen', { method: 'POST' }),

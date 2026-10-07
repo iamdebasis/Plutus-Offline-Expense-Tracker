@@ -29,6 +29,20 @@ generated statements (proven rate, time per part), fake receipts (fields right).
 memory level, then adjust `SUGGESTED` and the memory levels. Needs the models downloaded by whoever runs it; never by
 Plutus.
 
+### Ask Plutus, next
+
+The chat (see [ARCHITECTURE.md](ARCHITECTURE.md#ask-plutus)) answers what its query shape can express. Discussed next
+steps, each keeping the rule that the AI reads the question and Plutus computes:
+
+- **Why questions**: "why was March higher?" answered as a difference by category and payee between two periods
+  (a new kind in `lib/ask.ts`, worked out like `compare`).
+- **Saved chats**, only if wanted: kept in the data folder (a new file listed in `app/userdata.py`, removed by Start
+  over), never in the browser's storage.
+- **Actions from the chat**: "file these under Groceries", shown as the change it would make and done only when you
+  confirm it, through the same routes the dashboard uses.
+- **Measure the question reading** on the suggested models: fake questions with known queries, part of the model
+  measurement above.
+
 ### Other ideas
 
 - A reader for Google Pay's PDF statement (today its history comes through Google Takeout).
@@ -46,3 +60,5 @@ Plutus.
   and the AI read the same rows) or confirmed by you; long ones aren't sent to the AI (`UNCHECKED_PARTS`).
 - **Card networks** are rarely printed on statements: the user sets them on the card.
 - **Google Pay** history comes only through Google Takeout.
+- **Ask Plutus**: card spending known only from card bills has no category or payee, so questions about one leave it
+  out (and say how much); the rules know English words only, and other languages rely on the local AI.

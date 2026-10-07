@@ -12,9 +12,10 @@ import { CategorySelect } from './CategorySelect'
 
 const PAGE = 60
 
-/** A request from elsewhere on the page to show some payments: a search ("Show them": no payee name), or one
- *  file's rows ("Show these rows": a card statement in the vault). `at` makes each request new. */
-export type ShowRequest = { text?: string; upload?: string; label?: string; at: number }
+/** A request from elsewhere on the page to show some payments: a search ("Show them": no payee name), one file's rows
+ *  ("Show these rows": a card statement in the vault), or exactly these payments (`ids`: an answer in Ask Plutus).
+ *  `at` makes each request new. */
+export type ShowRequest = { text?: string; upload?: string; ids?: string[]; label?: string; at: number }
 type Source = 'all' | 'upi' | 'cards'
 
 /** After re-filing one payment: the same shop's other payments, offered to change too. Nothing else changes
@@ -91,11 +92,12 @@ export function TransactionsTable({
   const ignoredCount = useMemo(() => txns.filter(isIgnored).length, [txns])
   const [shown, setShown] = useState(PAGE)
   const [source, setSource] = useState<Source>('all')
-  const [file, setFile] = useState<{ upload: string; label: string } | null>(null)
+  // one file's rows, or exactly the payments an answer is made of: all of them, whatever the period, category or source
+  const [file, setFile] = useState<{ upload?: string; ids?: Set<string>; label: string } | null>(null)
   useEffect(() => {
     if (!request) return
     setQuery(request.text ?? '')
-    setFile(request.upload ? { upload: request.upload, label: request.label ?? 'this file' } : null)
+    setFile(request.upload || request.ids ? { upload: request.upload, ids: request.ids && new Set(request.ids), label: request.label ?? 'this file' } : null)
     setSource('all')
     setShown(PAGE)
   }, [request])
@@ -111,7 +113,7 @@ export function TransactionsTable({
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     // one file's rows: all of them, whatever the period, category or source
-    const base = file ? everything.filter((t) => t.sources.some((s) => s.upload === file.upload)) : txns
+    const base = file ? everything.filter((t) => (file.ids ? file.ids.has(t.id) : t.sources.some((s) => s.upload === file.upload))) : txns
     const out = base
       .filter((t) => file || !category || t.category === category || topOf(t.category) === category)
       .filter((t) => file || source === 'all' || (source === 'cards') === (t.channel === 'card'))

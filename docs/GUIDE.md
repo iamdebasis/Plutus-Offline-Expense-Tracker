@@ -7,7 +7,8 @@ built, see the [README](../README.md).
 - [What happens to a file](#what-happens-to-a-file) · [What the terminal tells you](#what-the-terminal-tells-you)
 - [How the numbers add up](#how-the-numbers-add-up) · [Credit cards](#credit-cards) ·
   [Credit card statements](#credit-card-statements) · [Google Pay](#google-pay-from-google-takeout)
-- [Where things live](#where-things-live) · [Card designs](#card-designs) · [Local AI](#local-ai-optional) · [Tools](#tools)
+- [Ask Plutus](#ask-plutus) · [Where things live](#where-things-live) · [Card designs](#card-designs) ·
+  [Local AI](#local-ai-optional) · [Tools](#tools)
 
 ## Requirements
 
@@ -349,6 +350,49 @@ structure with every name, amount and ID masked and dates reduced to their forma
 The Google Pay app can also make a PDF statement (Transaction history → ⋮ → Get Statement, up to a year at a time) with
 UPI transaction IDs on every row; a reader for it would be a separate addition.
 
+## Ask Plutus
+
+Click the gold Plutus button in the dashboard's bottom-right corner (it stays there as you scroll) and ask about your
+spending in your own words: "How much on electricity in 2025?", "Top 5 payees last year", "Compare FY 2024-25 and FY 2025-26", "Food delivery by month in 2026", "Biggest
+payments last month", "When did I last pay rent?", "How much came in as cashback this year?". Then follow up: "and in
+2024?", "only UPI".
+
+**Every number is the dashboard's.** Plutus reads what you asked, then works the answer out from your files the way
+the dashboard does: a year's total equals Total spend for that year, a category's equals its bar, a payee's equals
+its line in *Who you paid most*. No AI adds anything up, and no AI is shown or trained on your payments.
+
+**How a question is read.** Rules in the page read most questions instantly:
+
+- periods: years, India's financial years ("FY 2024-25", or "FY25": April 2024 to March 2025), months, "last 3
+  months", "since April", "this week";
+- categories by name or a common word ("petrol", "groceries", "rent");
+- payees by words of their names;
+- a card by its last four digits or its bank ("on my 1111 card");
+- follow-ups.
+
+When the rules aren't sure (a word they don't know) and the [local AI](#local-ai-optional) is set up, the question
+goes to it, on this Mac. It gets only the question, today's date, the list of categories (the same for everyone) and,
+for a follow-up, how the last question was read: never a payment, an amount or a name from your files. Without the
+local AI, the rules answer what they understood and say what they weren't sure of, or offer questions to try.
+
+**What an answer shows:**
+
+- the figure and a sentence, with lines (payees, months, the biggest payments) when there's more than one number;
+- *How I read it*: the category, payee, card and period it used, as chips. Remove one or pick another period and the
+  answer is worked out again;
+- what it leaves out:
+  - card spending known only from card bills (it has no category or payee, so a question about one can't include
+    it, and the answer says how much);
+  - a statement on hold;
+  - investments, when they're left out;
+  - and where your files start, when the period begins before them;
+- *Show these payments*, which opens exactly the payments behind the answer in the transactions list.
+
+**What it can do:** totals, counts, averages (per payment or per month), top payees and categories, the biggest
+payments, two periods compared, month by month, lists, and the last payment. **What it can't:** give advice, explain
+why, or change anything (re-file a payment, add a file). The chat stays while you close and reopen the panel; reloading
+the page or *Clear the chat* empties it. Nothing about a question is saved, and the terminal never shows one.
+
 ## Where things live
 
 | Path | What |
@@ -361,7 +405,7 @@ UPI transaction IDs on every row; a reader for it would be a separate addition.
 | `data/card_networks.json` | The network you set for each card; survives deleting the files that found it |
 | `data/card_statements.json` | Your card statements and exports: period, due date, the bank's totals, and whether the rows add up |
 | `data/accounts.json` | Your own bank accounts, last four digits only, so transfers between them are left out |
-| `data/payees.json` | Your payee table: people and accounts you pay, e.g. "R Kumar" → Water delivery, your landlord → Rent |
+| `data/payees.json` | Your payee table: people and accounts you pay, e.g. "Mr Fake Payee" → Water delivery, your landlord → Rent |
 | `data/merchant_memory.json` | Your corrections and the local AI's earlier answers, per payee name |
 | `data/row_answers.json` | The category you set for one payment, kept with its row: delete a file and add it again, and your answers come back |
 | `data/settings.json` | Your settings: whether investments count as spending, the local model you picked, whether you've seen the local AI hint |
@@ -402,12 +446,13 @@ and no other website can load them from Plutus.
 
 ## Local AI (optional)
 
-Plutus uses a local model through [Ollama](https://ollama.com) for three jobs, all fallbacks: placing payees that no
+Plutus uses a local model through [Ollama](https://ollama.com) for four jobs, all fallbacks: placing payees that no
 rule, dictionary entry or earlier answer covers (only their names and a typical amount are sent, to the model on this
-Mac); reading a payment screenshot whose layout the rules don't know; and reading a card statement the rules couldn't
-prove, where its answer counts only if the statement's own figures prove it ([above](#credit-card-statements)).
-Without it, those payees go to "Needs your eyes", such a screenshot is reported as unreadable, and such a statement
-waits on hold for you; everything else works the same.
+Mac); reading a payment screenshot whose layout the rules don't know; reading a card statement the rules couldn't
+prove, where its answer counts only if the statement's own figures prove it ([above](#credit-card-statements)); and
+reading a question to [Ask Plutus](#ask-plutus) the rules couldn't (only the question is sent). Without it, those payees
+go to "Needs your eyes", such a screenshot is reported as unreadable, such a statement waits on hold for you, and Ask
+Plutus answers what its rules understand; everything else works the same.
 
 **Setting it up.** Click **Local AI** in the header (or *Check this Mac* on the welcome page). Plutus reads this Mac (its
 chip, memory, free space and macOS version) and Ollama (whether it's installed, its version and the models it has
