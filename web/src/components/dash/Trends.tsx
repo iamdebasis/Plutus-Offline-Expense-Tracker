@@ -1,11 +1,11 @@
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { fitLabel } from '../../lib/format'
 import { inr, inrCompact } from '../../lib/money'
 import { monthLabel, monthLongLabel } from '../../lib/periods'
 import { niceScale } from '../../lib/scale'
-import { OTHER_COLOUR, type Trend } from '../../lib/totals'
+import type { Trend } from '../../lib/totals'
 
 const TOP = 16
 const AXIS_H = 30
@@ -16,7 +16,8 @@ interface Props {
   series: Trend[]
   /** A line's colour, fixed by its caller from all years, so it's the same whichever year is picked. */
   colourOf: (id: string) => string
-  /** The lines with a colour of their own, in chip order; the rest are under "More", grey. */
+  /** The lines with a colour of their own, in chip order; every other line follows with a chip of its own, grey (its
+   *  line's colour), by how much it holds. */
   main: string[]
   /** A name for a ticked line with nothing in this period (its chip stays, marked "none"). */
   labelOf?: (id: string) => string
@@ -44,7 +45,7 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
   const chosen = force ? new Set(force) : ticked
   // chips in colour order (stable when the year changes); ticked lines with nothing this period still show
   const mainChips = main.filter((id) => (byId.has(id) || chosen.has(id)) && (!force || force.includes(id)))
-  const more = series.filter((s) => !main.includes(s.id) && (!force || force.includes(s.id)))
+  const rest = series.filter((s) => !main.includes(s.id) && (!force || force.includes(s.id))).sort((a, b) => b.amount - a.amount)
   const shown = series.filter((s) => chosen.has(s.id))
   const toggle = (id: string) =>
     setTicked((s) => {
@@ -56,8 +57,9 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
 
   return (
     <>
+      {/* every line has its chip, the coloured ones first; the row wraps when there are many */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        {mainChips.map((id) => (
+        {[...mainChips, ...rest.map((s) => s.id)].map((id) => (
           <Chip
             key={id}
             label={byId.get(id)?.label ?? labelOf?.(id) ?? id}
@@ -72,7 +74,6 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
             onFocus={(on) => setFocus(on ? id : null)}
           />
         ))}
-        {more.length > 0 && <More items={more} ticked={chosen} onToggle={toggle} onOnly={(id) => setTicked(new Set([id]))} onFocus={setFocus} />}
         <span className="ml-auto flex items-center gap-1 text-xs">
           {!force && (
             <>
@@ -175,63 +176,6 @@ function Box({ colour, checked }: { colour: string; checked: boolean }) {
         )}
       </AnimatePresence>
     </span>
-  )
-}
-
-/** Lines without a colour of their own: each with its own tick, drawn grey and named at its line's end. */
-function More({ items, ticked, onToggle, onOnly, onFocus }: { items: Trend[]; ticked: Set<string>; onToggle: (id: string) => void; onOnly: (id: string) => void; onFocus: (id: string | null) => void }) {
-  const [open, setOpen] = useState(false)
-  const root = useRef<HTMLDivElement>(null)
-  const count = items.filter((t) => ticked.has(t.id)).length
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => !root.current?.contains(e.target as Node) && setOpen(false)
-    const esc = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    window.addEventListener('pointerdown', close)
-    window.addEventListener('keydown', esc)
-    return () => {
-      window.removeEventListener('pointerdown', close)
-      window.removeEventListener('keydown', esc)
-    }
-  }, [open])
-
-  return (
-    <div ref={root} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={`inline-flex items-center gap-1.5 rounded-full py-1.5 pr-2.5 pl-3 text-sm ring-1 transition ${count ? 'bg-white/[0.06] text-zinc-100 ring-white/15' : 'text-zinc-400 ring-white/[0.08] hover:ring-white/20'}`}
-      >
-        More
-        {count > 0 && <span className="rounded-full bg-white/15 px-1.5 text-[11px] tabular-nums">{count}</span>}
-        <ChevronDown className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.ul
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 z-30 mt-2 max-h-80 w-64 origin-top-left overflow-y-auto rounded-2xl border border-white/10 bg-panel/95 p-1.5 shadow-2xl shadow-black/60 backdrop-blur-xl"
-          >
-            {items.map((t) => (
-              <li key={t.id} onPointerEnter={() => onFocus(t.id)} onPointerLeave={() => onFocus(null)} className="group flex items-center rounded-xl hover:bg-white/[0.05]">
-                <button type="button" role="checkbox" aria-checked={ticked.has(t.id)} onClick={() => onToggle(t.id)} className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-left text-sm">
-                  <Box colour={OTHER_COLOUR} checked={ticked.has(t.id)} />
-                  <span className={`flex-1 truncate ${ticked.has(t.id) ? 'text-zinc-100' : 'text-zinc-300'}`}>{t.label}</span>
-                  <span className="text-xs text-zinc-500 tabular-nums group-hover:hidden">{inrCompact(t.amount)}</span>
-                </button>
-                <button type="button" onClick={() => onOnly(t.id)} className="mr-2 hidden rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-zinc-100 group-hover:block hover:bg-white/20">
-                  Only
-                </button>
-              </li>
-            ))}
-          </motion.ul>
-        )}
-      </AnimatePresence>
-    </div>
   )
 }
 

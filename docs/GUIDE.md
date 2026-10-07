@@ -133,7 +133,9 @@ The line under the sum says which parts are in it. The ring gives the six bigges
 draw; the scale fits what's ticked, so one category on its own shows its real ups and downs. Your ticks are
 remembered. Card purchases is dashed: it's estimated, spread over the billing cycles the bills paid for. A month no
 file covers is a gap, not ₹0. Seven categories have colours (the ring's six plus violet); others are grey and named at
-their line's end, since lines can cross anywhere and more colours would be too close to tell apart.
+their line's end, since lines can cross anywhere and more colours would be too close to tell apart. Every category
+with spending has its chip, the coloured ones first, then the grey ones by how much they hold; the row wraps when
+there are many, and **Only** on a chip shows that one alone.
 
 - **Spent**: payments for things and services, minus what was refunded (below).
 - **Sent to people**: UPI to individuals. Label a person once (e.g. "Water delivery") and they move into spending.
