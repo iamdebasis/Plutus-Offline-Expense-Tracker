@@ -4,12 +4,13 @@ import { plural, shortPath } from '../lib/format'
 import { useStorage } from '../lib/storage'
 
 /** Where your statements and screenshots are kept: always data/uploads, inside Plutus's own folder on this Mac,
- *  with everything else it knows about you. A click shows it in Finder. */
-export function StoragePanel() {
+ *  with everything else it knows about you. A click shows it in Finder. `className`: its spacing, from where it sits
+ *  (by default the file sheet's sides). */
+export function StoragePanel({ className = 'px-6 pb-2' }: { className?: string }) {
   const info = useStorage()
   if (!info) return null
   return (
-    <div className="px-6 pb-2">
+    <div className={className}>
       <div className="flex items-center gap-2 text-xs text-zinc-500">
         <HardDrive className="size-3.5 shrink-0" />
         <span className="shrink-0">Kept on this Mac in</span>
@@ -37,10 +38,10 @@ export function StorageLine() {
   const info = useStorage()
   if (!info) return null
   return (
-    <div className="-mx-6 mt-3">
-      <StoragePanel />
+    <div className="mt-3">
+      <StoragePanel className="pb-2" />
       {info.missing > 0 && (
-        <p className="px-6 pl-[2.9rem] text-xs text-rose-300">
+        <p className="pl-5.5 text-xs text-rose-300">
           {plural(info.missing, 'file')} missing from this folder. Were they moved or deleted in Finder?
         </p>
       )}
