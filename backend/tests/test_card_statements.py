@@ -2,8 +2,9 @@
 with what UPI already knows, and covering the bills that pay them (fake statements only, tests/fake_cards.py)."""
 
 import json
-from collections import Counter
+import re
 import time
+from collections import Counter
 from datetime import date, datetime
 
 import pymupdf
@@ -50,6 +51,19 @@ def _upload(client, path, password=None):
 
 
 # ---- reading any bank's layout ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("layout", ["datetime_rewards_paged", "two_pages"])
+@pytest.mark.parametrize("where", ["below", "centred", "same_line"])
+def test_a_pages_number_is_never_part_of_a_row(tmp_path, layout, where):
+    """A page's number ("Page 1 of 2") printed right under its last row, in the description's column, centred under the
+    table, or on the last row's own line: the page's furniture, never part of a row's description; every row is read
+    and the statement still adds up."""
+    result = _read(tmp_path, layout, footer=where)
+    s = result.statement
+    assert (s.rows, s.debits, s.credits, s.check) == (len(fake_cards.ROWS), fake_cards.DEBITS, fake_cards.CREDITS, "matched")
+    leaked = [f"{t.payee} | {t.note}" for t in result.transactions if re.search(r"page\s*\d|\bof 2\b", f"{t.payee} {t.note}", re.IGNORECASE)]
+    assert not leaked, leaked
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)
@@ -430,3 +444,18 @@ def test_make_inspect_shows_the_layout_and_nothing_of_yours(tmp_path, capsys, la
               r"line up at x [\d, ]+|pages \d+–\d+")
     left = regex.findall(r".{0,30}[0-8].{0,10}", regex.sub(counts, "", out))
     assert not left, left
+
+
+def test_only_a_pages_number_is_taken_out_of_a_line():
+    """"Page 16 of 19", "Page 16/19", "Page No. 3 of 5" go, wherever on a line; the line's other words stay; a name that
+    only starts like one ("PAGE3 BOOKS", "PAGE 3 CAFE") is a name, and stays."""
+    from app.parsers.card_statement import Line, Word, _without_page_numbers
+
+    def line(*texts: str) -> Line:
+        return Line([Word(t, 40 + 60 * i, 90 + 60 * i, 100, 110) for i, t in enumerate(texts)], 0)
+
+    kept = _without_page_numbers([
+        line("Page", "16", "of", "19"), line("Page", "16/19"), line("Page", "No.", "3", "of", "5"),
+        line("FAKE", "BANK", "Page", "3", "of", "5", "Continued"), line("PAGE3", "BOOKS"), line("PAGE", "3", "CAFE"),
+    ])
+    assert [ln.text for ln in kept] == ["FAKE BANK Continued", "PAGE3 BOOKS", "PAGE 3 CAFE"]

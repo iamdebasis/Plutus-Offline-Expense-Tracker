@@ -331,8 +331,21 @@ def no_header(path: Path) -> Path:
     return save(path, [p])
 
 
-def two_pages(path: Path) -> Path:
-    """The Axis layout over two pages: page 2 starts with the bank's own heading lines, then the header again."""
+def _page_number(page: Page, number: str, where: str | None, desc_x: float, last_row_y: float) -> None:
+    """The bank's page number at the end of a page's rows: "below" the last row, in its description's column; "centred"
+    under the table; or on the "same_line" as the last row, between its description and the next column."""
+    if where == "below":
+        page.at(desc_x, number, 8, y=last_row_y + 13)
+    elif where == "centred":
+        page.at(270, number, 8, y=last_row_y + 15)
+    elif where == "same_line":
+        page.at(desc_x + 150, number, 8, y=last_row_y)
+
+
+def two_pages(path: Path, footer: str | None = None) -> Path:
+    """The Axis layout over two pages: page 2 starts with the bank's own heading lines, then the header again.
+    `footer`: where each page's number is printed after its rows, as `_page_number` says (none: only the "Page 2 of 2"
+    in page 2's heading lines)."""
     first, second = Page(), Page()
     first.at(40, "Axis Bank", 14).down(18).at(40, "Credit Card Statement").down()
     first.at(40, "Card No: 4000 00XX XXXX 3141").down()
@@ -344,7 +357,8 @@ def two_pages(path: Path) -> Path:
         page.at(40, "DATE").at(110, "TRANSACTION DETAILS").at(330, "MERCHANT CATEGORY").at(470, "AMOUNT (Rs.)").down()
         for t in rows:
             page.at(40, t.day.strftime("%d/%m/%Y")).at(110, t.details).at(330, t.category).at(480, f"{inr(t.amount)} {'Cr' if t.credit else 'Dr'}").down()
-    second.down(10).at(220, "**** End of Statement ****")
+        _page_number(page, f"Page {1 if page is first else 2} of 2", footer, 110, page.y - 15)
+    second.down(30).at(220, "**** End of Statement ****")
     return save(path, [first, second])
 
 
@@ -361,6 +375,25 @@ def datetime_rewards(path: Path) -> Path:
         p.at(40, f"{t.day:%d/%m/%Y} {9 + n % 9:02d}:{(7 * n) % 60:02d}").at(150, t.details).at(405, "0" if t.credit else f"+ {int(t.amount // 150)}")
         p.at(470, f"₹ {inr(t.amount)}{' Cr' if t.credit else ''}").down()
     return save(path, [p])
+
+
+def datetime_rewards_paged(path: Path, footer: str = "below") -> Path:
+    """The DATE & TIME | TRANSACTION DESCRIPTION | REWARDS | AMOUNT layout over two pages, each ending with the bank's
+    page number ("Page 1 of 2") where `footer` says (`_page_number`); page 2 starts with the bank's name and the header
+    again."""
+    first, second = Page(), Page()
+    first.at(40, "Fake Bank Credit Card Statement", 13).down(20)
+    first.at(40, "Card Number XXXX XXXX XXXX 3141").down()
+    first.at(40, "Statement Date 12/09/2026").at(320, "Payment Due Date 02/10/2026").down()
+    first.at(40, f"Opening Balance {inr(PREVIOUS)}").at(320, f"Total Amount Due {inr(TOTAL_DUE)}").down(24)
+    second.at(40, "Fake Bank Credit Card Statement", 9).down(20)
+    for page, start, rows in ((first, 0, ROWS[:6]), (second, 6, ROWS[6:])):
+        page.at(40, "DATE & TIME").at(150, "TRANSACTION DESCRIPTION").at(400, "REWARDS").at(480, "AMOUNT").down()
+        for n, t in enumerate(rows, start):
+            page.at(40, f"{t.day:%d/%m/%Y} {9 + n % 9:02d}:{(7 * n) % 60:02d}").at(150, t.details).at(405, "0" if t.credit else f"+ {int(t.amount // 150)}")
+            page.at(470, f"₹ {inr(t.amount)}{' Cr' if t.credit else ''}").down()
+        _page_number(page, f"Page {1 if page is first else 2} of 2", footer, 150, page.y - 15)
+    return save(path, [first, second])
 
 
 def addon_card(path: Path) -> Path:

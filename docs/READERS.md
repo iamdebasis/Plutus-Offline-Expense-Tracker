@@ -43,7 +43,9 @@ parsers), [Axis: how do I read my statement](https://application.axis.bank.in/we
    identified again at startup).
 2. **Lines** (`card_statement.read_lines`). Positioned words per page from the PDF's text; decoded or OCR'd when the
    text layer is scrambled or missing. Badges (a short word alone in a small filled shape) are dropped; bold drawn
-   twice is read once.
+   twice is read once. A page's number ("Page 16 of 19", "Page 16/19") is dropped wherever on a line it is
+   (`_without_page_numbers`): printed just under a page's last row, in its description's column, both readers took it
+   for a wrapped description ("… Page 16 of"). Tests: `fake_cards.datetime_rewards_paged` and `two_pages(footer=…)`.
 3. **The statement's own figures** (`card_statement.read_summary`). Labels (`_LABELS`) with their figure beside them,
    after them, or below them, under labels wrapped over up to three lines (`_wrapped_labels`); a label never runs
    across two cells (`_across_cells`); the terms' worked examples are skipped (`in_terms`). A summary of several

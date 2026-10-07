@@ -73,18 +73,44 @@ class Line:
 
 def read_lines(doc: pymupdf.Document) -> tuple[list[Line], str]:
     """Every line of the statement in reading order, as positioned words. The PDF's own text when it reads
-    normally; otherwise the decoded or OCR lines the rest of the app uses, split into words."""
+    normally; otherwise the decoded or OCR lines the rest of the app uses, split into words. Without the pages'
+    numbers (`_without_page_numbers`)."""
     pages, method = page_lines(doc)
     if method == "text":
         lines: list[Line] = []
         for i in range(doc.page_count):
             lines += _word_lines(doc[i], i)
-        return lines, method
+        return _without_page_numbers(lines), method
     out = []
     for page in pages:
         for ln in page:
             out.append(Line(_spread(ln.text, ln.x0, ln.x1, ln.y0, ln.y1), ln.page))
-    return out, method
+    return _without_page_numbers(out), method
+
+
+# A page's number, "Page 16 of 19", "Page 16/19", "Page No. 16 of 19"
+_PAGE_NUMBER = re.compile(r"\bpage\s*(?:no\.?\s*)?:?\s*\d{1,4}\s*(?:of|/)\s*\d{1,4}\b", re.IGNORECASE)
+
+
+def _without_page_numbers(lines: list[Line]) -> list[Line]:
+    """The lines without the words of a page's number: the page's furniture, never part of a row. Printed just under a
+    page's last row, in its description's column, both readers would take it for a wrapped description ("… Page 16 of
+    19"); so its words go wherever on a line they are, and a line left with none goes too."""
+    out = []
+    for ln in lines:
+        spans = [m.span() for m in _PAGE_NUMBER.finditer(ln.text)]
+        if not spans:
+            out.append(ln)
+            continue
+        kept, pos = [], 0
+        for w in ln.words:
+            start, end = pos, pos + len(w.text)
+            if not any(s <= start and end <= e for s, e in spans):
+                kept.append(w)
+            pos = end + 1
+        if kept:
+            out.append(Line(kept, ln.page))
+    return out
 
 
 def _badges(page: pymupdf.Page, words: list) -> set[int]:

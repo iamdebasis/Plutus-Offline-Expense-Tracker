@@ -14,7 +14,7 @@ The owner's list of upgrades, agreed on 7 October 2026. Each has its notes below
    downloaded by its owner first; Plutus never downloads one.
 5. [Ask Plutus, next](#ask-plutus-next): why questions, saved chats if wanted, actions from the chat.
 6. ~~"Paid with" in the transactions list~~: done; see [DECISIONS.md](DECISIONS.md) #21.
-7. [Page footers in payee names](#page-footers-in-payee-names): a statement reader bug.
+7. ~~Page footers in payee names~~: done; reader version 14 (see [READERS.md](READERS.md), the Lines step).
 8. [ICCL in the merchant list](#iccl-in-the-merchant-list): payments for mutual funds left uncategorized.
 
 Each is done exactly: reproduced with fake data first, nothing assumed about a file or a name that a source or a
@@ -30,16 +30,6 @@ India's seasons as periods in `web/src/lib/askRules.ts`, the same as the AI is t
 February, summer March to June, monsoon July to September; "last winter" the latest one that has ended, "this
 monsoon" or "the monsoon" the latest one that has begun. A season with a year ("winter 2025": which winter?) stays
 unsure and goes to the AI. Tests in `web/tests/askRules.test.ts`.
-
-### Page footers in payee names
-
-Seen on a real statement (not copied here): a payee read as "<a merchant> <city> Page 16 of", and its row's full
-wording ends "Page 16 of 19": the page's footer was taken into a row's description. Where it joins isn't known yet and
-must be found, not guessed: reproduce it in `tests/fake_cards.py` (a statement whose footer "Page N of M" sits under a
-page's last row, in each layout the readers know), see which step takes it in (`card_statement.read_rows`,
-`shape_reader.py`, wrapped-line joining, or `clean_merchant`), fix it in general (a page's furniture never joins a
-row), then follow the readers' procedure in [READERS.md](READERS.md): `make test`, `make measure` with nothing wrong or
-unread, and `PARSER_VERSIONS` bumped so files read before are read again.
 
 ### ICCL in the merchant list
 

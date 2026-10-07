@@ -55,7 +55,9 @@ PARSER_VERSION = 2
 # cc_statement 13: a summary of several statements (a year's) is proven over their cycles, its rows past them held; an
 #                 undated row under a fee (its GST) is a row; a description wrapped above its row; bold read once;
 #                 "May 2025" isn't a date; AmEx's New Credits/Debits; the local AI never takes a summary figure for a row.
-PARSER_VERSIONS = {"gpay_takeout": 4, "cc_statement": 13}
+# cc_statement 14: a page's number ("Page 16 of 19") is the page's furniture: printed just under its last row it was
+#                 read as more of that row's description ("… Page 16 of"); its words are now dropped wherever they are.
+PARSER_VERSIONS = {"gpay_takeout": 4, "cc_statement": 14}
 
 
 def parser_version(kind: str) -> int:
