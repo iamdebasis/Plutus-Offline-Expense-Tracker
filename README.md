@@ -39,8 +39,15 @@ no cloud, no telemetry. It is named for the Greek god of wealth.
   and future.
 - **Shows where it went.** Total spend by category, month-by-month trends, spending per card, UPI spending and a
   searchable ledger. Every chart has a table view.
+- **Answers your questions.** Click the gold Plutus button in the corner and ask in your own words: "How much on
+  electricity in 2025?", "Top 5 payees last year", "Food delivery during the monsoon", then "and by month?". The answer
+  is the dashboard's own number, with how your question was read and the payments behind it. Rules read most questions
+  instantly; the optional local AI reads the rest, and it sees only your question, never a transaction. The chat isn't
+  saved anywhere.
 
 ![Month by month: each category's spending per month, with estimated card spending dashed](docs/screenshots/month-by-month.png)
+
+![Ask Plutus: "How much on food delivery in 2026?" answered with the dashboard's own figure, then "and by month?", each with how it was read and the payments behind it](docs/screenshots/ask-plutus.png)
 
 ## Privacy by design
 
@@ -51,7 +58,7 @@ Plutus is built on four rules. This is what enforces each one:
 | **Your data never leaves your Mac.** No file, transaction or name is sent to any server. | The server listens on `127.0.0.1` only. The UI loads no CDN scripts, web fonts or analytics. The app's only outbound connection is to a local Ollama, and `config.py` refuses any AI host that isn't loopback. Every test runs with non-loopback sockets blocked. |
 | **No personal data in the code.** | Names, card and account digits, card networks and your choices are all user data, never code. The code ships only what is the same for everyone: categories, public merchants, card designs and parsing rules. A test fails if a module holds a real-looking account number. Tests and the demo use obviously fake data ("Mr Fake Landlord", cards ending in 1111). |
 | **Everything about you lives in `data/`.** | One module, `userdata.py`, lists every user file and is the only way into the data folder; a test fails if code goes around it. Original files go to `data/uploads/`, and the tools' temporary copies to `data/run/`. A fresh clone starts empty and gets personal as you add files. **Start over**, at the foot of Your vault, moves all of it to the Trash (you can put it back until the Trash is emptied) and Plutus is a fresh clone again. |
-| **Processing and AI stay local.** | PDFs are read with PyMuPDF, scans and screenshots with Apple's on-device OCR (Vision). The optional AI runs in Ollama on your Mac. Plutus starts it on demand and unloads it after 90 seconds idle, and the app works fully without it. Plutus never downloads a model or installs anything: it suggests the model that suits your Mac and shows you the steps. |
+| **Processing and AI stay local.** | PDFs are read with PyMuPDF, scans and screenshots with Apple's on-device OCR (Vision). The optional AI runs in Ollama on your Mac. Plutus starts it on demand and unloads it after 90 seconds idle, and the app works fully without it. Plutus never downloads a model or installs anything: it suggests the model that suits your Mac and shows you the steps. Questions to Ask Plutus are read by rules in the page, or by that local model, which gets the question and the category list, never a transaction; the answer is worked out from your ledger in the page, and the chat isn't saved. |
 
 `.gitignore` and a pre-commit hook (switched on by `make setup`) also keep `data/`, statements, exports and
 screenshots out of git, even with `git add -f`. A fork can't publish anyone's finances by accident.
@@ -106,6 +113,12 @@ the billing step places each card bill in the cycle it paid for.
   short chunks with every amount tagged, and answers with tags, never figures, so it can't invent a number. Its
   reading counts only if the statement's figures prove it (or, with nothing to check against, if it matches the rules'
   row for row).
+- **Ask Plutus: the AI reads the question, Plutus computes the answer.** A question becomes a query of a fixed shape
+  (what kind of answer, categories, payees, cards, period: "FY25", "since April", "last monsoon", "and in 2024?"),
+  read by rules in the page or, when they're unsure, by the local model. The answer is computed in the page with the
+  dashboard's own functions, and tests hold it equal to the dashboard for every year, with investments counted or left
+  out, so the chat can't disagree with a chart. The model's reading is checked too: a payee must be in the question,
+  dates must be real, a list of most categories means "everything". On 24 made-up questions, 22 were read right.
 - **Never double counting.** A card bill, the purchases it pays for, and the same card used on UPI are three views of
   the same money. Bills are placed in their billing cycle (learned from a single statement, or estimated), netted
   against what's already itemized, and spread over the cycle's days. One rule is tested for every year, every card
@@ -123,7 +136,7 @@ the billing step places each card bill in the cycle it paid for.
   `fake_takeout.py` add fixed layouts and a Google Takeout export. No real statement is ever in the repo.
 
 <details>
-<summary><b>More screenshots</b>: credit cards, UPI, transactions, your files</summary>
+<summary><b>More screenshots</b>: credit cards, UPI, transactions, your files, the Ask Plutus button</summary>
 
 ![Credit cards: each card's spending, month by month, solid where statements were read and dashed where estimated from bills](docs/screenshots/credit-cards.png)
 
@@ -132,6 +145,8 @@ the billing step places each card bill in the cycle it paid for.
 ![Your transactions: payees waiting for an answer, and every payment with its category and source](docs/screenshots/transactions.png)
 
 ![Your vault: every file added, what it was read as, and whether each statement adds up](docs/screenshots/vault.png)
+
+![The Ask Plutus button: a glass orb with the gold mark in the page's corner, opened into "Ask Plutus" on hover](docs/screenshots/ask-orb.png)
 
 </details>
 
@@ -151,13 +166,14 @@ backend/app/
   parsers/         PhonePe, CRED, Google Pay Takeout, card statements, card exports, screenshots
   ledger.py        merge and deduplicate across files
   categorize.py    your answers → rules → merchant dictionary → local AI
+  ask.py           Ask Plutus: the local AI reads a question the rules couldn't (never a transaction)
   billing.py       which card, which billing cycle, what each bill paid for
   llm/             Ollama, started on demand and unloaded when idle; which model suits your Mac
   tools/           the demo, plus inspect and redact for sharing a layout without its contents
   userdata.py      the one list of everything kept in data/
 backend/tests/     tests, with fake statements generated in code
 web/src/
-  lib/             the dashboard's arithmetic, tested in web/tests/
+  lib/             the dashboard's arithmetic and Ask Plutus's answers, tested in web/tests/
   components/      dashboard sections, charts, card faces
 docs/              the guide, the architecture map, decisions, roadmap, the readers' guide, these screenshots
 scripts/           requirements check, dev server, commit guard, screenshots

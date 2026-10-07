@@ -13,6 +13,7 @@ const BASE = process.env.DEMO_URL ?? 'http://127.0.0.1:8001'
 const OUT = join(ROOT, 'docs', 'screenshots')
 const PORT = 9339
 const WIDTH = 1280
+const ASK_HEIGHT = 1080 // Ask Plutus is photographed as on a screen (tall enough for both answers), not page-tall
 
 const BROWSERS = [
   process.env.CHROME,
@@ -113,6 +114,9 @@ async function main() {
       throw new Error('The page kept moving')
     }
 
+    // the Ask Plutus orb sits in the window's corner: kept out of the sections, photographed with the window page-tall
+    await evaluate(`(() => { const s = document.createElement('style'); s.id = 'no-orb'; s.textContent = 'button[aria-label="Ask Plutus"] { visibility: hidden }'; document.head.append(s); return true })()`)
+
     mkdirSync(OUT, { recursive: true })
     for (const shot of SHOTS) {
       for (let attempt = 1; ; attempt++) {
@@ -132,6 +136,44 @@ async function main() {
         if (attempt === 3) throw new Error(`${shot.file}: the page kept moving while it was photographed`)
       }
     }
+
+    // Ask Plutus, as on a screen: the chat open over the dashboard (the orb steps aside while it's open), then the orb
+    // itself, opened into its pill over the transactions
+    const until = async (expression, what) => {
+      for (let i = 0; !(await evaluate(expression)); i++) {
+        if (i === 120) throw new Error(`Ask Plutus: never ${what}`)
+        await sleep(250)
+      }
+    }
+    const save = async (file, clip) => {
+      const { data } = await send('Page.captureScreenshot', { format: 'png', ...(clip && { clip: { ...clip, scale: 1 } }) })
+      writeFileSync(join(OUT, file), Buffer.from(data, 'base64'))
+      console.log(`  docs/screenshots/${file}`)
+    }
+    const PANEL = `document.querySelector('[role=dialog][aria-label="Ask Plutus"]')`
+    const ask = async (question) => {
+      await evaluate(`(() => { const i = ${PANEL}.querySelector('input[aria-label="Your question"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(question)}); i.dispatchEvent(new Event('input', { bubbles: true })); return true })()`)
+      await evaluate(`${PANEL}.querySelector('button[aria-label="Ask"]').click()`)
+      await until(`!${PANEL}.innerText.includes('Reading your question')`, `answered “${question}”`)
+    }
+    await send('Emulation.setDeviceMetricsOverride', { width: WIDTH, height: ASK_HEIGHT, deviceScaleFactor: 2, mobile: false })
+    await evaluate(`document.getElementById('no-orb').remove()`)
+    await evaluate('window.scrollTo(0, 0)')
+    const year = await evaluate(`document.querySelector('[role=tab][aria-selected=true]').textContent.trim()`)
+    await evaluate(`document.querySelector('button[aria-label="Ask Plutus"]').click()`)
+    await until(`!!${PANEL}`, 'opened')
+    await ask(`How much on food delivery in ${year}?`)
+    await ask('and by month?')
+    await sleep(1200) // the conversation scrolls to its last answer
+    await save('ask-plutus.png')
+    await evaluate(`${PANEL}.querySelector('button[aria-label="Close"]').click()`)
+    await until(`!${PANEL}`, 'closed')
+    await evaluate(`(() => { document.activeElement?.blur(); document.getElementById('transactions').scrollIntoView({ block: 'start' }); return true })()`)
+    await sleep(600)
+    const orb = await evaluate(`(() => { const r = document.querySelector('button[aria-label="Ask Plutus"]').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 } })()`)
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: orb.x, y: orb.y })
+    await sleep(800)
+    await save('ask-orb.png', await evaluate(`({ x: ${WIDTH} - 640, y: scrollY + innerHeight - 220, width: 640, height: 220 })`))
     ws.close()
   } finally {
     proc.kill()
