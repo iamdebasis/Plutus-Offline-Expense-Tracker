@@ -3,9 +3,12 @@
 [![CI](https://github.com/iamdebasis/Plutus-Offline-Expense-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/iamdebasis/Plutus-Offline-Expense-Tracker/actions/workflows/ci.yml)
 ![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![Runs offline](https://img.shields.io/badge/runs-100%25%20offline-2ea44f)
+[![Local LLM: Ollama](https://img.shields.io/badge/local%20LLM-Ollama-blueviolet)](https://ollama.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**A private expense tracker for India. It reads the statements you already have, and nothing ever leaves your Mac.**
+### The private AI expense tracker for India. Local LLM, zero cloud.
+
+**It reads the statements you already have, answers your questions about them, and nothing ever leaves your Mac.**
 
 ![Plutus: a year's total spend, split into UPI and cards and broken down by category](docs/screenshots/overview.png)
 
