@@ -154,6 +154,30 @@ describe('when', () => {
     reads('How much did I put into mutual funds since January?', { categories: ['investments'], period: '1 Jan 2026 – 7 Oct 2026', ...SURE })
   })
 
+  test('India’s seasons, as IMD counts them, December in winter', () => {
+    // today is 7 Oct 2026: the monsoon (Jun–Sep) has ended, winter (Dec–Feb) hasn't begun
+    const range = (q: string, previous: AskQuery | null = null) => {
+      const r = readQuestion(q, ctx, previous)
+      return r && [r.query.period?.from, r.query.period?.to, r.query.period?.label, r.sure]
+    }
+    assert.deepEqual(range('cabs last winter'), ['2025-12-01', '2026-02-28', 'winter 2025–26', true])
+    assert.deepEqual(range('food delivery during the monsoon'), ['2026-06-01', '2026-09-30', 'monsoon 2026', true])
+    assert.deepEqual(range('this monsoon'), ['2026-06-01', '2026-09-30', 'monsoon 2026', true])
+    assert.deepEqual(range('last monsoon'), ['2026-06-01', '2026-09-30', 'monsoon 2026', true]) // ended a week ago
+    assert.deepEqual(range('electricity last summer'), ['2026-03-01', '2026-05-31', 'summer 2026', true])
+    assert.deepEqual(range('this winter'), ['2025-12-01', '2026-02-28', 'winter 2025–26', true]) // the latest that has begun
+    assert.deepEqual(range('groceries in the rainy season'), ['2026-06-01', '2026-09-30', 'monsoon 2026', true])
+    assert.deepEqual(range('spending in summer 2025'), ['2025-03-01', '2025-05-31', 'summer 2025', true])
+    assert.deepEqual(range('post-monsoon 2025'), ['2025-10-01', '2025-11-30', 'post-monsoon 2025', true])
+    assert.deepEqual(range('winter 2024-25'), ['2024-12-01', '2025-02-28', 'winter 2024–25', true])
+    assert.deepEqual(range('winter 2023-24'), ['2023-12-01', '2024-02-29', 'winter 2023–24', true]) // a leap year's February
+    // "winter 2025" could be either winter: not read as one, and said so
+    const either = readQuestion('rent in winter 2025', ctx)
+    assert.ok(either && !either.sure && either.unknown.includes('winter'), either?.unknown.join(', '))
+    // two seasons compared
+    reads('compare last summer and the monsoon', { kind: 'compare', period: 'summer 2026', compareTo: 'monsoon 2026', ...SURE })
+  })
+
   test('a period takes its "in" with it: "my money in 2025" is spending, not Money in', () => {
     reads('Which category took most of my money in 2025?', { kind: 'top', by: 'category', categories: [], money: 'out', period: '2025', ...SURE })
     reads('how much money did I spend in March', { categories: [], money: 'out', period: 'March 2026', ...SURE })
@@ -193,7 +217,8 @@ describe('follow-ups and what rules can’t read', () => {
   test('what the rules can’t place goes to the local AI, said', () => {
     const r = readQuestion('What did keeping the lights on and the internet cost me last winter?', ctx)
     assert.ok(r && !r.sure, 'unsure')
-    assert.ok(r.unknown.includes('lights') && r.unknown.includes('winter'), r.unknown.join(', '))
+    assert.ok(r.unknown.includes('lights') && !r.unknown.includes('winter'), r.unknown.join(', ')) // the season is known
+    assert.equal(r.query.period?.label, 'winter 2025–26')
     assert.equal(readQuestion('how much did I spend on stuff', ctx)?.sure, false)
     assert.equal(readQuestion('asdf qwerty', ctx), null)
   })

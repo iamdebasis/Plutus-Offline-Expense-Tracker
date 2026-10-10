@@ -132,3 +132,18 @@ def test_empty_or_overlong_questions_are_refused(model, client):
 def test_without_a_local_ai_the_page_is_told(client):
     res = client.post("/api/ask", json={"question": "what did winter cost me"})  # conftest: no LLM in tests
     assert res.status_code == 409 and res.json()["detail"]["code"] == "no_ai"
+
+
+def test_the_ai_is_told_the_seasons_the_page_reads():
+    """The rules in the page and the local AI mean the same months by a season: ask.py's SEASONS is the page's
+    (web/src/lib/ask.ts), and the prompt says them in words."""
+    import re
+    from pathlib import Path
+
+    from app import ask
+
+    page = (Path(__file__).resolve().parents[2] / "web" / "src" / "lib" / "ask.ts").read_text(encoding="utf-8")
+    block = page[page.index("export const SEASONS"):page.index("}\n", page.index("export const SEASONS"))]
+    theirs = {name: (int(start), int(months)) for name, start, months in re.findall(r"'?([\w-]+)'?: \{ start: (\d+), months: (\d+) \}", block)}
+    assert theirs == ask.SEASONS
+    assert ask._seasons() == "winter December to February, summer March to May, monsoon June to September, post-monsoon October to November"

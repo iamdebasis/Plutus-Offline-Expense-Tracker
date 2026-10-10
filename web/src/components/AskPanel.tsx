@@ -27,6 +27,8 @@ type Message =
       unsure?: string[]
       /** Offer to set up the local AI. */
       offerAi?: boolean
+      /** The local AI is set up but couldn't be reached for this one (not started, not answering). */
+      aiFailed?: boolean
     }
 
 /** Ask Plutus: questions about your spending, answered from your files on this Mac. Rules read the question first
@@ -45,6 +47,8 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [aiReady, setAiReady] = useState<boolean | null>(null)
+  // set up, but it couldn't be reached when a question needed it: said as such, not as "not set up"
+  const [aiFailed, setAiFailed] = useState(false)
   const nextId = useRef(1)
   const scroller = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -64,6 +68,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
   // the orb when it closes
   useEffect(() => {
     if (!open) return
+    setAiFailed(false)
     api.llmStatus().then((s) => setAiReady(s.state !== 'unavailable' && s.modelInstalled !== false)).catch(() => setAiReady(false))
     requestAnimationFrame(() => input.current?.focus())
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -115,9 +120,10 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
     } catch (e) {
       if (e instanceof ApiError && e.code === 'no_ai') {
         setAiReady(false)
-        noAi(id, readQuestion(question, ctx, previous))
+        setAiFailed(true)
+        noAi(id, readQuestion(question, ctx, previous), true)
       } else {
-        update(id, { state: 'done', reply: `Something went wrong reading that (${(e as Error).message}). Your data is fine; try again.` })
+        update(id, { state: 'done', byAi: false, reply: `Something went wrong reading that (${(e as Error).message}). Your data is fine; try again.` })
       }
     } finally {
       setBusy(false)
@@ -127,9 +133,11 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
   /** Without a local AI: what the rules understood, said as such, when they found something to go on (a category, a
    *  payee, a period…); otherwise not answered, with questions to try and the way to more. Never a guess dressed up
    *  as an answer. */
-  const noAi = (id: number, reading: ReturnType<typeof readQuestion>) => {
-    if (reading && hasSubstance(reading.query)) update(id, { state: 'done', answer: answer(data, reading.query), unsure: reading.unknown, offerAi: true })
-    else update(id, { state: 'done', reply: "I couldn't read that. Try asking like one of these:", offerAi: true })
+  const noAi = (id: number, reading: ReturnType<typeof readQuestion>, failed = false) => {
+    // read by the rules, never marked as the AI's, whatever was tried first
+    const said = { state: 'done' as const, byAi: false, offerAi: true, aiFailed: failed }
+    if (reading && hasSubstance(reading.query)) update(id, { ...said, answer: answer(data, reading.query), unsure: reading.unknown })
+    else update(id, { ...said, reply: "I couldn't read that. Try asking like one of these:" })
   }
 
   const rerun = (id: number, query: AskQuery) => update(id, { answer: answer(data, query) })
@@ -163,7 +171,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
                     <>
                       · rules only,{' '}
                       <button type="button" onClick={aiPanel.open} className="text-zinc-300 underline decoration-white/25 underline-offset-2 hover:decoration-white">
-                        local AI not set up
+                        {aiFailed ? 'local AI unavailable' : 'local AI not set up'}
                       </button>
                     </>
                   ) : aiReady ? (
@@ -285,7 +293,7 @@ function Reply({ m, data, years, starters, onAsk, onChange, onShow }: {
             </button>
           ))}
         </div>
-        {m.offerAi && <AiNote />}
+        {m.offerAi && <AiNote failed={!!m.aiFailed} />}
       </div>
     )
   }
@@ -319,17 +327,19 @@ function Reply({ m, data, years, starters, onAsk, onChange, onShow }: {
           {showLabel(a)}
         </button>
       )}
-      {m.offerAi && (m.unsure?.length ?? 0) > 0 && <AiNote />}
+      {m.offerAi && (m.unsure?.length ?? 0) > 0 && <AiNote failed={!!m.aiFailed} />}
     </article>
   )
 }
 
-function AiNote() {
+/** Under an answer the rules gave alone: how the local AI would help, or, when it's set up but couldn't be reached,
+ *  that it couldn't (the Local AI panel says why). */
+function AiNote({ failed }: { failed: boolean }) {
   return (
     <p className="mt-2.5 text-xs text-zinc-400">
-      With the local AI set up, Plutus can read questions like this one.{' '}
+      {failed ? "The local AI couldn't be reached, so the rules read this one." : 'With the local AI set up, Plutus can read questions like this one.'}{' '}
       <button type="button" onClick={aiPanel.open} className="text-zinc-300 underline decoration-white/25 underline-offset-2 hover:decoration-white">
-        See how
+        {failed ? 'See why' : 'See how'}
       </button>
     </p>
   )

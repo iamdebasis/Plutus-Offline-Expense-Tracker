@@ -216,7 +216,8 @@ flowchart LR
   engine --> panel["components/AskPanel.tsx"]
 ```
 
-- **Rules first** (`lib/askRules.ts`): periods (years, India's financial years, months, "last 3 months", "since…"),
+- **Rules first** (`lib/askRules.ts`): periods (years, India's financial years, months, "last 3 months", "since…",
+  India's seasons by `SEASONS` in `lib/ask.ts`, the local AI told the same months),
   categories by name or a common word ("petrol", "food orders"), payees by the words of their names, cards by their
   last four digits or bank, and follow-ups ("and in 2024?"). A word they don't know makes them unsure.
 - **The local AI only when unsure** (`app/ask.py`, `POST /api/ask`): it gets the question, today's date, the category

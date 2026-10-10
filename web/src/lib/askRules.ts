@@ -1,5 +1,5 @@
 import type { Instrument } from '../types'
-import { emptyQuery, fyPeriod, lastDayOf, monthPeriod, payeeMatches, rangePeriod, yearPeriod, type AskKind, type AskPeriod, type AskQuery } from './ask'
+import { emptyQuery, fyPeriod, lastDayOf, monthPeriod, payeeMatches, rangePeriod, SEASONS, seasonPeriod, yearPeriod, type AskKind, type AskPeriod, type AskQuery, type Season } from './ask'
 import type { Category } from './ledger'
 
 /** Reading a question with rules, here in the page, instantly: the periods ("2025", "last month", "FY 2024-25"), the
@@ -151,7 +151,7 @@ export function readQuestion(question: string, ctx: AskContext, previous: AskQue
   text = text.replace(/\b(when did i last|last time|most recent|latest|biggest|largest|highest|most expensive|costliest|top \d+|top|how many|number of|how often|average|avg|typical(ly)?|compare(d)?( to| with)?|versus|vs\.?|against|month by month|by month|monthwise|month wise|monthly|trend|breakdown|per month|each month|every month|show me|show|list)\b/g, ' ')
 
   // when
-  const periods = periodsOf(take, ctx.today)
+  const periods = periodsOf(take, ctx.today, (re) => text.match(re))
   if (periods.length) {
     found.period = true
     q.period = periods[0]
@@ -262,7 +262,7 @@ function kindOf(text: string): AskKind {
 }
 
 /** Every period the question names, in the order said: the first is the period, a second the one to compare with. */
-function periodsOf(take: (re: RegExp) => RegExpMatchArray | null, today: string): AskPeriod[] {
+function periodsOf(take: (re: RegExp) => RegExpMatchArray | null, today: string, peek: (re: RegExp) => RegExpMatchArray | null): AskPeriod[] {
   const said: [number, AskPeriod][] = []
   const out = { push: (p: AskPeriod) => said.push([last?.index ?? 0, p]) }
   let last: RegExpMatchArray | null = null
@@ -318,6 +318,32 @@ function periodsOf(take: (re: RegExp) => RegExpMatchArray | null, today: string)
   if (took(/\b(last|previous|past) week\b/)) {
     const weekday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7
     out.push(rangePeriod(dayShift(today, -weekday - 7), dayShift(today, -weekday - 1)))
+  }
+  // India's seasons (`SEASONS`: IMD's months, December in winter). A season word counts only with a word that makes it
+  // a time ("last winter", "this monsoon", "during the monsoon") or with its year ("summer 2025", "winter 2024-25"), so
+  // a name like "Summer House" stays a name. "last" is the latest that has ended; "this", "the" or "in" the latest that
+  // has begun. "winter 2025" could be either winter: left unread, so the answer says so (or the local AI is asked).
+  const SEASON = '(post[ -]?monsoon|winter|summer|monsoon|rainy season)'
+  const seasonOf = (word: string): Season => (word.startsWith('post') ? 'post-monsoon' : word === 'rainy season' ? 'monsoon' : (word as Season))
+  const begun = (season: Season) => seasonPeriod(season, SEASONS[season].start <= tm ? ty : ty - 1)
+  const ended = (season: Season) => {
+    const p = begun(season)
+    return p.to < today ? p : seasonPeriod(season, Number(p.from.slice(0, 4)) - 1)
+  }
+  const winterYears = /\b(?:(?:in|during|for|over)\s+)?(?:the\s+)?winter\s+(\d{4})\s*[-/ ]\s*(\d{2}|\d{4})\b/
+  for (let w = peek(winterYears); w && Number(w[2]) % 100 === (Number(w[1]) + 1) % 100; w = peek(winterYears)) {
+    took(winterYears)
+    out.push(seasonPeriod('winter', Number(w[1])))
+  }
+  while ((m = took(new RegExp(`\\b(?:(?:in|during|for|over)\\s+)?(?:the\\s+)?${SEASON.replace('winter|', '')}\\s+(\\d{4})\\b`)))) {
+    out.push(seasonPeriod(seasonOf(m[1]), Number(m[2])))
+  }
+  while ((m = took(new RegExp(`\\b(?:(?:in|during|for|over)\\s+)?(?:the\\s+)?(\\d{4})\\s+${SEASON.replace('winter|', '')}\\b`)))) {
+    out.push(seasonPeriod(seasonOf(m[2]), Number(m[1])))
+  }
+  while ((m = took(new RegExp(`\\b(?:(?:in|during|for|over|through)\\s+(?:the\\s+)?|(this|last|previous|past|current|the)\\s+)${SEASON}s?\\b(?!\\s+\\d{4})(?:\\s+season)?`)))) {
+    const season = seasonOf(m[2])
+    out.push(m[1] && m[1] !== 'this' && m[1] !== 'current' && m[1] !== 'the' ? ended(season) : begun(season))
   }
   if (took(/\btoday\b/)) out.push(rangePeriod(today, today))
   if (took(/\byesterday\b/)) out.push(rangePeriod(dayShift(today, -1), dayShift(today, -1)))

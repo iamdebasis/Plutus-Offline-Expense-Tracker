@@ -215,3 +215,19 @@ and the app names only identify where a payment was read. Tap, swipe and online 
 don't reliably say which, and Plutus doesn't guess.
 **Where**: `web/src/lib/ledger.ts` (`howPaid`), `components/dash/TransactionsTable.tsx` (`paidWith`), the
 `chip-card` and `chip-upi` styles in `web/src/index.css`; tests in `web/tests/ledger.test.ts`.
+
+## 22. India's seasons are IMD's months, with December in winter
+
+**Decision**: Ask Plutus reads "last winter", "this monsoon", "summer 2025" as India's seasons, by the months of the
+India Meteorological Department with December in winter, as the owner chose: winter December to February, summer
+March to May, monsoon June to September, post-monsoon October and November. The whole year is covered, with no
+overlaps. "Last" is the latest season that has ended; "this", "the" or "during" the latest that has begun; a season
+with its year is that one ("winter 2024-25"), but "winter 2025" could be either winter and is left unsure. A season
+word counts only with a word that makes it a time or with its year, so a name like "Summer House" stays a name.
+**Why**: the sources don't agree on winter: IMD's data seasons give winter as January and February
+([IMD](https://metnet.imd.gov.in/docs/imdnews/imdnewsvol151_E.pdf)), the Government of India's Know India page
+December to early April ([Know India](https://knowindia.india.gov.in/profile/climate.php)); both give the monsoon as
+June to September, which the local AI had been told was July to September. December in winter is how most people
+mean it.
+**Where**: `SEASONS` and `seasonPeriod` in `web/src/lib/ask.ts`, read in `lib/askRules.ts`; `SEASONS` in
+`backend/app/ask.py` builds the prompt's sentence, and `tests/test_ask.py` fails if the two tables differ.

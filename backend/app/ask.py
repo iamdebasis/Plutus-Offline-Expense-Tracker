@@ -17,6 +17,9 @@ from app.llm import llm
 log = logs.get("llm")
 
 KINDS = ["total", "count", "average", "top", "largest", "compare", "trend", "list", "last"]
+# India's seasons, as the page reads them (web/src/lib/ask.ts `SEASONS`; a test keeps the two the same): the month each
+# starts and how many months it lasts. IMD's months, December in winter, as the owner chose (docs/DECISIONS.md #22).
+SEASONS = {"winter": (12, 3), "summer": (3, 3), "monsoon": (6, 4), "post-monsoon": (10, 2)}
 MAX_QUESTION = 300
 
 PROMPT = """You turn a question about someone's spending into a query. Answer only with JSON in the given format.
@@ -42,8 +45,9 @@ from, to: the period, as YYYY-MM-DD, both days included; null for all time.
 - A month or season named without a year is the latest one that has begun: "since January" is from {year}-01-01 if
   January {year} has begun.
 - "The last N days, weeks, months or years" and "the past N…" end today.
-- Seasons in India: winter November to February, summer March to June, monsoon July to September. "Last winter" is
-  the latest winter that has ended.
+- Seasons in India, IMD's months with December in winter: {seasons}. "Last winter" is the latest winter that has
+  ended; "this monsoon" or "the monsoon" the latest that has begun. "Winter 2025" could be either winter: understood
+  only if the question says which.
 
 categories: ids from this list only; a top-level id includes its children. None when the question is about all
 spending, or asks which category got the most (kind "top", by "category"):
@@ -60,6 +64,12 @@ query and change only what the new question changes, keeping its categories and 
 alone, ignore the previous query.
 
 Question: {question}"""
+
+
+def _seasons() -> str:
+    """ "winter December to February, summer March to May, …", from `SEASONS`."""
+    month = lambda n: date(2000, (n - 1) % 12 + 1, 1).strftime("%B")  # noqa: E731
+    return ", ".join(f"{name} {month(start)} to {month(start + length - 1)}" for name, (start, length) in SEASONS.items())
 
 
 def _categories() -> list[tuple[str, str]]:
@@ -169,7 +179,7 @@ async def read_question(question: str, previous: dict | None, today: date) -> di
         raise ValueError(f"That's a long question: keep it under {MAX_QUESTION} characters")
     prompt = PROMPT.format(
         today=today.isoformat(), weekday=today.strftime("%A"), year=today.year, question=question, previous=_previous(previous),
-        categories="\n".join(f"- {cid}: {label}" for cid, label in _categories()),
+        categories="\n".join(f"- {cid}: {label}" for cid, label in _categories()), seasons=_seasons(),
     )
     async with llm.session() as ai:
         raw = await ai.chat([{"role": "user", "content": prompt}], schema=schema(), timeout=90, purpose="read a question",

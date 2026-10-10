@@ -9,7 +9,7 @@ The owner's list of upgrades, agreed on 7 October 2026. Each has its notes below
 
 1. ~~Bills paid, from statements~~: done; see [DECISIONS.md](DECISIONS.md) #19.
 2. ~~One payment, one row~~: done; see [DECISIONS.md](DECISIONS.md) #20.
-3. [Seasons in the rules](#seasons-in-the-rules): "last winter", "this monsoon" read without the local AI.
+3. ~~Seasons in the rules~~: done; see [DECISIONS.md](DECISIONS.md) #22.
 4. [Measure the suggested local models](#measure-the-suggested-local-models-on-plutuss-own-jobs): needs the model
    downloaded by its owner first; Plutus never downloads one.
 5. [Ask Plutus, next](#ask-plutus-next): why questions, saved chats if wanted, actions from the chat.
@@ -21,15 +21,6 @@ Each is done exactly: reproduced with fake data first, nothing assumed about a f
 test hasn't shown.
 
 ## Discussed, not built
-
-### Seasons in the rules
-
-Ask Plutus reads "last winter", "this monsoon" or "the summer" only with the local AI, and in the measurement it was
-the kind of question the model still got wrong ("What did I spend on cabs last winter?" read as top payees). Proposal:
-India's seasons as periods in `web/src/lib/askRules.ts`, the same as the AI is told in `app/ask.py`: winter November to
-February, summer March to June, monsoon July to September; "last winter" the latest one that has ended, "this
-monsoon" or "the monsoon" the latest one that has begun. A season with a year ("winter 2025": which winter?) stays
-unsure and goes to the AI. Tests in `web/tests/askRules.test.ts`.
 
 ### Ask Plutus, next
 

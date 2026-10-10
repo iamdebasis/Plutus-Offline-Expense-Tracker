@@ -391,7 +391,10 @@ its line in *Who you paid most*. No AI adds anything up, and no AI is shown or t
 **How a question is read.** Rules in the page read most questions instantly:
 
 - periods: years, India's financial years ("FY 2024-25", or "FY25": April 2024 to March 2025), months, "last 3
-  months", "since April", "this week";
+  months", "since April", "this week", and India's seasons by IMD's months with December in winter (winter December
+  to February, summer March to May, monsoon June to September, post-monsoon October and November): "last winter" is
+  the latest that has ended, "this monsoon" or "during the monsoon" the latest that has begun, "summer 2025" or
+  "winter 2024-25" the one named ("winter 2025" could be either, so it's left unsure);
 - categories by name or a common word ("petrol", "groceries", "rent");
 - payees by words of their names;
 - a card by its last four digits or its bank ("on my 1111 card");
@@ -400,7 +403,9 @@ its line in *Who you paid most*. No AI adds anything up, and no AI is shown or t
 When the rules aren't sure (a word they don't know) and the [local AI](#local-ai-optional) is set up, the question
 goes to it, on this Mac. It gets only the question, today's date, the list of categories (the same for everyone) and,
 for a follow-up, how the last question was read: never a payment, an amount or a name from your files. Without the
-local AI, the rules answer what they understood and say what they weren't sure of, or offer questions to try.
+local AI, the rules answer what they understood and say what they weren't sure of, or offer questions to try. When
+it's set up but can't be reached (Ollama didn't start), the rules answer the same way and say so: the panel's header
+reads "local AI unavailable", and **See why** opens the Local AI panel.
 
 **What an answer shows:**
 

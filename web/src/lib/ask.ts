@@ -86,6 +86,27 @@ export const monthPeriod = (month: string): AskPeriod => ({ from: `${month}-01`,
 export const fyPeriod = (startYear: number): AskPeriod => ({
   from: `${startYear}-04-01`, to: `${startYear + 1}-03-31`, label: `FY ${startYear}–${String(startYear + 1).slice(2)}`,
 })
+export type Season = 'winter' | 'summer' | 'monsoon' | 'post-monsoon'
+
+/** India's seasons as IMD counts them, with December in winter as most people mean it (the owner's choice, DECISIONS
+ *  #22): the month each starts and how many months it lasts. Winter runs into the next year. The local AI is told the
+ *  same months (backend/app/ask.py). */
+export const SEASONS: Record<Season, { start: number; months: number }> = {
+  winter: { start: 12, months: 3 },
+  summer: { start: 3, months: 3 },
+  monsoon: { start: 6, months: 4 },
+  'post-monsoon': { start: 10, months: 2 },
+}
+
+/** The season that starts in `year`: "winter 2025–26" is December 2025 to February 2026, "monsoon 2026" June to
+ *  September 2026. */
+export function seasonPeriod(season: Season, year: number): AskPeriod {
+  const { start, months } = SEASONS[season]
+  const last = start + months - 2 // months after January of `year`, counted from 0
+  const to = lastDayOf(`${year + Math.floor(last / 12)}-${pad((last % 12) + 1)}`)
+  return { from: `${year}-${pad(start)}-01`, to, label: season === 'winter' ? `winter ${year}–${String(year + 1).slice(2)}` : `${season} ${year}` }
+}
+
 export function rangePeriod(from: string, to: string): AskPeriod {
   const sameYear = from.slice(0, 4) === to.slice(0, 4)
   if (from.slice(8) === '01' && to === lastDayOf(to.slice(0, 7))) {
