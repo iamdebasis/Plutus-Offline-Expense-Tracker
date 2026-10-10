@@ -231,3 +231,18 @@ June to September, which the local AI had been told was July to September. Decem
 mean it.
 **Where**: `SEASONS` and `seasonPeriod` in `web/src/lib/ask.ts`, read in `lib/askRules.ts`; `SEASONS` in
 `backend/app/ask.py` builds the prompt's sentence, and `tests/test_ask.py` fails if the two tables differ.
+
+## 23. Why a period differed: the difference, split exactly, against the period before
+
+**Decision**: a "why" question (`kind: "why"`) is answered with the difference between two periods, split into what
+made it: by top-level category, or by payee when the question names one category or a payee; card spending known
+only from bills as a line of its own; the biggest changes first, the rest as "Everything else", so the lines add up to
+the difference. Both periods are counted as the dashboard counts them. With one period named, it's set against the
+period before, as the owner chose (`periodBefore`): the month before a month, the year before a year, the financial
+year before one, the same season a year earlier, the same whole months or days just before any other span. The answer
+says which way it really went, whatever the question assumed, and the "against" chip changes the comparison.
+**Why**: a why that the model writes can be wrong; one worked out from the ledger can't, and it can be checked against
+the totals. "The period before" matches "went up", and an average month would have no payments to show.
+**Costs**: it says what changed, not the cause behind a payment (a new rent, a trip); that's for the reader.
+**Where**: `whyAnswer` and `periodBefore` in `web/src/lib/ask.ts`, read in `lib/askRules.ts` and by the local AI
+(`app/ask.py`); the chips in `components/AskPanel.tsx`; tests in `web/tests/ask.test.ts` and `askRules.test.ts`.

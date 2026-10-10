@@ -3,7 +3,7 @@
 // Fake ledgers only.
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { answer, emptyQuery, fyPeriod, monthPeriod, payeeMatches, rangePeriod, showLabel, suggestions, yearPeriod, type AskQuery } from '../src/lib/ask'
+import { answer, emptyQuery, fyPeriod, monthPeriod, payeeMatches, periodBefore, rangePeriod, seasonPeriod, showLabel, suggestions, yearPeriod, type AskPeriod, type AskQuery } from '../src/lib/ask'
 import { readQuestion } from '../src/lib/askRules'
 import { periodsIn, viewFor, type LedgerData } from '../src/lib/ledger'
 import { scoped } from '../src/lib/scope'
@@ -228,5 +228,52 @@ describe('questions to start with', () => {
       return r.query.kind
     })
     assert.deepEqual(kinds, ['total', 'top', 'compare', 'trend'])
+  })
+})
+
+describe('why it changed', () => {
+  const data = fake()
+  const total = (p: AskPeriod, over: Partial<AskQuery> = {}) => ask(data, { ...over, kind: 'total', period: p }).amount ?? 0
+
+  test('the difference, split into what made it, adding up exactly to the totals the dashboard has', () => {
+    const why = ask(data, { kind: 'why', period: yearPeriod(2026), compareTo: yearPeriod(2025) })
+    const diff = total(yearPeriod(2026)) - total(yearPeriod(2025))
+    near(why.amount, diff, 'the difference')
+    near(why.lines.reduce((s, l) => s + l.amount, 0), diff, 'the lines add up to it')
+    assert.match(why.sentence, /^2026: ₹[\d,]+, ₹[\d,]+ less than 2025 \(₹[\d,]+\)\.$/)
+    assert.ok(why.figure?.startsWith('−'), why.figure ?? '')
+    // card spending known only from bills is a line of its own; a category's line says what it was each time
+    assert.ok(why.lines.some((l) => l.label === 'Card spending known only from bills' && Math.round(l.amount) === -9000))
+    const bills = why.lines.find((l) => l.label === 'Bills & Utilities')
+    near(bills?.amount ?? null, 1810 - (1650 + 1720.5 + 299), 'Bills & Utilities')
+    assert.equal(bills?.detail, '₹3,670 → ₹1,810 · 3 → 1 payments')
+    // the biggest changes first
+    const sizes = why.lines.filter((l) => l.label !== 'Everything else').map((l) => Math.abs(l.amount))
+    assert.deepEqual(sizes, [...sizes].sort((a, b) => b - a))
+    assert.ok(why.ids.length > 0)
+  })
+
+  test('one period named: set against the one before (the month, year, financial year, same season, same span)', () => {
+    assert.deepEqual(periodBefore(monthPeriod('2026-03')), monthPeriod('2026-02'))
+    assert.deepEqual(periodBefore(monthPeriod('2026-01')), monthPeriod('2025-12'))
+    assert.deepEqual(periodBefore(yearPeriod(2026)), yearPeriod(2025))
+    assert.deepEqual(periodBefore(fyPeriod(2025)), fyPeriod(2024))
+    assert.deepEqual(periodBefore(seasonPeriod('winter', 2025)), seasonPeriod('winter', 2024))
+    assert.deepEqual(periodBefore(seasonPeriod('monsoon', 2026)), seasonPeriod('monsoon', 2025))
+    assert.deepEqual(periodBefore(rangePeriod('2026-03-01', '2026-05-31')), rangePeriod('2025-12-01', '2026-02-28'))
+    assert.deepEqual(periodBefore(rangePeriod('2026-09-08', '2026-10-07')), rangePeriod('2026-08-09', '2026-09-07'))
+    const why = ask(data, { kind: 'why', categories: ['bills.electricity'], period: monthPeriod('2025-02') })
+    assert.match(why.sentence, /than January 2025/)
+    assert.equal(why.query.compareTo, null) // still "the period before": a chip can change it
+  })
+
+  test('one category: what made it, payee by payee; and which way it went, said as it is', () => {
+    const down = ask(data, { kind: 'why', categories: ['bills.electricity'], period: yearPeriod(2026), compareTo: yearPeriod(2025) })
+    assert.deepEqual(down.lines.map((l) => [l.label, l.amount]), [['FAKE POWER CO', 1810 - 3370.5]])
+    assert.equal(down.sentence, 'Electricity, 2026: ₹1,810, ₹1,561 less than 2025 (₹3,371).')
+    const up = ask(data, { kind: 'why', categories: ['bills.electricity'], period: yearPeriod(2025), compareTo: yearPeriod(2026) })
+    assert.equal(up.sentence, 'Electricity, 2025: ₹3,371, ₹1,561 more than 2026 (₹1,810).')
+    assert.equal(up.figure, '+₹1,561')
+    assert.match(ask(data, { kind: 'why' }).sentence, /^Which period\?/)
   })
 })

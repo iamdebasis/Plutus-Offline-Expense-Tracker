@@ -178,6 +178,16 @@ describe('when', () => {
     reads('compare last summer and the monsoon', { kind: 'compare', period: 'summer 2026', compareTo: 'monsoon 2026', ...SURE })
   })
 
+  test('why it changed: what period, against what', () => {
+    reads('why was March higher?', { kind: 'why', period: 'March 2026', compareTo: null, ...SURE })
+    reads('Why did I spend more in 2026 than 2025?', { kind: 'why', period: '2026', compareTo: '2025', ...SURE })
+    reads('why did my spending go up from 2024 to 2025', { kind: 'why', period: '2025', compareTo: '2024', ...SURE })
+    reads('what made food delivery go up in July?', { kind: 'why', categories: ['food.delivery'], period: 'July 2026', ...SURE })
+    reads('how come rent was lower last winter', { kind: 'why', categories: ['home.rent'], period: 'winter 2025–26', ...SURE })
+    const compared: AskQuery = { ...emptyQuery('compare'), period: yearPeriod(2026), compareTo: yearPeriod(2025) }
+    reads('and why?', { kind: 'why', period: '2026', compareTo: '2025', ...SURE }, compared)
+  })
+
   test('a period takes its "in" with it: "my money in 2025" is spending, not Money in', () => {
     reads('Which category took most of my money in 2025?', { kind: 'top', by: 'category', categories: [], money: 'out', period: '2025', ...SURE })
     reads('how much money did I spend in March', { categories: [], money: 'out', period: 'March 2026', ...SURE })

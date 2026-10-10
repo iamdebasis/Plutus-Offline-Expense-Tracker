@@ -150,12 +150,23 @@ export function readQuestion(question: string, ctx: AskContext, previous: AskQue
   else if (q.kind === 'largest' && !/\b(payments|expenses|transactions|purchases|bills|ones)\b/.test(text)) q.limit = 1
   text = text.replace(/\b(when did i last|last time|most recent|latest|biggest|largest|highest|most expensive|costliest|top \d+|top|how many|number of|how often|average|avg|typical(ly)?|compare(d)?( to| with)?|versus|vs\.?|against|month by month|by month|monthwise|month wise|monthly|trend|breakdown|per month|each month|every month|show me|show|list)\b/g, ' ')
 
+  // why it changed: the words that only ask why or say which way it went ("higher", "go up") carry nothing more;
+  // "from 2024 to 2025" is 2025 against 2024, not the two years together
+  let changed: AskPeriod[] = []
+  if (q.kind === 'why') {
+    text = text.replace(/\b(why|what made|what caused|how come|reasons?( for| why)?|higher|lower|more|less|bigger|smaller|costlier|cheaper|increased?|decreased?|rise|rose|risen|fall|fell|jumped|jump|spiked?|dropped|drop|go|goes|going|went|gone|up|down)\b/g, ' ')
+    const span = take(/\bfrom\s+(20\d{2})\s+(?:to|till|until)\s+(20\d{2})\b/)
+    if (span) changed = [yearPeriod(Number(span[2])), yearPeriod(Number(span[1]))]
+  }
+
   // when
-  const periods = periodsOf(take, ctx.today, (re) => text.match(re))
+  const periods = [...changed, ...periodsOf(take, ctx.today, (re) => text.match(re))]
   if (periods.length) {
     found.period = true
     q.period = periods[0]
-    if (periods.length > 1) {
+    if (periods.length > 1 && q.kind === 'why') {
+      q.compareTo = periods[1] // what it changed from; with one period named, the one before (lib/ask.ts, periodBefore)
+    } else if (periods.length > 1) {
       if (q.kind === 'compare' || periods.length === 2) {
         q.kind = 'compare'
         found.kind = true
@@ -250,6 +261,7 @@ export function couldBePayee(words: string, ctx: AskContext): boolean {
 }
 
 function kindOf(text: string): AskKind {
+  if (/\b(why|what made|what caused|how come|reasons?)\b/.test(text)) return 'why'
   if (/\b(compare|compared|versus|vs\.?|against)\b/.test(text)) return 'compare'
   if (/\b(average|avg|typical|typically|mean)\b/.test(text)) return 'average'
   if (/\b(by month|month by month|monthly|month ?wise|each month|every month|per month|trend|breakdown)\b/.test(text)) return 'trend'

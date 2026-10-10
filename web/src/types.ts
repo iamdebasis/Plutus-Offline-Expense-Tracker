@@ -1,3 +1,5 @@
+import type { AskKind } from './lib/ask'
+
 export type DeclaredKind = 'auto' | 'cc_statement' | 'cred_history' | 'upi_statement' | 'screenshot'
 export type FileKind =
   | 'cc_statement'
@@ -308,7 +310,8 @@ export interface ResetPreview {
 /** The local AI's reading of a question (POST /api/ask): a query the page answers, with periods as days only (the page
  *  names them). See lib/ask.ts `AskQuery`. */
 export interface AiQuery {
-  kind: 'total' | 'count' | 'average' | 'top' | 'largest' | 'compare' | 'trend' | 'list' | 'last'
+  /** The engine's kinds of question (lib/ask.ts): one list, the AI's included. */
+  kind: AskKind
   categories: string[]
   payees: string[]
   cards: string[]

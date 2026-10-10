@@ -16,7 +16,7 @@ from app.llm import llm
 
 log = logs.get("llm")
 
-KINDS = ["total", "count", "average", "top", "largest", "compare", "trend", "list", "last"]
+KINDS = ["total", "count", "average", "top", "largest", "compare", "trend", "list", "last", "why"]
 # India's seasons, as the page reads them (web/src/lib/ask.ts `SEASONS`; a test keeps the two the same): the month each
 # starts and how many months it lasts. IMD's months, December in winter, as the owner chose (docs/DECISIONS.md #22).
 SEASONS = {"winter": (12, 3), "summer": (3, 3), "monsoon": (6, 4), "post-monsoon": (10, 2)}
@@ -36,6 +36,8 @@ kind:
 - "trend": month by month
 - "list": show the payments
 - "last": the most recent payment
+- "why": what made a period's spending differ: from/to the period asked about, compare_from/compare_to the one it
+  changed from (null when the question names only one: Plutus sets it against the period before)
 money: "in" for money received (salary, refunds, cashback); else "out".
 channel: "upi" if the question says UPI, Google Pay, PhonePe or Paytm; "cards" if it says credit card(s); else "all".
 
@@ -150,7 +152,7 @@ def checked(answer: dict, today: date, question: str) -> dict:
             "channel": answer.get("channel") if answer.get("channel") in ("all", "upi", "cards") else "all",
             "money": "in" if answer.get("money") == "in" else "out",
             "period": period,
-            "compareTo": compare_to if kind == "compare" else None,
+            "compareTo": compare_to if kind in ("compare", "why") else None,
             "by": "category" if answer.get("by") == "category" else "payee",
             "per": "month" if answer.get("per") == "month" else "payment",
             "limit": min(max(limit, 1), 50) if isinstance(limit, int) and not isinstance(limit, bool) else 5,

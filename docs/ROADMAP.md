@@ -12,7 +12,8 @@ The owner's list of upgrades, agreed on 7 October 2026. Each has its notes below
 3. ~~Seasons in the rules~~: done; see [DECISIONS.md](DECISIONS.md) #22.
 4. [Measure the suggested local models](#measure-the-suggested-local-models-on-plutuss-own-jobs): needs the model
    downloaded by its owner first; Plutus never downloads one.
-5. [Ask Plutus, next](#ask-plutus-next): why questions, saved chats if wanted, actions from the chat.
+5. [Ask Plutus, next](#ask-plutus-next): why questions (done, see [DECISIONS.md](DECISIONS.md) #23), then actions from
+   the chat and saved chats if wanted, each to be agreed first.
 6. ~~"Paid with" in the transactions list~~: done; see [DECISIONS.md](DECISIONS.md) #21.
 7. ~~Page footers in payee names~~: done; reader version 14 (see [READERS.md](READERS.md), the Lines step).
 8. ~~ICCL in the merchant list~~: done; categorising rules version 13 (`app/categorize.py`).
@@ -27,8 +28,6 @@ test hasn't shown.
 The chat (see [ARCHITECTURE.md](ARCHITECTURE.md#ask-plutus)) answers what its query shape can express. Discussed next
 steps, each keeping the rule that the AI reads the question and Plutus computes:
 
-- **Why questions**: "why was March higher?" answered as a difference by category and payee between two periods
-  (a new kind in `lib/ask.ts`, worked out like `compare`).
 - **Saved chats**, only if wanted: kept in the data folder (a new file listed in `app/userdata.py`, removed by Start
   over), never in the browser's storage.
 - **Actions from the chat**: "file these under Groceries", shown as the change it would make and done only when you

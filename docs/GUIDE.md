@@ -421,8 +421,14 @@ reads "local AI unavailable", and **See why** opens the Local AI panel.
 - *Show these payments*, which opens exactly the payments behind the answer in the transactions list.
 
 **What it can do:** totals, counts, averages (per payment or per month), top payees and categories, the biggest
-payments, two periods compared, month by month, lists, and the last payment. **What it can't:** give advice, explain
-why, or change anything (re-file a payment, add a file). The chat stays while you close and reopen the panel; reloading
+payments, two periods compared, month by month, lists, the last payment, and **why** a period differed: "why was March
+higher?", "why did I spend more in 2026 than 2025?", "what made food delivery go up in July?". A why answer gives the
+difference and splits it into what made it, by category (by payee when you name one category or payee), card spending
+known only from bills a line of its own, the biggest changes first, each with what it was before and after; the lines
+add up to the difference. With one period named, it's set against the period before: the month before, the year
+before, the financial year before, the same season a year earlier; the **against** chip changes that. It says which
+way it really went, even if the question guessed the other. **What it can't:** give advice, or change anything
+(re-file a payment, add a file). The chat stays while you close and reopen the panel; reloading
 the page or *Clear the chat* empties it. Nothing about a question is saved, and the terminal never shows one.
 
 ## Where things live

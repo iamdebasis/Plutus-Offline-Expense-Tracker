@@ -147,3 +147,15 @@ def test_the_ai_is_told_the_seasons_the_page_reads():
     theirs = {name: (int(start), int(months)) for name, start, months in re.findall(r"'?([\w-]+)'?: \{ start: (\d+), months: (\d+) \}", block)}
     assert theirs == ask.SEASONS
     assert ask._seasons() == "winter December to February, summer March to May, monsoon June to September, post-monsoon October to November"
+
+
+def test_a_why_question_keeps_what_it_is_set_against(model, client):
+    """The local AI can read a "why" the rules can't: the period asked about, and what it changed from, or none (the
+    page sets it against the period before)."""
+    model.answer = {**WINTER, "kind": "why", "from": "2026-03-01", "to": "2026-03-31", "compare_from": None, "compare_to": None}
+    q = client.post("/api/ask", json={"question": "what drove my spending up in march?"}).json()["query"]
+    assert (q["kind"], q["period"], q["compareTo"]) == ("why", {"from": "2026-03-01", "to": "2026-03-31"}, None)
+    model.answer = {**WINTER, "kind": "why", "from": "2026-01-01", "to": "2026-12-31", "compare_from": "2025-01-01", "compare_to": "2025-12-31"}
+    q = client.post("/api/ask", json={"question": "what drove 2026 above 2025?"}).json()["query"]
+    assert (q["kind"], q["compareTo"]) == ("why", {"from": "2025-01-01", "to": "2025-12-31"})
+    assert "why" in model.schemas[-1]["properties"]["kind"]["enum"] and '"why"' in model.prompts[-1]

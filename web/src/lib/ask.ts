@@ -10,7 +10,7 @@ import { dayLabel, monthLongLabel, monthYearLabel } from './periods'
  *  spread over the cycles they paid for. Nothing here guesses a number; every figure is a sum of payments the
  *  dashboard counts the same way, and `ids` says which. */
 
-export type AskKind = 'total' | 'count' | 'average' | 'top' | 'largest' | 'compare' | 'trend' | 'list' | 'last'
+export type AskKind = 'total' | 'count' | 'average' | 'top' | 'largest' | 'compare' | 'trend' | 'list' | 'last' | 'why'
 
 /** A span of days, both ends included ("2025-01-01" … "2025-12-31"), and how to say it ("2025", "March 2026"). */
 export interface AskPeriod {
@@ -32,7 +32,7 @@ export interface AskQuery {
   money: 'out' | 'in'
   /** null: all your files. */
   period: AskPeriod | null
-  /** compare: the period to set against `period`. */
+  /** compare: the period to set against `period`. why: the one it changed from (null: the period before). */
   compareTo: AskPeriod | null
   /** top: what to rank. */
   by: 'payee' | 'category'
@@ -116,6 +116,29 @@ export function rangePeriod(from: string, to: string): AskPeriod {
     return { from, to, label: `${monthYearLabel(a)} – ${monthYearLabel(b)}` }
   }
   return { from, to, label: `${dayLabel(from)} – ${dayLabel(to)}` }
+}
+
+const shiftMonth = (month: string, by: number) => {
+  const [y, m] = month.split('-').map(Number)
+  const i = y * 12 + (m - 1) + by
+  return `${Math.floor(i / 12)}-${pad((i % 12) + 1)}`
+}
+const dayShift = (day: string, by: number) => new Date(Date.parse(`${day}T00:00:00Z`) + by * 86_400_000).toISOString().slice(0, 10)
+
+/** The period before `p`, what "why was March higher?" sets March against (the owner's choice, DECISIONS #23): the
+ *  month before a month, the year before a year, the financial year before one, the same season a year earlier, the
+ *  same number of whole months just before a span of them, else the same number of days just before it. */
+export function periodBefore(p: AskPeriod): AskPeriod {
+  const season = (Object.keys(SEASONS) as Season[]).find((name) => p.label.startsWith(`${name} `))
+  if (season) return seasonPeriod(season, Number(p.from.slice(0, 4)) - 1)
+  const start = Number(p.from.slice(0, 4))
+  if (p.from.slice(5) === '04-01' && p.to === `${start + 1}-03-31`) return fyPeriod(start - 1)
+  if (p.from.slice(8) === '01' && p.to === lastDayOf(p.to.slice(0, 7))) {
+    const n = monthsBetween(p.from, p.to).length
+    return rangePeriod(`${shiftMonth(p.from.slice(0, 7), -n)}-01`, lastDayOf(shiftMonth(p.to.slice(0, 7), -n)))
+  }
+  const days = Math.round((Date.parse(p.to) - Date.parse(p.from)) / 86_400_000) + 1
+  return rangePeriod(dayShift(p.from, -days), dayShift(p.from, -1))
 }
 
 /** "in 2025", "in March 2026", "from 1 Nov 2025 to 28 Feb 2026", "in all your files". */
@@ -282,7 +305,7 @@ export function answer(data: LedgerData, q: AskQuery): AskAnswer {
   const across = n ? `, across ${plural(n, 'payment')}` : ''
   const estimatedPart = est.amount > 0.5 ? `, ${inr(est.amount)} of it estimated from card bills` : ''
 
-  if (!rows.length && est.amount <= 0.5 && !['compare', 'trend'].includes(query.kind)) {
+  if (!rows.length && est.amount <= 0.5 && !['compare', 'trend', 'why'].includes(query.kind)) {
     const zero = ['total', 'count', 'average'].includes(query.kind) ? 0 : null // nothing spent is an answer: ₹0
     return { ...base, amount: zero, figure: null, sentence: nothingSentence(data, query), notes }
   }
@@ -329,6 +352,8 @@ export function answer(data: LedgerData, q: AskQuery): AskAnswer {
     }
     case 'compare':
       return compareAnswer(data, query, base)
+    case 'why':
+      return whyAnswer(data, query, base)
     case 'trend': {
       const period = query.period ?? spanOf(data, rows)
       if (!period) return { ...base, figure: null, sentence: nothingSentence(data, query) }
@@ -436,6 +461,62 @@ function compareAnswer(data: LedgerData, q: AskQuery, base: Omit<AskAnswer, 'fig
   }
 }
 
+const BILLS_ONLY = 'Card spending known only from bills'
+
+/** What made a period's spending differ from another's ("why was March higher?"): the difference, split by category
+ *  (by payee, for one category or a payee), card spending known only from bills a line of its own; the biggest
+ *  changes first and the rest together, so the lines add up to the difference. Both sides are counted as the dashboard
+ *  counts them. Set against the period before when no other is named (`periodBefore`). */
+function whyAnswer(data: LedgerData, q: AskQuery, base: Omit<AskAnswer, 'figure' | 'sentence'>): AskAnswer {
+  if (!q.period) return { ...base, figure: null, sentence: 'Which period? Try “why was March higher?” or “why did I spend more in 2026 than 2025?”' }
+  const against = q.compareTo ?? periodBefore(q.period)
+  const side = (p: AskPeriod) => {
+    const rows = select(data, q, p)
+    const est = estimates(data, q, p)
+    return { rows, est, total: sum(rows) + est.amount }
+  }
+  const [now, then] = [side(q.period), side(against)]
+  const byPayee = q.categories.length === 1 || q.payees.length > 0
+  const keyOf = (r: Row) => (byPayee ? r.owner.payee : topOf(r.t.category))
+  const groups = new Map<string, { now: number; then: number; nowN: number; thenN: number }>()
+  for (const [rows, at] of [[now.rows, 'now'], [then.rows, 'then']] as const) {
+    for (const r of rows) {
+      const g = groups.get(keyOf(r)) ?? { now: 0, then: 0, nowN: 0, thenN: 0 }
+      g[at] += r.amount
+      g[at === 'now' ? 'nowN' : 'thenN'] += r.payments
+      groups.set(keyOf(r), g)
+    }
+  }
+  if (now.est.amount > 0.5 || then.est.amount > 0.5) groups.set(BILLS_ONLY, { now: now.est.amount, then: then.est.amount, nowN: 0, thenN: 0 })
+  const diff = round2(now.total - then.total)
+  const changes = [...groups]
+    .map(([key, g]) => ({ key, g, delta: g.now - g.then }))
+    .filter((c) => Math.abs(c.delta) >= 0.5)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+  const shown = changes.slice(0, 6)
+  const lines: AskLine[] = shown.map(({ key, g, delta }) => ({
+    label: key === BILLS_ONLY ? BILLS_ONLY : byPayee ? (key === NO_NAME ? 'No payee name' : key) : categoryLabel(data, key),
+    amount: round2(delta),
+    detail: key === BILLS_ONLY ? `${inr(g.then)} → ${inr(g.now)}` : `${inr(g.then)} → ${inr(g.now)} · ${g.thenN} → ${g.nowN} payments`,
+  }))
+  const rest = round2(diff - lines.reduce((s, l) => s + l.amount, 0))
+  if (Math.abs(rest) >= 0.5) lines.push({ label: 'Everything else', amount: rest, detail: plural(changes.length - shown.length, 'smaller change') })
+  const what = about(data, q)
+  const change = Math.abs(diff) < 0.5
+    ? `the same as ${against.label}`
+    : `${inr(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'} than ${against.label} (${inr(then.total)})`
+  return {
+    ...base,
+    ids: [...ids(now.rows), ...ids(then.rows)],
+    payments: count(now.rows) + count(then.rows),
+    amount: diff,
+    figure: Math.abs(diff) < 0.5 ? inr(0) : `${diff > 0 ? '+' : '−'}${inr(Math.abs(diff))}`,
+    lines,
+    notes: notesFor(data, { ...q, compareTo: against }, now.rows, now.est),
+    sentence: `${what ? `${capitalize(what.replace(/^on /, ''))}, ` : ''}${q.period.label}: ${inr(now.total)}, ${change}.`,
+  }
+}
+
 /** Card bills paid, as the Credit cards section counts them: from your payment-app history and your statements, by
  *  the day paid. */
 function billsAnswer(data: LedgerData, q: AskQuery): AskAnswer {
@@ -460,8 +541,8 @@ function billsAnswer(data: LedgerData, q: AskQuery): AskAnswer {
 
 function notesFor(data: LedgerData, q: AskQuery, rows: Row[], est: ReturnType<typeof estimates>): string[] {
   const notes: string[] = []
-  const periods = [q.period, ...(q.kind === 'compare' ? [q.compareTo] : [])]
-  const totals = ['total', 'count', 'average', 'top', 'trend', 'compare'].includes(q.kind)
+  const periods = [q.period, ...(q.kind === 'compare' || q.kind === 'why' ? [q.compareTo] : [])]
+  const totals = ['total', 'count', 'average', 'top', 'trend', 'compare', 'why'].includes(q.kind)
   // a statement on hold: read, not counted
   const held = data.held.filter((s) => periods.some((p) => !p || ((s.periodStart ?? '') <= p.to && p.from <= (s.periodEnd ?? s.periodStart ?? ''))))
   if (held.length) notes.push(`${held.length === 1 ? 'A statement on hold isn’t' : `${held.length} statements on hold aren’t`} counted yet: check ${held.length === 1 ? 'it' : 'them'} in Your vault.`)

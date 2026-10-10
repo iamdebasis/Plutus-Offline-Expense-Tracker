@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ArrowUp, ChevronDown, Info, ListFilter, RotateCcw, Sparkles, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
-import { answer, emptyQuery, rangePeriod, showLabel, suggestions, yearPeriod, type AskAnswer, type AskLine, type AskQuery } from '../lib/ask'
+import { answer, emptyQuery, periodBefore, rangePeriod, showLabel, suggestions, yearPeriod, type AskAnswer, type AskLine, type AskPeriod, type AskQuery } from '../lib/ask'
 import { couldBePayee, readQuestion, type AskContext } from '../lib/askRules'
 import { aiPanel } from '../lib/aiPanel'
 import { periodsIn, type LedgerData } from '../lib/ledger'
@@ -349,6 +349,8 @@ function AiNote({ failed }: { failed: boolean }) {
  *  series, so no legend); a list of payments (without). Every bar has its value written beside it. */
 function Lines({ lines, query }: { lines: AskLine[]; query: AskQuery }) {
   const bars = ['trend', 'top', 'compare'].includes(query.kind)
+  // why it changed: each line is a change, + or −, in the same neutral ink (less spending isn't money coming in)
+  const changes = query.kind === 'why'
   const max = Math.max(...lines.map((l) => l.amount), 1)
   return (
     <ul className="mt-3 space-y-1.5">
@@ -363,9 +365,13 @@ function Lines({ lines, query }: { lines: AskLine[]; query: AskQuery }) {
               <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(0, (l.amount / max) * 100)}%`, background: 'var(--color-series-1)' }} />
             </span>
           )}
-          <span className={`shrink-0 tabular-nums ${l.amount < 0 ? 'text-emerald-300' : 'text-zinc-200'}`}>
-            {l.amount < 0 ? `+${inrExact(-l.amount)}` : bars ? inr(l.amount) : inrExact(l.amount)}
-          </span>
+          {changes ? (
+            <span className="shrink-0 text-zinc-200 tabular-nums">{`${l.amount > 0 ? '+' : l.amount < 0 ? '−' : ''}${inr(Math.abs(l.amount))}`}</span>
+          ) : (
+            <span className={`shrink-0 tabular-nums ${l.amount < 0 ? 'text-emerald-300' : 'text-zinc-200'}`}>
+              {l.amount < 0 ? `+${inrExact(-l.amount)}` : bars ? inr(l.amount) : inrExact(l.amount)}
+            </span>
+          )}
         </li>
       ))}
     </ul>
@@ -385,6 +391,24 @@ function Reading({ query, data, years, byAi, onChange }: { query: AskQuery; data
     </span>
   )
   const periodValue = query.period ? (query.period.label === String(Number(query.period.label)) ? query.period.label : 'custom') : 'all'
+  /** A chip that picks a period: the one asked about (when it isn't a year), a year, or (`first`) a choice at the top.
+   *  The choice shows as text with the native list over it, so the chip is as wide as what's chosen (a select is as wide
+   *  as its longest choice). */
+  const pick = (name: string, value: string, custom: AskPeriod | null, first: [string, string] | null, onPick: (value: string) => void) => (
+    <label className={`${chip} relative pr-1 focus-within:ring-white/40`}>
+      <span className="sr-only">{name}</span>
+      <span aria-hidden className="pr-4 text-xs text-zinc-300">{value === 'custom' ? custom?.label : first && value === first[0] ? first[1] : value}</span>
+      <select value={value} onChange={(e) => onPick(e.target.value)} className="absolute inset-0 w-full cursor-pointer appearance-none opacity-0">
+        {value === 'custom' && custom && <option value="custom" className="bg-zinc-900">{custom.label}</option>}
+        {first && <option value={first[0]} className="bg-zinc-900">{first[1]}</option>}
+        {years.map((y) => (
+          <option key={y} value={String(y)} className="bg-zinc-900">{y}</option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-zinc-500" aria-hidden />
+    </label>
+  )
+  const asYear = (p: AskPeriod | null) => (p && p.label === String(Number(p.label)) ? p.label : 'custom')
   return (
     <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/[0.05] pt-3">
       <span className="mr-0.5 flex items-center gap-1 text-[11px] tracking-wide text-zinc-400 uppercase">
@@ -404,7 +428,15 @@ function Reading({ query, data, years, byAi, onChange }: { query: AskQuery; data
       })}
       {query.channel !== 'all' && remove(query.channel === 'upi' ? 'UPI only' : 'Cards only', { channel: 'all' })}
       {query.money === 'in' && !query.categories.length && <span className={`${chip} pr-2.5`}>Money in</span>}
-      {query.kind === 'compare' && query.compareTo ? (
+      {query.kind === 'why' && query.period ? (
+        // why it changed: the period asked about, against the period before (or another you pick)
+        <>
+          {pick('Period', asYear(query.period), query.period, null, (v) => onChange({ ...query, period: v === 'custom' ? query.period : yearPeriod(Number(v)) }))}
+          <span className="text-xs text-zinc-400">against</span>
+          {pick('Against', query.compareTo ? asYear(query.compareTo) : 'before', query.compareTo, ['before', `the period before (${periodBefore(query.period).label})`],
+            (v) => onChange({ ...query, compareTo: v === 'before' ? null : v === 'custom' ? query.compareTo : yearPeriod(Number(v)) }))}
+        </>
+      ) : query.kind === 'compare' && query.compareTo ? (
         <span className={`${chip} pr-2.5`}>
           {query.period?.label} vs {query.compareTo.label}
         </span>
@@ -435,7 +467,8 @@ function readingLabel(q: AskQuery, data: LedgerData): string {
     ...q.categories.map((c) => data.categories.get(c)?.label ?? c),
     ...q.payees.map((p) => `“${p}”`),
     q.channel === 'upi' ? 'UPI' : q.channel === 'cards' ? 'cards' : '',
-    q.kind === 'compare' && q.compareTo ? `${q.period?.label} vs ${q.compareTo.label}` : q.period?.label ?? 'all your files',
+    q.kind === 'why' && q.period ? `${q.period.label} against ${(q.compareTo ?? periodBefore(q.period)).label}`
+      : q.kind === 'compare' && q.compareTo ? `${q.period?.label} vs ${q.compareTo.label}` : q.period?.label ?? 'all your files',
   ].filter(Boolean)
   return parts.join(' · ')
 }
