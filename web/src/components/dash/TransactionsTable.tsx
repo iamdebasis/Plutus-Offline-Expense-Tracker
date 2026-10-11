@@ -1,17 +1,20 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { AlertCircle, Check, CornerDownRight, Search, Sparkles, Undo2, X } from 'lucide-react'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../api'
 import { cardName } from '../../lib/cards'
 import { NO_NAME, billNote, billSides, cardSide, countsAs, howPaid, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
 import { plural } from '../../lib/format'
 import { inrExact } from '../../lib/money'
-import { dayLabel, timeLabel } from '../../lib/periods'
+import { dayLabel, dayMonthLabel, timeLabel } from '../../lib/periods'
 import { keepShown, tick, tickedTotal } from '../../lib/selection'
+import { useFits } from '../../lib/useFits'
 import type { CardPayment, CategoryNode, Instrument, OwnAccount, PaymentState, Transaction } from '../../types'
 import { CategorySelect } from './CategorySelect'
 
 const PAGE = 60
+/** The table's width with every column readable; in a narrower box (a phone, a tablet) each payment is a list item. */
+const TABLE_MIN = 760
 
 /** A request from elsewhere on the page to show some payments: a search ("Show them": no payee name), one file's rows
  *  ("Show these rows": a card statement in the vault), or exactly these payments (`ids`: an answer in Ask Plutus).
@@ -150,10 +153,11 @@ export function TransactionsTable({
   useEffect(() => setTicked((s) => keepShown(s, visible)), [visible])
   const total = useMemo(() => tickedTotal(rows, ticked), [rows, ticked])
   const allTicked = visible.length > 0 && visible.every((id) => ticked.has(id))
+  const [box, wide] = useFits<HTMLDivElement>(TABLE_MIN)
   const headerBox = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (headerBox.current) headerBox.current.indeterminate = ticked.size > 0 && !allTicked
-  }, [ticked, allTicked])
+  }, [ticked, allTicked, wide])
 
   const tickedBills = rows.filter((t) => ticked.has(t.id) && movesCardBill(t, target))
 
@@ -269,6 +273,94 @@ export function TransactionsTable({
     return () => clearTimeout(timer)
   }, [offer])
 
+  // A payment's parts, the same in the table (a wide box) and the list (a narrow one)
+  const tickBox = (t: Transaction) => (
+    <input
+      type="checkbox"
+      checked={ticked.has(t.id)}
+      onChange={(e) => {
+        const shift = (e.nativeEvent as MouseEvent).shiftKey // shift-click ticks the run since the last one
+        setTicked((s) => tick(s, t.id, visible, lastTicked, shift))
+        setLastTicked(t.id)
+      }}
+      aria-label={`Tick the payment to ${t.payee === NO_NAME ? 'no payee name' : t.payee} on ${dayLabel(t.at)}, ${inrExact(t.amount)}`}
+      className="size-3.5 cursor-pointer accent-white"
+    />
+  )
+  const tickAll = (
+    <input
+      ref={headerBox}
+      type="checkbox"
+      checked={allTicked}
+      onChange={() => setTicked(allTicked ? new Set() : new Set(visible))}
+      disabled={!visible.length}
+      aria-label="Tick every payment shown"
+      title="Tick every payment shown, to change them together"
+      className="size-3.5 cursor-pointer accent-white"
+    />
+  )
+  // the list leaves the year off when every payment shown is in the same one (a year's view, as it opens)
+  const oneYear = useMemo(() => new Set(rows.map((t) => t.at.slice(0, 4))).size <= 1, [rows])
+  // card statements give the day only
+  const time = (t: Transaction) => ('cardRow' in t.refs && t.at.slice(11, 16) === '00:00' ? null : timeLabel(t.at))
+  const payee = (t: Transaction) => (
+    <div className="flex min-w-0 items-center gap-1.5">
+      {t.payee === NO_NAME ? (
+        <span className="truncate text-zinc-500 italic" title="The file this came from doesn't say who was paid">
+          No payee name
+        </span>
+      ) : (
+        <span className="truncate text-zinc-100" title={t.payee}>
+          {t.payee}
+        </span>
+      )}
+      {tag(t)}
+      {statementChip(cardSide(t, sides), names.card)}
+      {t.needsReview && <AlertCircle aria-label="Needs review" className="size-3.5 shrink-0 text-[var(--color-status-warning)]" />}
+      {t.categorizedBy === 'llm' && <Sparkles aria-label="Categorised by the local AI" className="size-3.5 shrink-0 text-zinc-500" />}
+    </div>
+  )
+  const subline = (t: Transaction) => detail(t) && <div className="truncate text-xs text-zinc-500" title={detail(t) || undefined}>{detail(t)}</div>
+  const categoryOf = (t: Transaction) => <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
+  // a card bill is neither money in nor spending: no sign, no colour
+  const amount = (t: Transaction) => ({
+    className: `whitespace-nowrap tabular-nums ${isCardBill(t) ? 'text-zinc-400' : t.direction === 'credit' ? 'text-emerald-300' : 'text-zinc-100'}`,
+    title: isCardBill(t) ? 'Paying your card: counted neither as spending nor as money in' : undefined,
+    text: `${t.direction === 'credit' && !isCardBill(t) ? '+' : ''}${inrExact(t.amount)}`,
+  })
+  const dimmed = (t: Transaction) => isIgnored(t) || leavesView(t.category)
+  // what a payment opens under itself: the card bill guard, or the offer to change the same shop's other payments
+  const unfolded = (t: Transaction, inTable: boolean) => (
+    <AnimatePresence initial={false}>
+      {guard?.txnId === t.id && (
+        <GuardRow
+          key="guard"
+          inTable={inTable}
+          label={labelOf(tree, guard.category)}
+          countsAs={COUNTS_AS[countsAs(t, guard.category)]}
+          credit={t.direction === 'credit'}
+          onKeep={() => setGuard(null)}
+          onChange={() => {
+            setGuard(null)
+            void fileOne(t, guard.category)
+          }}
+        />
+      )}
+      {offer?.txnId === t.id && (
+        <OfferRow
+          key="offer"
+          inTable={inTable}
+          offer={offer}
+          leaves={leavesView(offer.category)}
+          onChange={setOffer}
+          onChangeAll={changeAll}
+          onClaim={claimAccount}
+          onDismiss={() => setOffer(null)}
+        />
+      )}
+    </AnimatePresence>
+  )
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -356,7 +448,7 @@ export function TransactionsTable({
                 <div className="w-60">
                   <CategorySelect tree={tree} value={target} onChange={setTarget} placeholder="Choose their category" label="Category for the ticked payments" />
                 </div>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -405,116 +497,91 @@ export function TransactionsTable({
         )}
       </AnimatePresence>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
-          <thead className="text-left text-xs text-zinc-500">
-            <tr className="border-b border-white/[0.06]">
-              <th className="w-7 py-2 pr-2 font-normal">
-                <input
-                  ref={headerBox}
-                  type="checkbox"
-                  checked={allTicked}
-                  onChange={() => setTicked(allTicked ? new Set() : new Set(visible))}
-                  disabled={!visible.length}
-                  aria-label="Tick every payment shown"
-                  title="Tick every payment shown, to change them together"
-                  className="size-3.5 cursor-pointer accent-white"
-                />
-              </th>
-              <th className="py-2 pr-4 font-normal">Date</th>
-              <th className="py-2 pr-4 font-normal">Payee</th>
-              <th className="py-2 pr-4 font-normal">Paid with</th>
-              <th className="py-2 pr-4 font-normal">Category</th>
-              <th className="py-2 text-right font-normal">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.slice(0, shown).map((t) => (
-              <Fragment key={t.id}>
-              <tr
-                className={`border-b border-white/[0.04] transition hover:bg-white/[0.02] ${ticked.has(t.id) ? '[&>td]:bg-white/[0.04]' : ''} ${isIgnored(t) || leavesView(t.category) ? 'opacity-50' : ''}`}
-              >
-                <td className="py-2 pr-2">
-                  <input
-                    type="checkbox"
-                    checked={ticked.has(t.id)}
-                    onChange={(e) => {
-                      const shift = (e.nativeEvent as MouseEvent).shiftKey // shift-click ticks the run since the last one
-                      setTicked((s) => tick(s, t.id, visible, lastTicked, shift))
-                      setLastTicked(t.id)
-                    }}
-                    aria-label={`Tick the payment to ${t.payee === NO_NAME ? 'no payee name' : t.payee} on ${dayLabel(t.at)}, ${inrExact(t.amount)}`}
-                    className="size-3.5 cursor-pointer accent-white"
-                  />
-                </td>
-                <td className="py-2 pr-4 whitespace-nowrap text-zinc-400 tabular-nums">
-                  {dayLabel(t.at)}
-                  {/* card statements give the day only */}
-                  {!('cardRow' in t.refs && t.at.slice(11, 16) === '00:00') && <span className="ml-1.5 text-xs text-zinc-600">{timeLabel(t.at)}</span>}
-                </td>
-                <td className="max-w-72 py-2 pr-4">
-                  <div className="flex items-center gap-1.5">
-                    {t.payee === NO_NAME ? (
-                      <span className="truncate text-zinc-500 italic" title="The file this came from doesn't say who was paid">
-                        No payee name
-                      </span>
-                    ) : (
-                      <span className="truncate text-zinc-100" title={t.payee}>
-                        {t.payee}
-                      </span>
-                    )}
-                    {tag(t)}
-                    {statementChip(cardSide(t, sides), names.card)}
-                    {t.needsReview && <AlertCircle aria-label="Needs review" className="size-3.5 shrink-0 text-[var(--color-status-warning)]" />}
-                    {t.categorizedBy === 'llm' && <Sparkles aria-label="Categorised by the local AI" className="size-3.5 shrink-0 text-zinc-500" />}
-                  </div>
-                  {detail(t) && <div className="truncate text-xs text-zinc-500" title={detail(t) || undefined}>{detail(t)}</div>}
-                </td>
-                <td className="py-2 pr-4">{paidWith(t, paidFromLabel(t, cards, accounts))}</td>
-                <td className="py-2 pr-4">
-                  <div className="w-44">
-                    <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
-                  </div>
-                </td>
-                {/* a card bill is neither money in nor spending: no sign, no colour */}
-                <td
-                  className={`py-2 text-right whitespace-nowrap tabular-nums ${isCardBill(t) ? 'text-zinc-400' : t.direction === 'credit' ? 'text-emerald-300' : 'text-zinc-100'}`}
-                  title={isCardBill(t) ? 'Paying your card: counted neither as spending nor as money in' : undefined}
-                >
-                  {t.direction === 'credit' && !isCardBill(t) ? '+' : ''}
-                  {inrExact(t.amount)}
-                </td>
+      <div ref={box} className={wide ? 'overflow-x-auto' : undefined}>
+        {wide ? (
+          <table className="w-full text-sm" style={{ minWidth: TABLE_MIN }}>
+            <thead className="text-left text-xs text-zinc-500">
+              <tr className="border-b border-white/[0.06]">
+                <th className="w-7 py-2 pr-2 font-normal">{tickAll}</th>
+                <th className="py-2 pr-4 font-normal">Date</th>
+                <th className="py-2 pr-4 font-normal">Payee</th>
+                <th className="py-2 pr-4 font-normal">Paid with</th>
+                <th className="py-2 pr-4 font-normal">Category</th>
+                <th className="py-2 text-right font-normal">Amount</th>
               </tr>
-              <AnimatePresence initial={false}>
-                {guard?.txnId === t.id && (
-                  <GuardRow
-                    key="guard"
-                    label={labelOf(tree, guard.category)}
-                    countsAs={COUNTS_AS[countsAs(t, guard.category)]}
-                    credit={t.direction === 'credit'}
-                    onKeep={() => setGuard(null)}
-                    onChange={() => {
-                      setGuard(null)
-                      void fileOne(t, guard.category)
-                    }}
-                  />
-                )}
-                {offer?.txnId === t.id && (
-                  <OfferRow
-                    key="offer"
-                    offer={offer}
-                    leaves={leavesView(offer.category)}
-                    onChange={setOffer}
-                    onChangeAll={changeAll}
-                    onClaim={claimAccount}
-                    onDismiss={() => setOffer(null)}
-                  />
-                )}
-              </AnimatePresence>
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.slice(0, shown).map((t) => {
+                const money = amount(t)
+                return (
+                  <Fragment key={t.id}>
+                    <tr
+                      className={`border-b border-white/[0.04] transition hover:bg-white/[0.02] ${ticked.has(t.id) ? '[&>td]:bg-white/[0.04]' : ''} ${dimmed(t) ? 'opacity-50' : ''}`}
+                    >
+                      <td className="py-2 pr-2">{tickBox(t)}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap text-zinc-400 tabular-nums">
+                        {dayLabel(t.at)}
+                        {time(t) && <span className="ml-1.5 text-xs text-zinc-600">{time(t)}</span>}
+                      </td>
+                      <td className="max-w-72 py-2 pr-4">
+                        {payee(t)}
+                        {subline(t)}
+                      </td>
+                      <td className="py-2 pr-4">{paidWith(t, paidFromLabel(t, cards, accounts))}</td>
+                      <td className="py-2 pr-4">
+                        <div className="w-44">{categoryOf(t)}</div>
+                      </td>
+                      <td className={`py-2 text-right ${money.className}`} title={money.title}>
+                        {money.text}
+                      </td>
+                    </tr>
+                    {unfolded(t, true)}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          // a narrow box: each payment an item, payee and amount on top, how it was paid, then when and its category
+          <>
+            <label className="flex w-fit cursor-pointer items-center gap-2.5 py-1.5 text-xs text-zinc-500">
+              {tickAll}
+              Tick all shown
+            </label>
+            <ul className="border-t border-white/[0.06]">
+              {rows.slice(0, shown).map((t) => {
+                const money = amount(t)
+                return (
+                  <li key={t.id} className={`border-b border-white/[0.04] py-3 text-sm ${ticked.has(t.id) ? 'bg-white/[0.04]' : ''}`}>
+                    <div className={`flex gap-2.5 ${dimmed(t) ? 'opacity-50' : ''}`}>
+                      {/* the box keeps its look; the space around it takes the tap */}
+                      <label className="-m-1.5 flex shrink-0 cursor-pointer self-start p-1.5 pt-[0.4375rem]">{tickBox(t)}</label>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-3">
+                          <div className="min-w-0 flex-1">{payee(t)}</div>
+                          <div className={`shrink-0 ${money.className}`} title={money.title}>
+                            {money.text}
+                          </div>
+                        </div>
+                        {subline(t)}
+                        <div className="mt-1.5">{paidWith(t, paidFromLabel(t, cards, accounts), true)}</div>
+                        {/* nothing cut: on a very narrow screen the category moves under the day */}
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                          <span className="text-xs whitespace-nowrap text-zinc-500 tabular-nums">
+                            {oneYear ? dayMonthLabel(t.at) : dayLabel(t.at)}
+                            {time(t) && ` · ${time(t)}`}
+                          </span>
+                          <div className="ml-auto w-40">{categoryOf(t)}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {unfolded(t, false)}
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
       </div>
       {rows.length > shown && (
         <button
@@ -529,7 +596,33 @@ export function TransactionsTable({
   )
 }
 
+/** What a payment opens under itself (an offer, a warning): it unfolds, and folds away. In the table it's a row of its
+ *  own across every column; in the list, part of the payment's item. */
+function Unfold({ inTable, children }: { inTable: boolean; children: ReactNode }) {
+  const body = (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="overflow-hidden"
+    >
+      {children}
+    </motion.div>
+  )
+  return inTable ? (
+    <tr>
+      <td colSpan={6} className="p-0">
+        {body}
+      </td>
+    </tr>
+  ) : (
+    body
+  )
+}
+
 function OfferRow({
+  inTable,
   offer,
   leaves,
   onChange,
@@ -537,6 +630,7 @@ function OfferRow({
   onClaim,
   onDismiss,
 }: {
+  inTable: boolean
   offer: Offer
   /** The new category is one the dashboard leaves out: these payments leave the view once you're done. */
   leaves: boolean
@@ -550,87 +644,77 @@ function OfferRow({
   const flip = (payee: string) => onChange({ ...offer, names: offer.names.map((n) => (n.payee === payee ? { ...n, ticked: !n.ticked } : n)) })
 
   return (
-    <tr>
-      <td colSpan={6} className="p-0">
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="overflow-hidden"
-        >
-          <div className="my-2 flex flex-wrap items-center gap-x-5 gap-y-2.5 rounded-xl bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.07]">
-            {offer.state === 'done' ? (
-              <p className="flex items-center gap-2 text-sm text-zinc-200">
-                <Check className="size-4 text-emerald-400" strokeWidth={2.6} />
-                {offer.done}
-              </p>
-            ) : offer.account ? (
-              <>
-                <p className="flex items-center gap-2 text-sm text-zinc-300">
-                  <CornerDownRight className="size-4 shrink-0 text-zinc-500" />
-                  Is ••{offer.account} your own account? Then every transfer to and from it is left out, however it's named.
-                </p>
-                <div className="ml-auto flex items-center gap-2">
-                  <button type="button" onClick={onDismiss} disabled={offer.state === 'saving'} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
-                    Just this one
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onClaim}
-                    disabled={offer.state === 'saving'}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
-                  >
-                    {offer.state === 'saving' && <span className="size-3 animate-spin rounded-full border-2 border-zinc-950/25 border-t-zinc-950" />}
-                    Yes, it's mine
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="flex items-center gap-2 text-sm text-zinc-300">
-                  <CornerDownRight className="size-4 shrink-0 text-zinc-500" />
-                  {leaves ? 'Moved to investments, which are left out of the dashboard.' : 'Changed this payment.'} Also change the other {offer.payee} payments?
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {offer.names.map((n) => (
-                    <button
-                      key={n.payee}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={n.ticked}
-                      onClick={() => flip(n.payee)}
-                      disabled={offer.state === 'saving'}
-                      className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-1.5 text-[13px] ring-1 transition ${n.ticked ? 'bg-white/[0.06] text-zinc-100 ring-white/15' : 'text-zinc-400 ring-white/[0.08] hover:ring-white/20'}`}
-                    >
-                      <span className={`flex size-4 items-center justify-center rounded-[5px] transition-colors ${n.ticked ? 'bg-white text-zinc-950' : 'ring-1 ring-white/30 ring-inset'}`}>
-                        {n.ticked && <Check className="size-3" strokeWidth={3.2} />}
-                      </span>
-                      {n.payee}
-                      <span className="text-xs text-zinc-500 tabular-nums">· {plural(n.pending, n.payee === offer.payee ? 'more payment' : 'payment')}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="ml-auto flex items-center gap-2">
-                  <button type="button" onClick={onDismiss} disabled={offer.state === 'saving'} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
-                    Just this one
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onChangeAll}
-                    disabled={!ticked.length || offer.state === 'saving'}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {offer.state === 'saving' && <span className="size-3 animate-spin rounded-full border-2 border-zinc-950/25 border-t-zinc-950" />}
-                    Change all {total}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </motion.div>
-      </td>
-    </tr>
+    <Unfold inTable={inTable}>
+      <div className="my-2 flex flex-wrap items-center gap-x-5 gap-y-2.5 rounded-xl bg-white/[0.035] px-3.5 py-2.5 ring-1 ring-white/[0.07]">
+        {offer.state === 'done' ? (
+          <p className="flex items-center gap-2 text-sm text-zinc-200">
+            <Check className="size-4 text-emerald-400" strokeWidth={2.6} />
+            {offer.done}
+          </p>
+        ) : offer.account ? (
+          <>
+            <p className="flex items-center gap-2 text-sm text-zinc-300">
+              <CornerDownRight className="size-4 shrink-0 text-zinc-500" />
+              Is ••{offer.account} your own account? Then every transfer to and from it is left out, however it's named.
+            </p>
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <button type="button" onClick={onDismiss} disabled={offer.state === 'saving'} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
+                Just this one
+              </button>
+              <button
+                type="button"
+                onClick={onClaim}
+                disabled={offer.state === 'saving'}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
+              >
+                {offer.state === 'saving' && <span className="size-3 animate-spin rounded-full border-2 border-zinc-950/25 border-t-zinc-950" />}
+                Yes, it's mine
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="flex items-center gap-2 text-sm text-zinc-300">
+              <CornerDownRight className="size-4 shrink-0 text-zinc-500" />
+              {leaves ? 'Moved to investments, which are left out of the dashboard.' : 'Changed this payment.'} Also change the other {offer.payee} payments?
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {offer.names.map((n) => (
+                <button
+                  key={n.payee}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={n.ticked}
+                  onClick={() => flip(n.payee)}
+                  disabled={offer.state === 'saving'}
+                  className={`inline-flex items-center gap-2 rounded-full py-1 pr-3 pl-1.5 text-[13px] ring-1 transition ${n.ticked ? 'bg-white/[0.06] text-zinc-100 ring-white/15' : 'text-zinc-400 ring-white/[0.08] hover:ring-white/20'}`}
+                >
+                  <span className={`flex size-4 items-center justify-center rounded-[5px] transition-colors ${n.ticked ? 'bg-white text-zinc-950' : 'ring-1 ring-white/30 ring-inset'}`}>
+                    {n.ticked && <Check className="size-3" strokeWidth={3.2} />}
+                  </span>
+                  {n.payee}
+                  <span className="text-xs text-zinc-500 tabular-nums">· {plural(n.pending, n.payee === offer.payee ? 'more payment' : 'payment')}</span>
+                </button>
+              ))}
+            </div>
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <button type="button" onClick={onDismiss} disabled={offer.state === 'saving'} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
+                Just this one
+              </button>
+              <button
+                type="button"
+                onClick={onChangeAll}
+                disabled={!ticked.length || offer.state === 'saving'}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {offer.state === 'saving' && <span className="size-3 animate-spin rounded-full border-2 border-zinc-950/25 border-t-zinc-950" />}
+                Change all {total}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Unfold>
   )
 }
 
@@ -638,13 +722,14 @@ function OfferRow({
 /** A row's tag (rowTag): green where money comes in, neutral otherwise. */
 /** "Paid with": how the payment was made, a chip each (a card in blue, UPI and its apps in violet; their tooltip says it
  *  in words), and under them the account or card it was paid from (the whole of a long name, and what it is, on
- *  hover). Nothing under them when the file doesn't say where it came from. */
-function paidWith(t: Transaction, from: { title: string; detail: string }) {
+ *  hover). Nothing under them when the file doesn't say where it came from. `inline` (the narrow list): the account
+ *  or card beside the chips, on one line. */
+function paidWith(t: Transaction, from: { title: string; detail: string }, inline = false) {
   const how = howPaid(t)
   return (
-    <div className="max-w-60">
+    <div className={inline ? 'flex min-w-0 items-center gap-2' : 'max-w-60'}>
       {how && (
-        <div data-how={how.parts.join('|')} title={how.title} className="flex flex-wrap gap-1">
+        <div data-how={how.parts.join('|')} title={how.title} className={`flex gap-1 ${inline ? 'shrink-0' : 'flex-wrap'}`}>
           {how.parts.map((part) => (
             <span
               key={part}
@@ -656,7 +741,7 @@ function paidWith(t: Transaction, from: { title: string; detail: string }) {
         </div>
       )}
       {from.title !== '—' && (
-        <div className="mt-1 truncate text-xs text-zinc-500" title={[from.title, from.detail].filter(Boolean).join(' · ')}>
+        <div className={`${inline ? 'min-w-0' : 'mt-1'} truncate text-xs text-zinc-500`} title={[from.title, from.detail].filter(Boolean).join(' · ')}>
           {from.title}
         </div>
       )}
@@ -695,37 +780,27 @@ function tag(t: Transaction) {
 
 /** Before a payment to your card is filed as something else: it would start counting. Yours to decide (the reader can
  *  take a payment for one, and a payment through a bill app can be rent), but never by a slip of the menu. */
-function GuardRow({ label, countsAs, credit, onKeep, onChange }: { label: string; countsAs: string; credit: boolean; onKeep: () => void; onChange: () => void }) {
+function GuardRow({ inTable, label, countsAs, credit, onKeep, onChange }: { inTable: boolean; label: string; countsAs: string; credit: boolean; onKeep: () => void; onChange: () => void }) {
   return (
-    <tr>
-      <td colSpan={6} className="p-0">
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="overflow-hidden"
-        >
-          <div role="alertdialog" aria-label="Change a card bill payment?" className="my-2 flex flex-wrap items-center gap-x-5 gap-y-2.5 rounded-xl bg-amber-200/[0.05] px-3.5 py-2.5 ring-1 ring-amber-200/20">
-            <p className="flex min-w-0 flex-1 items-start gap-2 text-sm text-zinc-300">
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-200" />
-              <span>
-                This is a payment {credit ? 'to your credit card' : 'of a credit card bill'}, so it counts as neither spending nor money in.
-                Under {label} it would count as {countsAs}. Change it only if it isn't really a card bill payment.
-              </span>
-            </p>
-            <div className="ml-auto flex items-center gap-2">
-              <button type="button" onClick={onKeep} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-300 transition hover:bg-white/[0.06] hover:text-zinc-100">
-                Keep it as a card bill
-              </button>
-              <button type="button" onClick={onChange} className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200">
-                Change it anyway
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      </td>
-    </tr>
+    <Unfold inTable={inTable}>
+      <div role="alertdialog" aria-label="Change a card bill payment?" className="my-2 flex flex-wrap items-center gap-x-5 gap-y-2.5 rounded-xl bg-amber-200/[0.05] px-3.5 py-2.5 ring-1 ring-amber-200/20">
+        <p className="flex min-w-0 flex-1 items-start gap-2 text-sm text-zinc-300">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-200" />
+          <span>
+            This is a payment {credit ? 'to your credit card' : 'of a credit card bill'}, so it counts as neither spending nor money in.
+            Under {label} it would count as {countsAs}. Change it only if it isn't really a card bill payment.
+          </span>
+        </p>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <button type="button" onClick={onKeep} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-300 transition hover:bg-white/[0.06] hover:text-zinc-100">
+            Keep it as a card bill
+          </button>
+          <button type="button" onClick={onChange} className="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200">
+            Change it anyway
+          </button>
+        </div>
+      </div>
+    </Unfold>
   )
 }
 
@@ -750,7 +825,7 @@ function BillsWarning({ bills, count, category, label, onBack, onSkip, onAll }: 
           Under {label} {k === 1 ? 'it' : 'they'} would count as {as}.
         </span>
       </p>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <button type="button" onClick={onBack} className="rounded-full px-3 py-1.5 text-[13px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
           Back
         </button>

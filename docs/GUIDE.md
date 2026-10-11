@@ -379,7 +379,8 @@ UPI transaction IDs on every row; a reader for it would be a separate addition.
 
 ## Ask Plutus
 
-Click the gold Plutus button in the dashboard's bottom-right corner (it stays there as you scroll) and ask about your
+Click the gold Plutus button in the dashboard's bottom-right corner (it stays there as you scroll; on a phone or a narrow
+window it shrinks into the corner while you scroll down, so it never sits on what you're scrolling past) and ask about your
 spending in your own words: "How much on electricity in 2025?", "Top 5 payees last year", "Compare FY 2024-25 and FY 2025-26", "Food delivery by month in 2026", "Biggest
 payments last month", "When did I last pay rent?", "How much came in as cashback this year?". Then follow up: "and in
 2024?", "only UPI".

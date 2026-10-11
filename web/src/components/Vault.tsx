@@ -7,6 +7,7 @@ import { api } from '../api'
 import { formatBytes, formatDay, formatSpan, formatPeriod, plural } from '../lib/format'
 import { inr, inrExact } from '../lib/money'
 import { extOf, isImage } from '../lib/sources'
+import { useFits } from '../lib/useFits'
 import type { CardStatement, HeldRow, Instrument, Transaction, UploadRecord } from '../types'
 import { CardFace } from './CardFace'
 import { PagePeek } from './PagePeek'
@@ -207,7 +208,7 @@ function StatementCheck({
   )
   if (byTotals(s))
     return (
-      <div className="mt-3 ml-13 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06]">
+      <div className="mt-3 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06] sm:ml-13">
         <p className="text-sm text-zinc-200">
           {cardName} · {period}
         </p>
@@ -224,7 +225,7 @@ function StatementCheck({
     )
   if (s.kind === 'export' && s.check === 'unchecked')
     return (
-      <div className="mt-3 ml-13 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06]">
+      <div className="mt-3 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06] sm:ml-13">
         <p className="text-sm text-zinc-200">
           {cardName} · {period}
         </p>
@@ -246,7 +247,7 @@ function StatementCheck({
       </div>
     )
   return (
-    <div className="mt-3 ml-13 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06]">
+    <div className="mt-3 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06] sm:ml-13">
       <p className="text-sm text-zinc-200">
         {cardName} · {period}
         {s.dueDate && <span className="text-zinc-500"> · due {formatDay(s.dueDate)}</span>}
@@ -388,6 +389,9 @@ function CheckMark({ statement: s }: { statement: CardStatement }) {
   )
 }
 
+/** The held rows' table with every column readable; in a narrower box each row is a two-line item. */
+const HELD_MIN = 560
+
 interface Draft {
   day: string // YYYY-MM-DD
   time: string // HH:MM, or ""
@@ -422,7 +426,55 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
   const result = s.previousBalance !== null ? s.previousBalance - s.credits + s.debits : null
   const adds = s.check === 'matched'
 
+  const [box, wide] = useFits<HTMLDivElement>(HELD_MIN)
+
   const set = (i: number, patch: Partial<Draft>) => setRows((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  // a row's parts, the same in the table (a wide box) and the list (a narrow one); `wrap`: the list has room for a
+  // long description on a second line
+  const cell = {
+    day: (r: Draft, i: number) =>
+      editing ? (
+        <input type="date" value={r.day} onChange={(e) => set(i, { day: e.target.value })} aria-label="Date" className="rounded-md bg-black/30 px-1.5 py-0.5 text-sm text-zinc-100 ring-1 ring-white/10" />
+      ) : (
+        formatDay(r.day)
+      ),
+    description: (r: Draft, i: number, wrap = false) =>
+      editing ? (
+        <input value={r.description} onChange={(e) => set(i, { description: e.target.value })} aria-label="Description" className="w-full rounded-md bg-black/30 px-1.5 py-0.5 text-zinc-100 ring-1 ring-white/10" />
+      ) : (
+        <span className={wrap ? 'block break-words' : 'block truncate'} title={r.description}>
+          {r.description}
+        </span>
+      ),
+    amount: (r: Draft, i: number) =>
+      editing ? (
+        <input inputMode="decimal" value={r.amount} onChange={(e) => set(i, { amount: e.target.value.replace(/[^\d.]/g, '') })} aria-label="Amount" className="w-24 rounded-md bg-black/30 px-1.5 py-0.5 text-right text-zinc-100 ring-1 ring-white/10" />
+      ) : (
+        inrExact(Number(r.amount))
+      ),
+    type: (r: Draft, i: number) =>
+      editing ? (
+        <button type="button" onClick={() => set(i, { credit: !r.credit })} className="rounded-full px-2 py-0.5 text-xs ring-1 ring-white/15 hover:bg-white/[0.06]">
+          {r.credit ? 'Credit' : 'Debit'}
+        </button>
+      ) : (
+        <span className={`text-xs ${r.credit ? 'text-emerald-300/90' : 'text-zinc-400'}`}>{r.credit ? 'Credit' : 'Debit'}</span>
+      ),
+    actions: (r: Draft, i: number) => (
+      <>
+        <button type="button" onClick={() => setPeek({ page: r.page, y: r.y })} aria-label={`Show where ${r.description} is printed`} title="Show where it's printed"
+          className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200">
+          <FileSearch className="size-3.5" />
+        </button>
+        {editing && (
+          <button type="button" onClick={() => setRows((all) => all.filter((_, j) => j !== i))} aria-label={`Remove ${r.description}`}
+            className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-rose-300">
+            <X className="size-3.5" />
+          </button>
+        )}
+      </>
+    ),
+  }
   const valid = rows.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.day) && Number(r.amount) > 0 && r.description.trim())
 
   const save = async () => {
@@ -459,7 +511,7 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
   }
 
   return (
-    <div className="mt-3 ml-13 rounded-2xl bg-amber-400/[0.03] px-4 py-3.5 ring-1 ring-amber-300/15">
+    <div className="mt-3 rounded-2xl bg-amber-400/[0.03] px-4 py-3.5 ring-1 ring-amber-300/15 sm:ml-13">
       <p className="text-sm text-zinc-200">
         {cardName} · {period}
         {s.dueDate && <span className="text-zinc-500"> · due {formatDay(s.dueDate)}</span>}
@@ -493,68 +545,48 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
             : 'Compare them with the file (the page icon shows where each is printed), then count them.'}
       </p>
 
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[560px] text-sm tabular-nums">
-          <thead>
-            <tr className="text-left text-xs text-zinc-500">
-              <th className="py-1 pr-3 font-normal">Date</th>
-              <th className="py-1 pr-3 font-normal">As printed</th>
-              <th className="py-1 pr-3 text-right font-normal">Amount</th>
-              <th className="py-1 pr-3 font-normal">Type</th>
-              <th className="py-1 font-normal" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-t border-white/[0.04]">
-                <td className="py-1.5 pr-3 whitespace-nowrap text-zinc-300">
-                  {editing ? (
-                    <input type="date" value={r.day} onChange={(e) => set(i, { day: e.target.value })} className="rounded-md bg-black/30 px-1.5 py-0.5 text-zinc-100 ring-1 ring-white/10" />
-                  ) : (
-                    formatDay(r.day)
-                  )}
-                </td>
-                <td className="max-w-[260px] py-1.5 pr-3 text-zinc-200">
-                  {editing ? (
-                    <input value={r.description} onChange={(e) => set(i, { description: e.target.value })} aria-label="Description" className="w-full rounded-md bg-black/30 px-1.5 py-0.5 text-zinc-100 ring-1 ring-white/10" />
-                  ) : (
-                    <span className="block truncate" title={r.description}>
-                      {r.description}
-                    </span>
-                  )}
-                </td>
-                <td className="py-1.5 pr-3 text-right text-zinc-100">
-                  {editing ? (
-                    <input inputMode="decimal" value={r.amount} onChange={(e) => set(i, { amount: e.target.value.replace(/[^\d.]/g, '') })} aria-label="Amount" className="w-24 rounded-md bg-black/30 px-1.5 py-0.5 text-right text-zinc-100 ring-1 ring-white/10" />
-                  ) : (
-                    inrExact(Number(r.amount))
-                  )}
-                </td>
-                <td className="py-1.5 pr-3">
-                  {editing ? (
-                    <button type="button" onClick={() => set(i, { credit: !r.credit })} className="rounded-full px-2 py-0.5 text-xs ring-1 ring-white/15 hover:bg-white/[0.06]">
-                      {r.credit ? 'Credit' : 'Debit'}
-                    </button>
-                  ) : (
-                    <span className={`text-xs ${r.credit ? 'text-emerald-300/90' : 'text-zinc-400'}`}>{r.credit ? 'Credit' : 'Debit'}</span>
-                  )}
-                </td>
-                <td className="py-1.5 text-right whitespace-nowrap">
-                  <button type="button" onClick={() => setPeek({ page: r.page, y: r.y })} aria-label={`Show where ${r.description} is printed`} title="Show where it's printed"
-                    className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200">
-                    <FileSearch className="size-3.5" />
-                  </button>
-                  {editing && (
-                    <button type="button" onClick={() => setRows((all) => all.filter((_, j) => j !== i))} aria-label={`Remove ${r.description}`}
-                      className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-rose-300">
-                      <X className="size-3.5" />
-                    </button>
-                  )}
-                </td>
+      <div ref={box} className={wide ? 'mt-3 overflow-x-auto' : 'mt-3'}>
+        {wide ? (
+          <table className="w-full text-sm tabular-nums" style={{ minWidth: HELD_MIN }}>
+            <thead>
+              <tr className="text-left text-xs text-zinc-500">
+                <th className="py-1 pr-3 font-normal">Date</th>
+                <th className="py-1 pr-3 font-normal">As printed</th>
+                <th className="py-1 pr-3 text-right font-normal">Amount</th>
+                <th className="py-1 pr-3 font-normal">Type</th>
+                <th className="py-1 font-normal" />
               </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-white/[0.04]">
+                  <td className="py-1.5 pr-3 whitespace-nowrap text-zinc-300">{cell.day(r, i)}</td>
+                  <td className="max-w-[260px] py-1.5 pr-3 text-zinc-200">{cell.description(r, i)}</td>
+                  <td className="py-1.5 pr-3 text-right text-zinc-100">{cell.amount(r, i)}</td>
+                  <td className="py-1.5 pr-3">{cell.type(r, i)}</td>
+                  <td className="py-1.5 text-right whitespace-nowrap">{cell.actions(r, i)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          // a narrow box: each row on two lines, what's printed and its amount, then the day and the type
+          <ul className="text-sm tabular-nums">
+            {rows.map((r, i) => (
+              <li key={i} className="border-t border-white/[0.04] py-2">
+                <div className="flex items-baseline gap-3">
+                  <div className="min-w-0 flex-1 text-zinc-200">{cell.description(r, i, true)}</div>
+                  <div className="shrink-0 text-right text-zinc-100">{cell.amount(r, i)}</div>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-300">
+                  <span className="text-xs">{cell.day(r, i)}</span>
+                  {cell.type(r, i)}
+                  <span className="ml-auto">{cell.actions(r, i)}</span>
+                </div>
+              </li>
             ))}
-          </tbody>
-        </table>
+          </ul>
+        )}
       </div>
 
       {s.unread.length > 0 && (

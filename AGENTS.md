@@ -168,6 +168,10 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
 - Total spend (`web/src/lib/totals.ts`) must never double count: bills are placed and netted on the server
   (`app/billing.py`), the dashboard spreads each `estimate` over its cycle. The UPI section + the card section
   (`lib/cards.ts`, `CardSpending.tsx`: card-number purchases only) = Total spend, for every year and card filter.
+- Nothing scrolls sideways on a phone: content with a wide form has a narrow one, chosen by the width of its box
+  (`lib/useFits.ts`), not the screen's: the transactions list and a held statement's rows are tables where they fit,
+  lists in a narrower box, built from the same parts. The bar that stays at the top holds only what scopes the page
+  (the years and the investments switch, one row even on a phone); what the files cover scrolls with the page.
 - Investments can be left out (`web/src/lib/scope.ts`, the switch by the years; the choice is in `data/settings.json`
   via `/api/preferences`): the dashboard works on the scoped ledger; left-out payments live in `data.leftOut`, used
   only for the "left out" note and card-bill subtraction (investments paid by card must still come off the bill).

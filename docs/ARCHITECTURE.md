@@ -292,7 +292,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/PagePeek.tsx` | A page of a file you added, drawn here, with the row in question marked |
 | `components/StoragePanel.tsx` | Where your files are kept, with a cloud-sync warning |
 | `components/AskPanel.tsx` | Ask Plutus: the chat, each answer with its figure, lines, how it was read (chips to change) and the payments behind it |
-| `components/AskOrb.tsx` | The way into Ask Plutus: the gold mark in a glass orb, bottom-right whatever the scroll; opens into "Ask Plutus" on hover, its drips run while a question is read |
+| `components/AskOrb.tsx` | The way into Ask Plutus: the gold mark in a glass orb, bottom-right whatever the scroll; opens into "Ask Plutus" on hover, its drips run while a question is read; where it would cover the page (a phone), it shrinks into the corner while you scroll down |
 | `components/StartOver.tsx` | Start over: what goes to the Trash, typed confirmation, then a fresh start |
 | `components/Toasts.tsx` | Short notices |
 | `components/Backdrop.tsx` | The background grid and glows |
@@ -310,7 +310,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/dash/CardSpending.tsx` | Credit cards: purchases with each card's number |
 | `components/dash/InvestmentsSwitch.tsx` | Investments counted or left out |
 | `components/dash/ReviewQueue.tsx` | "Needs your eyes": payees to name, answered in bulk |
-| `components/dash/TransactionsTable.tsx` | Every payment: search, filters, category per row or ticked several, tags, the card bill guard |
+| `components/dash/TransactionsTable.tsx` | Every payment: search, filters, category per row or ticked several, tags, the card bill guard; a table where it fits, a list in a narrower box (a phone) |
 | `components/dash/CategorySelect.tsx` | The category picker |
 
 **Logic** (`lib/`, tested in `web/tests/` with Node's test runner on fake ledgers)
@@ -326,6 +326,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/askRules.ts` | Ask Plutus's rules: a question read into a query in the page, and whether they're sure of it |
 | `lib/selection.ts` | Ticking payments; what the ticked ones add up to |
 | `lib/useSelection.ts` | The files picked to add, before they're sent |
+| `lib/useFits.ts` | Whether a box is wide enough for a table, followed as it resizes: the narrow form (a list) otherwise |
 | `lib/useImportActivity.ts` | What the server is reading, polled for the whole page |
 | `lib/aiHint.ts` | When the one-time AI hint shows, and what it says |
 | `lib/aiPanel.ts` | The Local AI panel's open state, shared |

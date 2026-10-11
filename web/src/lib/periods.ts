@@ -71,6 +71,9 @@ export function spanLabel(keys: string[]): string | null {
 // Day and time come straight from the stored local timestamp.
 const dayFmt = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 export const dayLabel = (iso: string) => dayFmt.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`))
+const dayMonthFmt = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+/** "30 Sept": for a narrow list whose payments all fall in one year, where the year on every row says nothing. */
+export const dayMonthLabel = (iso: string) => dayMonthFmt.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`))
 export function timeLabel(iso: string) {
   const [h, m] = iso.slice(11, 16).split(':').map(Number)
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`

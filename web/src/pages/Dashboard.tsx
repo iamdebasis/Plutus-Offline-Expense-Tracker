@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { CircleCheck, CirclePause, CreditCard, ListChecks, Plus, Smartphone, TrendingUp, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { AskPanel } from '../components/AskPanel'
 import { Backdrop } from '../components/Backdrop'
@@ -126,33 +126,18 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
         {/* the timeline: one row that scopes everything below it */}
         <div ref={sentinel} aria-hidden className="h-6" />
         <div
-          className={`sticky top-0 z-20 -mx-4 px-4 py-3 transition-colors duration-200 sm:-mx-6 sm:px-6 ${
+          className={`sticky top-0 z-20 -mx-4 px-4 py-2.5 transition-colors duration-200 sm:-mx-6 sm:px-6 sm:py-3 ${
             stuck ? 'border-b border-white/[0.06] bg-canvas/85 backdrop-blur-md' : 'border-b border-transparent'
           }`}
         >
+          {/* only what scopes the page stays at the top: the years and the investments switch, on one row even on a
+              phone (a short bar leaves the screen to the page); what the files cover scrolls with the page, below */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div role="tablist" aria-label="Year" className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none]">
-              {[...years, 'all' as const].map((p) => {
-                const active = period === p
-                return (
-                  <button
-                    key={p}
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setPeriod(p)}
-                    className={`relative shrink-0 rounded-xl px-4 py-2 text-sm font-semibold whitespace-nowrap tabular-nums ring-1 transition ${
-                      active ? 'text-zinc-950 ring-white' : 'text-zinc-400 ring-white/10 hover:text-zinc-100 hover:ring-white/25'
-                    }`}
-                  >
-                    {active && <motion.span layoutId="year" className="absolute inset-0 rounded-xl bg-white" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
-                    <span className="relative">{periodLabel(p)}</span>
-                  </button>
-                )
-              })}
+            <div className="flex max-w-full min-w-0 items-center gap-3 sm:gap-4">
+              <YearTabs years={years} period={period} onChange={setPeriod} />
+              <InvestmentsSwitch on={countInvestments} onChange={setCountInvestments} />
             </div>
-            <InvestmentsSwitch on={countInvestments} onChange={setCountInvestments} />
-            <Coverage view={all} held={data.held} />
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2 empty:hidden">
               {categoryLabel && (
                 <button
                   type="button"
@@ -171,6 +156,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
           </div>
           <ActivityLine activity={activity} pending={intake.pending} />
         </div>
+        <Coverage view={all} held={data.held} />
 
         <TotalSpend totals={totals} allTime={allTime} period={period} />
         <MonthlyTrends data={data} view={all} totals={totals} allTime={allTime} period={period} leftOut={leftOut} />
@@ -210,7 +196,7 @@ function Coverage({ view, held }: { view: PeriodView; held: CardStatement[] }) {
   const upi = spanLabel([...view.coverage.upi])
   const cards = spanLabel([...view.coverage.cards])
   return (
-    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
+    <p className="-mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs text-zinc-500">
       <span className="inline-flex items-center gap-1.5">
         <CreditCard className="size-3.5" /> Card bills: <span className="text-zinc-300">{cards ?? 'none'}</span>
       </span>
@@ -237,6 +223,69 @@ function Coverage({ view, held }: { view: PeriodView; held: CardStatement[] }) {
         </span>
       )}
     </p>
+  )
+}
+
+const FADE_PX = 24
+
+/** The years and All years: the row that scopes the page. When they need more room than the bar has (many years, a
+ *  narrow phone), they scroll sideways, fading at an edge with more beyond it, and the chosen one is kept in view. */
+function YearTabs({ years, period, onChange }: { years: number[]; period: PeriodKey; onChange: (p: PeriodKey) => void }) {
+  const list = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState({ before: false, after: false })
+  useLayoutEffect(() => {
+    const el = list.current
+    if (!el) return
+    const edges = () => setMore({ before: el.scrollLeft > 1, after: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 })
+    // the chosen year clear of the fade, where it can be: the next one peeks in, saying there's more
+    const keep = () => {
+      const on = el.querySelector<HTMLElement>('[aria-selected=true]')
+      if (on) {
+        const box = el.getBoundingClientRect()
+        const tab = on.getBoundingClientRect()
+        if (tab.left < box.left + FADE_PX) el.scrollLeft -= box.left + FADE_PX - tab.left
+        else if (tab.right > box.right - FADE_PX) el.scrollLeft += tab.right - (box.right - FADE_PX)
+      }
+      edges()
+    }
+    keep()
+    el.addEventListener('scroll', edges, { passive: true })
+    const watch = new ResizeObserver(keep)
+    watch.observe(el)
+    return () => {
+      el.removeEventListener('scroll', edges)
+      watch.disconnect()
+    }
+  }, [period, years])
+  const mask = more.before || more.after
+    ? `linear-gradient(to right, ${more.before ? 'transparent' : 'black'}, black ${FADE_PX}px, black calc(100% - ${FADE_PX}px), ${more.after ? 'transparent' : 'black'})`
+    : undefined
+  return (
+    <div
+      ref={list}
+      role="tablist"
+      aria-label="Year"
+      className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none] sm:gap-2"
+      style={{ maskImage: mask, WebkitMaskImage: mask }}
+    >
+      {[...years, 'all' as const].map((p) => {
+        const active = period === p
+        return (
+          <button
+            key={p}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(p)}
+            className={`relative shrink-0 rounded-xl px-3 py-2 text-[13px] font-semibold whitespace-nowrap tabular-nums ring-1 transition ring-inset sm:px-4 sm:text-sm ${
+              active ? 'text-zinc-950 ring-white' : 'text-zinc-400 ring-white/10 hover:text-zinc-100 hover:ring-white/25'
+            }`}
+          >
+            {active && <motion.span layoutId="year" className="absolute inset-0 rounded-xl bg-white" transition={{ type: 'spring', stiffness: 420, damping: 34 }} />}
+            <span className="relative">{periodLabel(p)}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

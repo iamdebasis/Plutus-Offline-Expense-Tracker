@@ -246,3 +246,26 @@ the totals. "The period before" matches "went up", and an average month would ha
 **Costs**: it says what changed, not the cause behind a payment (a new rent, a trip); that's for the reader.
 **Where**: `whyAnswer` and `periodBefore` in `web/src/lib/ask.ts`, read in `lib/askRules.ts` and by the local AI
 (`app/ask.py`); the chips in `components/AskPanel.tsx`; tests in `web/tests/ask.test.ts` and `askRules.test.ts`.
+
+## 24. A phone gets the whole page: nothing sideways, a short bar, the orb aside while scrolling
+
+**Decision**: nothing on the dashboard scrolls sideways. Content with a wide form has a narrow one, chosen by the
+width of its own box (`useFits`), not the screen's: the transactions list is a table where its 760px fit and a list
+otherwise (payee and amount, then how it was paid, then the day and the category, the year left off when every
+payment shown is in one year); a held statement's rows likewise from 560px. Both forms are built from the same parts,
+so they can't drift apart. The bar that stays at the top holds only what scopes the page, the years and the
+investments switch, on one row even on a phone ("Investments" there, "Count investments" by name); the years scroll
+sideways if they must, faded where there are more, the chosen one kept in view. What the files cover scrolls with the
+page. The Ask Plutus orb stays where it is, but where it would cover the page's column it shrinks into the corner
+while you scroll down, and is back as soon as you scroll up or stop.
+**Why**: on a phone the table showed the date and payee and hid the amount, category and how it was paid behind a
+sideways scroll with no sign of it; the pinned bar took 197 of 844 pixels on every screen. Nielsen Norman Group
+advise keeping a sticky header as small as its content allows, and signalling any sideways scrolling, which works
+poorly on phones ([sticky headers](https://www.nngroup.com/articles/sticky-headers/),
+[mobile tables](https://www.nngroup.com/articles/mobile-tables/)). Going by the box, not the screen, also fixes a
+tablet, where the table didn't fit either.
+**Costs**: on a phone a payment takes three lines instead of one; at rest, the orb still sits over the bottom-right
+corner of the screen, as it always has.
+**Where**: `web/src/lib/useFits.ts`; the list in `components/dash/TransactionsTable.tsx`, the held rows in
+`components/Vault.tsx` (`HeldReview`); `YearTabs` and `Coverage` in `pages/Dashboard.tsx`; `useStepAside` in
+`components/AskOrb.tsx`; `dayMonthLabel` in `lib/periods.ts`, tested in `web/tests/periods.test.ts`.
