@@ -68,7 +68,7 @@ export function CardSpending(props: {
       )}
 
       {!anything ? (
-        <p className="rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-zinc-500">
+        <p className="rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-muted">
           Nothing on {card ? 'this card' : 'your cards'} {period === 'all' ? 'yet' : `in ${period}`}. Add its statements, or your CRED payment history.
         </p>
       ) : (
@@ -79,7 +79,7 @@ export function CardSpending(props: {
               <motion.p key={spent} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-2 text-[52px] leading-none font-semibold tracking-tight">
                 {inr(spent)}
               </motion.p>
-              <p className="mt-3 text-sm text-zinc-500">
+              <p className="mt-3 text-sm text-muted">
                 {[
                   f.itemized > 0.5 &&
                     `${inr(f.itemized)} read one by one from your statements (${plural(f.itemizedCount, f.fees > 0.5 ? 'purchase or charge' : 'purchase', f.fees > 0.5 ? 'purchases and charges' : undefined)})`,
@@ -89,7 +89,7 @@ export function CardSpending(props: {
                   .join(' · ') || 'Nothing with the card number in this period.'}
               </p>
               {f.viaUpi > 0.5 && (
-                <p className="mt-2 text-sm text-zinc-500">
+                <p className="mt-2 text-sm text-muted">
                   + {inr(f.viaUpi)} paid with {card ? 'it' : 'them'} on UPI ({plural(f.viaUpiCount, 'payment')}), counted in UPI spends.
                 </p>
               )}
@@ -143,10 +143,10 @@ export function CardSpending(props: {
               {view.byCategory.length > 0 ? (
                 <CategoryBars rows={view.byCategory} total={f.itemized} selected={category} onSelect={setCategory} />
               ) : (
-                <p className="py-6 text-center text-sm text-zinc-500">Add a statement and its purchases show here by category.</p>
+                <p className="py-6 text-center text-sm text-muted">Add a statement and its purchases show here by category.</p>
               )}
               {f.estimated > 0.5 && (
-                <p className="mt-4 border-t border-white/[0.05] pt-3 text-xs leading-relaxed text-zinc-500">
+                <p className="mt-4 border-t border-white/[0.05] pt-3 text-xs leading-relaxed text-muted">
                   + {inr(f.estimated)} estimated from bills, which don't say what you bought. Add those months' statements to see it here.
                 </p>
               )}
@@ -156,17 +156,17 @@ export function CardSpending(props: {
                 <ul className="space-y-0.5">
                   {biggest.map((t) => (
                     <li key={t.id} className="flex items-center gap-3 py-1.5 text-sm">
-                      <span className="w-24 shrink-0 text-xs text-zinc-500 tabular-nums">{dayLabel(t.at)}</span>
+                      <span className="w-24 shrink-0 text-xs text-muted tabular-nums">{dayLabel(t.at)}</span>
                       <span className="min-w-0 flex-1 truncate text-zinc-200" title={t.note || t.payee}>
                         {t.payee}
                       </span>
-                      <span className="hidden truncate text-xs text-zinc-500 sm:block">{data.categories.get(t.category)?.label}</span>
+                      <span className="hidden truncate text-xs text-muted sm:block">{data.categories.get(t.category)?.label}</span>
                       <span className="w-24 text-right text-zinc-100 tabular-nums">{inrExact(t.amount)}</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="py-6 text-center text-sm text-zinc-500">No purchases read from statements {when}.</p>
+                <p className="py-6 text-center text-sm text-muted">No purchases read from statements {when}.</p>
               )}
             </Panel>
           </div>
@@ -176,10 +176,10 @@ export function CardSpending(props: {
               <ul className="grid gap-x-8 gap-y-0.5 sm:grid-cols-2">
                 {merchants.slice(0, 10).map((p) => (
                   <li key={p.payee} className="flex items-center gap-3 py-1.5 text-sm">
-                    <span className={`min-w-0 flex-1 truncate ${p.payee === NO_NAME ? 'text-zinc-500 italic' : 'text-zinc-200'}`} title={p.payee}>
+                    <span className={`min-w-0 flex-1 truncate ${p.payee === NO_NAME ? 'text-muted italic' : 'text-zinc-200'}`} title={p.payee}>
                       {p.payee === NO_NAME ? 'No merchant name' : p.payee}
                     </span>
-                    <span className="hidden truncate text-xs text-zinc-500 md:block">{data.categories.get(p.category)?.label}</span>
+                    <span className="hidden truncate text-xs text-muted md:block">{data.categories.get(p.category)?.label}</span>
                     <span className="w-24 text-right text-zinc-100 tabular-nums">{inr(p.amount)}</span>
                   </li>
                 ))}
@@ -196,8 +196,8 @@ function Tile({ label, value, caption, muted }: { label: string; value: string; 
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
       <p className="text-sm text-zinc-400">{label}</p>
-      <p className={`mt-1.5 text-2xl font-semibold tracking-tight ${muted ? 'text-zinc-500' : ''}`}>{value}</p>
-      <p className="mt-1 text-xs leading-snug text-zinc-500">{caption}</p>
+      <p className={`mt-1.5 text-2xl font-semibold tracking-tight ${muted ? 'text-muted' : ''}`}>{value}</p>
+      <p className="mt-1 text-xs leading-snug text-muted">{caption}</p>
     </div>
   )
 }

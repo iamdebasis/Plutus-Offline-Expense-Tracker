@@ -306,7 +306,7 @@ export function TransactionsTable({
   const payee = (t: Transaction) => (
     <div className="flex min-w-0 items-center gap-1.5">
       {t.payee === NO_NAME ? (
-        <span className="truncate text-zinc-500 italic" title="The file this came from doesn't say who was paid">
+        <span className="truncate text-muted italic" title="The file this came from doesn't say who was paid">
           No payee name
         </span>
       ) : (
@@ -317,10 +317,10 @@ export function TransactionsTable({
       {tag(t)}
       {statementChip(cardSide(t, sides), names.card)}
       {t.needsReview && <AlertCircle aria-label="Needs review" className="size-3.5 shrink-0 text-[var(--color-status-warning)]" />}
-      {t.categorizedBy === 'llm' && <Sparkles aria-label="Categorised by the local AI" className="size-3.5 shrink-0 text-zinc-500" />}
+      {t.categorizedBy === 'llm' && <Sparkles aria-label="Categorised by the local AI" className="size-3.5 shrink-0 text-muted" />}
     </div>
   )
-  const subline = (t: Transaction) => detail(t) && <div className="truncate text-xs text-zinc-500" title={detail(t) || undefined}>{detail(t)}</div>
+  const subline = (t: Transaction) => detail(t) && <div className="truncate text-xs text-muted" title={detail(t) || undefined}>{detail(t)}</div>
   const categoryOf = (t: Transaction) => <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
   // a card bill is neither money in nor spending: no sign, no colour
   const amount = (t: Transaction) => ({
@@ -364,13 +364,13 @@ export function TransactionsTable({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <label className="flex min-w-56 flex-1 items-center gap-2 rounded-full bg-white/[0.04] px-3 py-1.5 ring-1 ring-white/10 focus-within:ring-white/40">
-          <Search className="size-4 text-zinc-500" />
+        <label className="tap flex min-w-56 flex-1 items-center gap-2 rounded-full bg-white/[0.04] px-3 ring-1 ring-white/10 focus-within:ring-white/40">
+          <Search className="size-4 text-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search payee, UPI id or amount"
-            className="min-w-0 flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
+            className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-zinc-100 outline-none placeholder:text-muted"
           />
         </label>
         {file ? (
@@ -391,7 +391,7 @@ export function TransactionsTable({
                   role="radio"
                   aria-checked={source === s}
                   onClick={() => setSource(s)}
-                  className={`rounded-full px-3 py-1 text-sm transition ${source === s ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-zinc-100'}`}
+                  className={`tap rounded-full px-3 py-1 text-sm transition ${source === s ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-zinc-100'}`}
                 >
                   {{ all: 'All', upi: 'UPI', cards: 'Cards' }[s]}
                 </button>
@@ -399,17 +399,17 @@ export function TransactionsTable({
             </div>
           )
         )}
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400">
+        <label className="tap flex min-h-6 cursor-pointer items-center gap-2 text-sm text-zinc-400">
           <input type="checkbox" checked={onlyReview} onChange={(e) => setOnlyReview(e.target.checked)} className="accent-white" />
           Needs review only
         </label>
         {ignoredCount > 0 && (
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400" title="Payments you chose to leave out of every total">
+          <label className="tap flex min-h-6 cursor-pointer items-center gap-2 text-sm text-zinc-400" title="Payments you chose to leave out of every total">
             <input type="checkbox" checked={showIgnored} onChange={(e) => setShowIgnored(e.target.checked)} className="accent-white" />
             Show {ignoredCount} ignored
           </label>
         )}
-        <span className="text-sm text-zinc-500 tabular-nums">{rows.length} shown</span>
+        <span className="text-sm text-muted tabular-nums">{rows.length} shown</span>
       </div>
 
       <AnimatePresence initial={false}>
@@ -437,9 +437,9 @@ export function TransactionsTable({
             ) : ticked.size > 0 ? (
               <>
                 <p className="text-sm text-zinc-100 tabular-nums" aria-live="polite">
-                  {plural(total.count, 'payment')} ticked <span className="text-zinc-500">· {inrExact(total.net)}</span>
+                  {plural(total.count, 'payment')} ticked <span className="text-muted">· {inrExact(total.net)}</span>
                   {total.cardBills > 0 && (
-                    <span className="text-zinc-500" title="Paying your card is neither money out nor money in">
+                    <span className="text-muted" title="Paying your card is neither money out nor money in">
                       {' '}
                       · {plural(total.cardBills, 'card bill')} not in that
                     </span>
@@ -500,9 +500,11 @@ export function TransactionsTable({
       <div ref={box} className={wide ? 'overflow-x-auto' : undefined}>
         {wide ? (
           <table className="w-full text-sm" style={{ minWidth: TABLE_MIN }}>
-            <thead className="text-left text-xs text-zinc-500">
+            <thead className="text-left text-xs text-muted">
               <tr className="border-b border-white/[0.06]">
-                <th className="w-7 py-2 pr-2 font-normal">{tickAll}</th>
+                <th className="w-7 py-2 pr-2 font-normal">
+                  <label className="-m-1.5 flex w-fit cursor-pointer p-1.5">{tickAll}</label>
+                </th>
                 <th className="py-2 pr-4 font-normal">Date</th>
                 <th className="py-2 pr-4 font-normal">Payee</th>
                 <th className="py-2 pr-4 font-normal">Paid with</th>
@@ -518,10 +520,12 @@ export function TransactionsTable({
                     <tr
                       className={`border-b border-white/[0.04] transition hover:bg-white/[0.02] ${ticked.has(t.id) ? '[&>td]:bg-white/[0.04]' : ''} ${dimmed(t) ? 'opacity-50' : ''}`}
                     >
-                      <td className="py-2 pr-2">{tickBox(t)}</td>
+                      <td className="py-2 pr-2">
+                        <label className="-m-1.5 flex w-fit cursor-pointer p-1.5">{tickBox(t)}</label>
+                      </td>
                       <td className="py-2 pr-4 whitespace-nowrap text-zinc-400 tabular-nums">
                         {dayLabel(t.at)}
-                        {time(t) && <span className="ml-1.5 text-xs text-zinc-600">{time(t)}</span>}
+                        {time(t) && <span className="ml-1.5 text-xs text-muted">{time(t)}</span>}
                       </td>
                       <td className="max-w-72 py-2 pr-4">
                         {payee(t)}
@@ -544,7 +548,7 @@ export function TransactionsTable({
         ) : (
           // a narrow box: each payment an item, payee and amount on top, how it was paid, then when and its category
           <>
-            <label className="flex w-fit cursor-pointer items-center gap-2.5 py-1.5 text-xs text-zinc-500">
+            <label className="tap flex w-fit cursor-pointer items-center gap-2.5 py-1.5 text-xs text-muted">
               {tickAll}
               Tick all shown
             </label>
@@ -555,7 +559,7 @@ export function TransactionsTable({
                   <li key={t.id} className={`border-b border-white/[0.04] py-3 text-sm ${ticked.has(t.id) ? 'bg-white/[0.04]' : ''}`}>
                     <div className={`flex gap-2.5 ${dimmed(t) ? 'opacity-50' : ''}`}>
                       {/* the box keeps its look; the space around it takes the tap */}
-                      <label className="-m-1.5 flex shrink-0 cursor-pointer self-start p-1.5 pt-[0.4375rem]">{tickBox(t)}</label>
+                      <label className="tap -m-1.5 flex shrink-0 cursor-pointer self-start p-1.5 pt-[0.4375rem]">{tickBox(t)}</label>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-3">
                           <div className="min-w-0 flex-1">{payee(t)}</div>
@@ -567,7 +571,7 @@ export function TransactionsTable({
                         <div className="mt-1.5">{paidWith(t, paidFromLabel(t, cards, accounts), true)}</div>
                         {/* nothing cut: on a very narrow screen the category moves under the day */}
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                          <span className="text-xs whitespace-nowrap text-zinc-500 tabular-nums">
+                          <span className="text-xs whitespace-nowrap text-muted tabular-nums">
                             {oneYear ? dayMonthLabel(t.at) : dayLabel(t.at)}
                             {time(t) && ` · ${time(t)}`}
                           </span>
@@ -587,7 +591,7 @@ export function TransactionsTable({
         <button
           type="button"
           onClick={() => setShown((n) => n + PAGE)}
-          className="mt-3 w-full rounded-xl py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-zinc-200"
+          className="tap mt-3 w-full rounded-xl py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-zinc-200"
         >
           Show more ({rows.length - shown} left)
         </button>
@@ -654,7 +658,7 @@ function OfferRow({
         ) : offer.account ? (
           <>
             <p className="flex items-center gap-2 text-sm text-zinc-300">
-              <CornerDownRight className="size-4 shrink-0 text-zinc-500" />
+              <CornerDownRight className="size-4 shrink-0 text-muted" />
               Is ••{offer.account} your own account? Then every transfer to and from it is left out, however it's named.
             </p>
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -675,7 +679,7 @@ function OfferRow({
         ) : (
           <>
             <p className="flex items-center gap-2 text-sm text-zinc-300">
-              <CornerDownRight className="size-4 shrink-0 text-zinc-500" />
+              <CornerDownRight className="size-4 shrink-0 text-muted" />
               {leaves ? 'Moved to investments, which are left out of the dashboard.' : 'Changed this payment.'} Also change the other {offer.payee} payments?
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -693,7 +697,7 @@ function OfferRow({
                     {n.ticked && <Check className="size-3" strokeWidth={3.2} />}
                   </span>
                   {n.payee}
-                  <span className="text-xs text-zinc-500 tabular-nums">· {plural(n.pending, n.payee === offer.payee ? 'more payment' : 'payment')}</span>
+                  <span className="text-xs text-muted tabular-nums">· {plural(n.pending, n.payee === offer.payee ? 'more payment' : 'payment')}</span>
                 </button>
               ))}
             </div>
@@ -741,7 +745,7 @@ function paidWith(t: Transaction, from: { title: string; detail: string }, inlin
         </div>
       )}
       {from.title !== '—' && (
-        <div className={`${inline ? 'min-w-0' : 'mt-1'} truncate text-xs text-zinc-500`} title={[from.title, from.detail].filter(Boolean).join(' · ')}>
+        <div className={`${inline ? 'min-w-0' : 'mt-1'} truncate text-xs text-muted`} title={[from.title, from.detail].filter(Boolean).join(' · ')}>
           {from.title}
         </div>
       )}

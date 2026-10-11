@@ -15,7 +15,7 @@ export function StartOver() {
     <div className="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-white/[0.06] pt-5">
       <div className="min-w-0">
         <p className="text-sm text-zinc-300">Start over</p>
-        <p className="text-xs text-zinc-500">Move everything Plutus keeps about you to the Trash, and begin again with an empty Plutus.</p>
+        <p className="text-xs text-muted">Move everything Plutus keeps about you to the Trash, and begin again with an empty Plutus.</p>
       </div>
       <button
         type="button"
@@ -123,7 +123,7 @@ function StartOverDialog({ open, onClose }: { open: boolean; onClose: () => void
               {done ? (
                 <Done trash={phase.trash} folder={preview?.folder ?? ''} />
               ) : !preview ? (
-                phase.step === 'failed' ? <p className="text-rose-300">{phase.message}</p> : <p className="text-zinc-500">Counting what you have…</p>
+                phase.step === 'failed' ? <p className="text-rose-300">{phase.message}</p> : <p className="text-muted">Counting what you have…</p>
               ) : (
                 <>
                   <What preview={preview} />
@@ -154,7 +154,7 @@ function StartOverDialog({ open, onClose }: { open: boolean; onClose: () => void
                       autoComplete="off"
                       spellCheck={false}
                       autoFocus
-                      className="mt-1.5 w-full rounded-xl bg-black/40 px-3 py-2 font-mono text-[14px] text-zinc-100 ring-1 ring-white/10 outline-none placeholder:text-zinc-600 focus:ring-rose-300/40 disabled:opacity-50"
+                      className="mt-1.5 w-full rounded-xl bg-black/40 px-3 py-2 font-mono text-[14px] text-zinc-100 ring-1 ring-white/10 outline-none placeholder:text-muted focus:ring-rose-300/40 disabled:opacity-50"
                       placeholder={CONFIRM}
                     />
                   </label>
@@ -223,7 +223,7 @@ function What({ preview: p }: { preview: ResetPreview }) {
         </ul>
       </div>
       <div className="rounded-2xl bg-white/[0.03] p-3.5 ring-1 ring-white/[0.08]">
-        <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Stays</p>
+        <p className="text-xs font-medium tracking-wide text-muted uppercase">Stays</p>
         <ul className="mt-1.5 space-y-1 text-zinc-400">
           <li>Plutus itself</li>
           <li>Ollama and its models</li>

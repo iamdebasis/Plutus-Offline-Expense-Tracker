@@ -99,7 +99,7 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
                   <span className="text-zinc-300">Optional.</span> Plutus asks a model on this Mac only when its own rules
                   can't manage:
                 </p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-5 marker:text-zinc-600">
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 marker:text-faint">
                   <li>
                     <span className="text-zinc-300">New payees:</span> names it doesn't recognise, like a local shop
                   </li>
@@ -118,7 +118,7 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
               {setup && <Body setup={setup} switching={switching} onChoose={choose} />}
             </div>
 
-            <p className="border-t border-white/[0.06] bg-black/20 px-6 py-3 text-xs text-zinc-500">
+            <p className="border-t border-white/[0.06] bg-black/20 px-6 py-3 text-xs text-muted">
               Runs only on this Mac. Downloading a model fetches public files from ollama.com; none of your data goes
               with it. Plutus itself never downloads or installs anything.
             </p>
@@ -143,7 +143,7 @@ function Body({ setup, switching, onChoose }: { setup: AiSetup; switching: strin
   return (
     <>
       <section aria-label="This Mac">
-        <h3 className="text-xs font-medium tracking-wide text-zinc-500 uppercase">This Mac</h3>
+        <h3 className="text-xs font-medium tracking-wide text-muted uppercase">This Mac</h3>
         <p className="mt-1.5 flex flex-wrap gap-1.5">
           {facts.map((fact) => (
             <span key={fact} className="rounded-full bg-white/[0.04] px-2.5 py-1 text-xs text-zinc-300 ring-1 ring-white/[0.08]">
@@ -165,10 +165,10 @@ function Body({ setup, switching, onChoose }: { setup: AiSetup; switching: strin
 
       {suggestion && (
         <section aria-label="Suggested for this Mac" className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.08]">
-          <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Suggested for this Mac</p>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Suggested for this Mac</p>
           <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
             <span className="font-mono text-[15px] text-zinc-100">{suggestion.model}</span>
-            <span className="text-sm text-zinc-500">{suggestion.sizeGb} GB download</span>
+            <span className="text-sm text-muted">{suggestion.sizeGb} GB download</span>
             <span className="text-sm text-zinc-400">
               ·{' '}
               {setup.inUse === suggestion.model ? (
@@ -186,7 +186,7 @@ function Body({ setup, switching, onChoose }: { setup: AiSetup; switching: strin
 
       {setup.steps.length > 0 && (
         <section aria-label="Steps">
-          <h3 className="text-xs font-medium tracking-wide text-zinc-500 uppercase">
+          <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
             {required.length ? 'To set it up, on this Mac' : 'Optional'}
           </h3>
           <ol className="mt-2 space-y-3">
@@ -199,17 +199,17 @@ function Body({ setup, switching, onChoose }: { setup: AiSetup; switching: strin
 
       {setup.models.length > 0 && (
         <section aria-label="Downloaded on this Mac">
-          <h3 className="text-xs font-medium tracking-wide text-zinc-500 uppercase">Downloaded on this Mac</h3>
+          <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Downloaded on this Mac</h3>
           <ul className="mt-2 divide-y divide-white/[0.05] rounded-2xl ring-1 ring-white/[0.08]">
             {setup.models.map((m) => (
               <li key={m.name} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-baseline gap-x-2">
                     <span className="truncate font-mono text-[13px] text-zinc-100">{m.name}</span>
-                    <span className="text-xs text-zinc-500">{m.sizeGb} GB</span>
+                    <span className="text-xs text-muted">{m.sizeGb} GB</span>
                     <span className={`rounded-full px-2 py-px text-[11px] ring-1 ${FIT[m.fit].tone}`}>{FIT[m.fit].text}</span>
                   </p>
-                  <p className="mt-0.5 text-xs text-zinc-500">{cap(m.note)}</p>
+                  <p className="mt-0.5 text-xs text-muted">{cap(m.note)}</p>
                 </div>
                 {m.inUse ? (
                   <span className="inline-flex shrink-0 items-center gap-1 text-xs text-emerald-300">
@@ -232,7 +232,7 @@ function Body({ setup, switching, onChoose }: { setup: AiSetup; switching: strin
             ))}
           </ul>
           {setup.chosen && !setup.override && (
-            <p className="mt-2 text-xs text-zinc-500">
+            <p className="mt-2 text-xs text-muted">
               You chose {setup.chosen}.{' '}
               <button
                 type="button"
@@ -255,7 +255,7 @@ function StepItem({ step, n }: { step: AiStep; n: number | null }) {
     <li className="flex gap-3">
       <span
         className={`mt-px flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
-          n ? 'bg-white/[0.08] text-zinc-200' : 'text-zinc-500 ring-1 ring-white/10'
+          n ? 'bg-white/[0.08] text-zinc-200' : 'text-muted ring-1 ring-white/10'
         }`}
         aria-hidden
       >

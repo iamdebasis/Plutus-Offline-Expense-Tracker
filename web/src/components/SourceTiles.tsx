@@ -30,7 +30,7 @@ export function SourceTiles({ onPick }: { onPick: (source: SourceMeta) => void }
           <span className="relative mt-5 block font-medium text-zinc-100">{source.title}</span>
           <span className="relative mt-1 block text-sm leading-snug text-zinc-400">{source.hint}</span>
           <span className="relative mt-5 flex items-center justify-between">
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-zinc-500">{source.formats}</span>
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted">{source.formats}</span>
             <span className="flex size-7 -translate-x-1 items-center justify-center rounded-full bg-white/[0.06] text-zinc-300 opacity-0 transition duration-300 group-hover:translate-x-0 group-hover:opacity-100">
               <Plus className="size-4" />
             </span>

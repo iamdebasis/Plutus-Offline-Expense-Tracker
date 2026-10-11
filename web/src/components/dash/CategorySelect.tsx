@@ -25,7 +25,7 @@ export function CategorySelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`w-full min-w-0 cursor-pointer appearance-none truncate rounded-full bg-white/[0.05] pr-7 pl-3 text-zinc-200 ring-1 ring-white/10 transition outline-none hover:bg-white/[0.08] focus-visible:ring-white/40 ${
-          compact ? 'py-1 text-xs' : 'py-1.5 text-sm'
+          compact ? 'py-1 text-xs pointer-coarse:py-2' : 'py-1.5 text-sm'
         }`}
       >
         {placeholder && (
@@ -52,7 +52,7 @@ export function CategorySelect({
           ),
         )}
       </select>
-      <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-zinc-500" />
+      <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted" />
     </label>
   )
 }

@@ -81,7 +81,7 @@ export function ImportActivity({ activity, pending = 0, onReview }: Props) {
                     <span className="hidden sm:inline">
                       Reading {Math.min(s.finished + 1, s.total)} of {plural(s.total, 'file')}
                     </span>
-                    {s.current && <span className="hidden text-zinc-500 lg:inline"> · {s.current.importStatus?.step ?? 'Waiting its turn'}</span>}
+                    {s.current && <span className="hidden text-muted lg:inline"> · {s.current.importStatus?.step ?? 'Waiting its turn'}</span>}
                   </>
                 ) : (
                   doneText(s)
@@ -93,7 +93,7 @@ export function ImportActivity({ activity, pending = 0, onReview }: Props) {
                 type="button"
                 onClick={activity.dismiss}
                 aria-label="Dismiss"
-                className="mr-1 flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-zinc-100"
+                className="mr-1 flex size-6 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-white/10 hover:text-zinc-100"
               >
                 <X className="size-3.5" />
               </button>
@@ -113,7 +113,7 @@ export function ImportActivity({ activity, pending = 0, onReview }: Props) {
               >
                 <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.06] px-4 pt-3.5 pb-3">
                   <p className="font-display text-[15px] font-semibold tracking-tight">{s.reading ? 'Reading your files' : 'Finished reading'}</p>
-                  <p className="text-xs text-zinc-500 tabular-nums">
+                  <p className="text-xs text-muted tabular-nums">
                     {s.finished} of {s.total} done
                   </p>
                 </div>
@@ -201,7 +201,7 @@ function FileLine({ upload }: { upload: UploadRecord }) {
     state === 'running' ? (
       <Spinner />
     ) : state === 'queued' ? (
-      <Clock3 className="size-4 text-zinc-500" />
+      <Clock3 className="size-4 text-muted" />
     ) : state === 'done' ? (
       <Check className="size-4 text-emerald-300" strokeWidth={2.6} />
     ) : state === 'failed' ? (
@@ -227,7 +227,7 @@ function FileLine({ upload }: { upload: UploadRecord }) {
         <p className="truncate text-[13px] text-zinc-100" title={upload.originalName}>
           {upload.originalName}
         </p>
-        <p className={`text-xs leading-snug ${state === 'failed' ? 'text-rose-300' : state === 'skipped' ? 'text-amber-300/90' : 'text-zinc-500'}`}>
+        <p className={`text-xs leading-snug ${state === 'failed' ? 'text-rose-300' : state === 'skipped' ? 'text-amber-300/90' : 'text-muted'}`}>
           <span className="text-zinc-400">{upload.detection.label}</span> · {detail}
         </p>
       </div>

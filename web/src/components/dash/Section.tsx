@@ -8,7 +8,7 @@ export function SectionHead({ icon, title, note }: { icon: ReactNode; title: str
         <span className="flex size-8 items-center justify-center rounded-xl bg-white/[0.07] text-zinc-200 ring-1 ring-white/10">{icon}</span>
         {title}
       </h2>
-      <p className="text-sm text-zinc-500">{note}</p>
+      <p className="text-sm text-muted">{note}</p>
     </header>
   )
 }
@@ -36,7 +36,7 @@ export function Panel({
   children?: ReactNode
 }) {
   return (
-    <section id={id} className={`min-w-0 rounded-3xl border border-white/[0.07] bg-[#0c0e13]/90 p-4 sm:p-5 ${className}`}>
+    <section id={id} className={`min-w-0 rounded-3xl border border-white/[0.07] bg-card/90 p-4 sm:p-5 ${className}`}>
       <header className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-3 ${children && !flush ? 'mb-4' : ''}`}>
         <div className="min-w-0 flex-1 basis-64">
           <h3 className="flex items-center gap-2 font-display text-[17px] font-semibold tracking-tight">
@@ -45,7 +45,7 @@ export function Panel({
               <span className="rounded-full bg-[var(--color-status-warning)]/15 px-2 py-px text-xs font-semibold text-[var(--color-status-warning)]">{badge}</span>
             )}
           </h3>
-          {note && <p className="mt-0.5 text-sm text-zinc-500">{note}</p>}
+          {note && <p className="mt-0.5 text-sm text-muted">{note}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </header>

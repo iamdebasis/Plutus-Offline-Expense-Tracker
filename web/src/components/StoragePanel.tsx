@@ -11,14 +11,14 @@ export function StoragePanel({ className = 'px-6 pb-2' }: { className?: string }
   if (!info) return null
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 text-xs text-zinc-500">
+      <div className="flex items-center gap-2 text-xs text-muted">
         <HardDrive className="size-3.5 shrink-0" />
         <span className="shrink-0">Kept on this Mac in</span>
         <button
           type="button"
           onClick={() => api.revealStorage()}
           title={`${info.folder}\nShow in Finder`}
-          className="min-w-0 truncate font-mono text-zinc-300 underline decoration-white/15 underline-offset-4 hover:decoration-white/60"
+          className="-my-1 min-w-0 truncate py-1 font-mono text-zinc-300 underline decoration-white/15 underline-offset-4 hover:decoration-white/60"
         >
           {shortPath(info.display, 44)}
         </button>

@@ -345,7 +345,9 @@ this", rose for danger; the transactions list's "Paid with" chips tinted by kind
 its violet). Charts follow the validated palette in `web/src/index.css` (`--color-series-*`): thin marks,
 one filter row, a table view for every chart, and colours that follow the entity (a category's or card's colour is
 fixed from all-time totals, never by rank in a period). Every state has a calm, worded version: empty, busy, error,
-done.
+done. Every text reads at 4.5:1 or more (helper text in `--color-muted`, never zinc-500 to 700; `--color-faint` for
+decoration), every control is at least 24 by 24, and the main ones take a 44px tap under a finger (`tap`); the Mac's
+Increase contrast steps text and edges up. `web/tests/contrast.test.ts` checks the colours from `index.css`.
 
 ## Privacy, enforced
 

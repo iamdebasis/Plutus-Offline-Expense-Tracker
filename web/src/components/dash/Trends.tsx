@@ -80,7 +80,7 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
               <button type="button" onClick={() => setTicked(new Set(series.map((s) => s.id)))} className="rounded-full px-2.5 py-1 text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
                 All
               </button>
-              <span className="text-zinc-700">·</span>
+              <span className="text-faint">·</span>
               <button type="button" onClick={() => setTicked(new Set())} className="rounded-full px-2.5 py-1 text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100">
                 None
               </button>
@@ -144,7 +144,7 @@ function Chip(props: {
       >
         <Box colour={colour} checked={checked} />
         <span className={checked ? 'text-zinc-100' : 'text-zinc-400'}>{label}</span>
-        <span className={`text-xs text-zinc-500 tabular-nums transition-opacity ${fixed ? '' : 'group-focus-within:opacity-0 group-hover:opacity-0'}`}>
+        <span className={`text-xs text-muted tabular-nums transition-opacity ${fixed ? '' : 'group-focus-within:opacity-0 group-hover:opacity-0'}`}>
           {absent ? `none ${when}` : inrCompact(amount)}
         </span>
       </button>
@@ -153,7 +153,7 @@ function Chip(props: {
           type="button"
           onClick={onOnly}
           aria-label={`Show only ${label}`}
-          className="absolute right-1.5 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-zinc-100 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-white/20"
+          className="absolute right-1.5 rounded-full bg-white/10 px-2 py-1 text-[11px] font-medium text-zinc-100 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-white/20"
         >
           Only
         </button>
@@ -267,7 +267,7 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
                   x={onlyYears ? LEFT + band * i + 3 : x(i)}
                   y={TOP + plotH + 19}
                   textAnchor={onlyYears ? 'start' : 'middle'}
-                  className={`text-[11px] ${newYear ? 'fill-zinc-300 font-medium' : gaps[i] ? 'fill-zinc-700' : 'fill-[var(--color-ink-muted)]'}`}
+                  className={`text-[11px] ${newYear ? 'fill-zinc-300 font-medium' : gaps[i] ? 'fill-faint' : 'fill-[var(--color-ink-muted)]'}`}
                 >
                   {newYear ? (onlyYears ? k.slice(0, 4) : `${monthLabel(k)} ’${k.slice(2, 4)}`) : monthLabel(k)}
                 </text>
@@ -352,7 +352,7 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
       )}
 
       {nothing && width > 0 && (
-        <p className="pointer-events-none absolute inset-x-0 flex items-center justify-center text-sm text-zinc-500" style={{ top: TOP, height: plotH, left: LEFT, right }}>
+        <p className="pointer-events-none absolute inset-x-0 flex items-center justify-center text-sm text-muted" style={{ top: TOP, height: plotH, left: LEFT, right }}>
           {empty}
         </p>
       )}
@@ -398,18 +398,18 @@ function Tooltip(props: {
               <span className="size-2 shrink-0 rounded-[3px]" style={{ background: colourOf(s.id) }} />
               <span className="min-w-0 flex-1 truncate text-zinc-300">{s.label}</span>
               {v === null ? (
-                <span className="text-xs text-zinc-600">no data</span>
+                <span className="text-xs text-muted">no data</span>
               ) : (
                 <>
                   <span className="text-zinc-50 tabular-nums">
-                    {isEstimate(s, index) && <span className="text-zinc-500">≈ </span>}
+                    {isEstimate(s, index) && <span className="text-muted">≈ </span>}
                     {inr(v)}
                   </span>
-                  <span className="w-12 text-right text-[11px] text-zinc-500 tabular-nums">{change(v, prev)}</span>
+                  <span className="w-12 text-right text-[11px] text-muted tabular-nums">{change(v, prev)}</span>
                 </>
               )}
             </div>
-            {s.notes?.[index] && <p className="pl-4 text-[11px] text-zinc-500">{s.notes[index]}</p>}
+            {s.notes?.[index] && <p className="pl-4 text-[11px] text-muted">{s.notes[index]}</p>}
           </li>
         ))}
       </ul>
@@ -419,7 +419,7 @@ function Tooltip(props: {
           <span className="pr-14 text-zinc-50 tabular-nums">{inr(total)}</span>
         </p>
       )}
-      {rows.some(({ s }) => isEstimate(s, index)) && <p className="mt-1.5 text-[11px] text-zinc-500">≈ estimated from bills</p>}
+      {rows.some(({ s }) => isEstimate(s, index)) && <p className="mt-1.5 text-[11px] text-muted">≈ estimated from bills</p>}
     </motion.div>
   )
 }
@@ -434,13 +434,13 @@ function change(v: number, prev: number | null): string {
 }
 
 function TrendTable({ months, series, empty }: { months: string[]; series: Trend[]; empty: string }) {
-  if (!series.length) return <p className="py-10 text-center text-sm text-zinc-500">{empty}</p>
+  if (!series.length) return <p className="py-10 text-center text-sm text-muted">{empty}</p>
   const estimate = (s: Trend, i: number) => !!s.dashed || !!s.estimated?.[i]
   const together = series.length > 1
   return (
     <div className="-mx-1 overflow-x-auto px-1">
       <table className="w-full text-sm">
-        <thead className="text-left text-xs text-zinc-500">
+        <thead className="text-left text-xs text-muted">
           <tr>
             <th className="py-1.5 pr-4 font-normal">Month</th>
             {series.map((s) => (
@@ -458,7 +458,7 @@ function TrendTable({ months, series, empty }: { months: string[]; series: Trend
               <tr key={k} className="border-t border-white/[0.05]">
                 <td className="py-1.5 pr-4 whitespace-nowrap text-zinc-300">{monthLongLabel(k)}</td>
                 {series.map((s) => (
-                  <td key={s.id} className={`py-1.5 pl-4 text-right whitespace-nowrap ${s.values[i] === null ? 'text-zinc-600' : estimate(s, i) ? 'text-zinc-400' : 'text-zinc-100'}`}>
+                  <td key={s.id} className={`py-1.5 pl-4 text-right whitespace-nowrap ${s.values[i] === null ? 'text-muted' : estimate(s, i) ? 'text-zinc-400' : 'text-zinc-100'}`}>
                     {s.values[i] === null ? '—' : `${estimate(s, i) ? '≈ ' : ''}${inr(s.values[i]!)}`}
                   </td>
                 ))}
@@ -472,7 +472,7 @@ function TrendTable({ months, series, empty }: { months: string[]; series: Trend
           })}
         </tbody>
       </table>
-      {series.some((s) => s.dashed || s.estimated?.some(Boolean)) && <p className="mt-3 text-xs text-zinc-500">≈ estimated from bills that pay no statement you added</p>}
+      {series.some((s) => s.dashed || s.estimated?.some(Boolean)) && <p className="mt-3 text-xs text-muted">≈ estimated from bills that pay no statement you added</p>}
     </div>
   )
 }

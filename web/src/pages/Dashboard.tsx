@@ -111,7 +111,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
           <button
             type="button"
             onClick={() => intake.browse()}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-950 shadow-lg shadow-black/40 transition hover:bg-zinc-200"
+            className="tap inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-950 shadow-lg shadow-black/40 transition hover:bg-zinc-200"
           >
             <Plus className="size-4" />
             <span className="whitespace-nowrap">
@@ -142,7 +142,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
                 <button
                   type="button"
                   onClick={() => setCategory(null)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-white/15"
+                  className="tap inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-white/15"
                 >
                   {categoryLabel} <X className="size-3.5" />
                 </button>
@@ -196,7 +196,7 @@ function Coverage({ view, held }: { view: PeriodView; held: CardStatement[] }) {
   const upi = spanLabel([...view.coverage.upi])
   const cards = spanLabel([...view.coverage.cards])
   return (
-    <p className="-mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs text-zinc-500">
+    <p className="-mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs text-muted">
       <span className="inline-flex items-center gap-1.5">
         <CreditCard className="size-3.5" /> Card bills: <span className="text-zinc-300">{cards ?? 'none'}</span>
       </span>
@@ -209,7 +209,7 @@ function Coverage({ view, held }: { view: PeriodView; held: CardStatement[] }) {
         </span>
       )}
       {held.length > 0 && (
-        <a href="#your-vault" className="inline-flex items-center gap-1.5 text-amber-200/90 hover:text-amber-100" title="Check it in Your vault">
+        <a href="#your-vault" className="-my-1 inline-flex items-center gap-1.5 py-1 text-amber-200/90 hover:text-amber-100" title="Check it in Your vault">
           <CirclePause className="size-3.5" /> {plural(held.length, 'statement')} on hold:{' '}
           <span>{plural(held.reduce((n, s) => n + s.held.length, 0), 'row')} not counted yet</span>
         </a>
@@ -265,7 +265,7 @@ function YearTabs({ years, period, onChange }: { years: number[]; period: Period
       ref={list}
       role="tablist"
       aria-label="Year"
-      className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none] sm:gap-2"
+      className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] sm:gap-2"
       style={{ maskImage: mask, WebkitMaskImage: mask }}
     >
       {[...years, 'all' as const].map((p) => {
@@ -276,7 +276,7 @@ function YearTabs({ years, period, onChange }: { years: number[]; period: Period
             role="tab"
             aria-selected={active}
             onClick={() => onChange(p)}
-            className={`relative shrink-0 rounded-xl px-3 py-2 text-[13px] font-semibold whitespace-nowrap tabular-nums ring-1 transition ring-inset sm:px-4 sm:text-sm ${
+            className={`tap relative shrink-0 rounded-xl px-3 py-2 text-[13px] font-semibold whitespace-nowrap tabular-nums ring-1 transition ring-inset sm:px-4 sm:text-sm ${
               active ? 'text-zinc-950 ring-white' : 'text-zinc-400 ring-white/10 hover:text-zinc-100 hover:ring-white/25'
             }`}
           >
@@ -375,16 +375,16 @@ function CreditCards({ data, everything, view, period, onChanged }: { data: Ledg
                     <p className="flex items-center gap-1.5 text-[15px] leading-tight font-semibold tracking-tight">
                       {!(spent > 0.5) && <CircleCheck className="size-3.5 shrink-0 text-[var(--color-status-good)]" aria-label="Paid" />}
                       ₹{whole}
-                      <span className="-ml-1.5 font-normal text-zinc-500">.{paise}</span>
+                      <span className="-ml-1.5 font-normal text-muted">.{paise}</span>
                     </p>
                   ) : (
-                    <p className="text-[15px] leading-tight font-semibold text-zinc-600">—</p>
+                    <p className="text-[15px] leading-tight font-semibold text-muted">—</p>
                   )}
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">
+                  <p className="mt-0.5 truncate text-xs text-muted">
                     {card.product ?? card.issuer} ·{' '}
                     {spent > 0.5 ? 'spent' : b ? `${plural(b.count, 'bill')} paid` : viaUpi > 0.5 ? 'only on UPI' : `nothing ${when}`}
                   </p>
-                  {viaUpi > 0.5 && <p className="mt-0.5 truncate text-xs text-zinc-500">+ {inr(viaUpi)} on UPI</p>}
+                  {viaUpi > 0.5 && <p className="mt-0.5 truncate text-xs text-muted">+ {inr(viaUpi)} on UPI</p>}
                 </figcaption>
               </figure>
             )
@@ -444,14 +444,14 @@ function UpiSpends({
               <motion.p key={totals.spent} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-2 text-[52px] leading-none font-semibold tracking-tight">
                 {inr(totals.spent)}
               </motion.p>
-              <p className="mt-3 text-sm text-zinc-500">
+              <p className="mt-3 text-sm text-muted">
                 {plural(counts.spent, 'payment')} for things and services{totals.refunded ? `, after ${inr(totals.refunded)} refunded` : ''}.
               </p>
             </>
           ) : (
             <>
-              <p className="mt-2 text-[44px] leading-none font-semibold tracking-tight text-zinc-600">—</p>
-              <p className="mt-3 text-sm text-zinc-500">No UPI history for this period yet.</p>
+              <p className="mt-2 text-[44px] leading-none font-semibold tracking-tight text-muted">—</p>
+              <p className="mt-3 text-sm text-muted">No UPI history for this period yet.</p>
             </>
           )}
         </div>
@@ -493,7 +493,7 @@ function UpiSpends({
                   <span className="flex size-8 items-center justify-center rounded-lg bg-white/[0.07] text-zinc-200">
                     <Icon className="size-4" />
                   </span>
-                  <span className="text-xs text-zinc-500 tabular-nums">{Math.round((c.amount / totals.spent) * 100)}%</span>
+                  <span className="text-xs text-muted tabular-nums">{Math.round((c.amount / totals.spent) * 100)}%</span>
                 </span>
                 <span className="mt-3 block text-xs text-zinc-400">UPI spends on</span>
                 <span className="block truncate text-sm font-medium text-zinc-100">{c.label}</span>
@@ -513,11 +513,11 @@ function UpiSpends({
               <ul className="space-y-0.5">
                 {biggest.map((t) => (
                   <li key={t.id} className="flex items-center gap-3 py-1 text-sm">
-                    <span className="w-24 shrink-0 text-xs text-zinc-500 tabular-nums">{dayLabel(t.at)}</span>
+                    <span className="w-24 shrink-0 text-xs text-muted tabular-nums">{dayLabel(t.at)}</span>
                     <span className="min-w-0 flex-1 truncate text-zinc-200" title={t.payee}>
                       {t.payee}
                     </span>
-                    <span className="hidden truncate text-xs text-zinc-500 sm:block">{data.categories.get(t.category)?.label}</span>
+                    <span className="hidden truncate text-xs text-muted sm:block">{data.categories.get(t.category)?.label}</span>
                     <span className="w-24 text-right text-zinc-100 tabular-nums">{inrExact(t.amount)}</span>
                   </li>
                 ))}
@@ -539,10 +539,10 @@ function UpiSpends({
           <ul className="space-y-0.5">
             {all.topPayees.slice(0, 8).map((p) => (
               <li key={p.payee} className="flex items-center gap-3 py-1.5 text-sm">
-                <span className={`min-w-0 flex-1 truncate ${p.payee === NO_NAME ? 'text-zinc-500 italic' : 'text-zinc-200'}`} title={p.payee}>
+                <span className={`min-w-0 flex-1 truncate ${p.payee === NO_NAME ? 'text-muted italic' : 'text-zinc-200'}`} title={p.payee}>
                   {p.payee === NO_NAME ? 'No payee name' : p.payee}
                 </span>
-                <span className="hidden truncate text-xs text-zinc-500 sm:block">{data.categories.get(p.category)?.label}</span>
+                <span className="hidden truncate text-xs text-muted sm:block">{data.categories.get(p.category)?.label}</span>
                 <span className="w-24 text-right text-zinc-100 tabular-nums">{inr(p.amount)}</span>
               </li>
             ))}
@@ -560,19 +560,19 @@ function Tile({ label, value, caption, muted }: { label: string; value: string; 
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
       <p className="text-sm text-zinc-400">{label}</p>
-      <p className={`mt-1.5 text-2xl font-semibold tracking-tight ${muted ? 'text-zinc-500' : ''}`}>{value}</p>
-      <p className="mt-1 text-xs leading-snug text-zinc-500">{caption}</p>
+      <p className={`mt-1.5 text-2xl font-semibold tracking-tight ${muted ? 'text-muted' : ''}`}>{value}</p>
+      <p className="mt-1 text-xs leading-snug text-muted">{caption}</p>
     </div>
   )
 }
 
 function Empty({ children }: { children: ReactNode }) {
-  return <p className="rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-zinc-500">{children}</p>
+  return <p className="rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-muted">{children}</p>
 }
 
 function SourceList({ rows, data }: { rows: PeriodView['paidFrom']; data: LedgerData }) {
   const max = rows[0]?.amount ?? 1
-  if (!rows.length) return <p className="text-sm text-zinc-500">No UPI payments in this period.</p>
+  if (!rows.length) return <p className="text-sm text-muted">No UPI payments in this period.</p>
   return (
     <ul className="space-y-3">
       {rows.map((r) => {
@@ -582,14 +582,14 @@ function SourceList({ rows, data }: { rows: PeriodView['paidFrom']; data: Ledger
           <li key={r.card ?? r.mask} className="text-sm">
             <div className="flex items-baseline justify-between gap-3">
               <span className="min-w-0 truncate text-zinc-200">
-                {d.title} <span className="text-xs text-zinc-500">{d.detail}</span>
+                {d.title} <span className="text-xs text-muted">{d.detail}</span>
               </span>
               <span className="text-zinc-100 tabular-nums">{inr(r.amount)}</span>
             </div>
             <div className="mt-1.5 h-1.5 rounded-r bg-white/[0.04]">
               <div className="h-full rounded-r bg-[var(--color-series-1)]" style={{ width: `${Math.max(1, (r.amount / max) * 100)}%` }} />
             </div>
-            <p className="mt-1 text-xs text-zinc-500">{plural(r.count, 'payment')}</p>
+            <p className="mt-1 text-xs text-muted">{plural(r.count, 'payment')}</p>
           </li>
         )
       })}
@@ -631,13 +631,13 @@ function YourAccounts({
   return (
     <div className="mt-5 border-t border-white/[0.05] pt-4">
       <p className="mb-2 text-sm text-zinc-400">Also yours</p>
-      <p className="mb-3 text-xs text-zinc-500">Transfers to and from these accounts are left out of every total.</p>
+      <p className="mb-3 text-xs text-muted">Transfers to and from these accounts are left out of every total.</p>
       <ul className="space-y-1.5">
         {rest.map((a) => (
           <li key={a.last4} className="flex items-center gap-3 text-sm">
             <span className="min-w-0 flex-1 truncate text-zinc-200" title={a.seenAs ? `Marked from "${a.seenAs}"` : undefined}>
               {a.label || 'Account'} ••{a.last4}
-              {a.seenAs && <span className="ml-2 text-xs text-zinc-500">{a.seenAs}</span>}
+              {a.seenAs && <span className="ml-2 text-xs text-muted">{a.seenAs}</span>}
             </span>
             <button
               type="button"

@@ -66,7 +66,7 @@ export function PagePeek({ url, name, page, y, onClose }: { url: string; name: s
         <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-2.5">
           <p className="min-w-0 flex-1 truncate text-sm text-zinc-300">
             {name} · page {page}
-            {y !== null && <span className="text-zinc-500"> · the row is marked</span>}
+            {y !== null && <span className="text-muted"> · the row is marked</span>}
           </p>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1 text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100">
             <X className="size-4" />
@@ -74,7 +74,7 @@ export function PagePeek({ url, name, page, y, onClose }: { url: string; name: s
         </div>
         <div ref={frame} className="relative overflow-auto bg-white">
           {error ? (
-            <p className="px-6 py-10 text-sm text-zinc-600">{error}</p>
+            <p className="px-6 py-10 text-sm text-muted">{error}</p>
           ) : (
             <>
               <canvas ref={canvas} className="block" />

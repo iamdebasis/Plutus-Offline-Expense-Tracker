@@ -59,7 +59,7 @@ export function MonthlyChart({
         <button
           type="button"
           onClick={() => setAsTable((v) => !v)}
-          className="rounded-full px-2.5 py-1 text-xs text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-200"
+          className="rounded-full px-2.5 py-1 text-xs text-muted transition hover:bg-white/[0.05] hover:text-zinc-200"
         >
           {asTable ? 'Show chart' : 'Show table'}
         </button>
@@ -67,7 +67,7 @@ export function MonthlyChart({
 
       {asTable ? (
         <table className="w-full text-sm">
-          <thead className="text-left text-xs text-zinc-500">
+          <thead className="text-left text-xs text-muted">
             <tr>
               <th className="py-1.5 font-normal">Month</th>
               <th className="py-1.5 text-right font-normal">Spent</th>
@@ -111,7 +111,7 @@ export function MonthlyChart({
                   )}
                   {!hasData && <rect x={cx - barW / 2} y={y(0) - 2} width={barW} height={2} rx={1} fill="var(--color-axis)" />}
                   {i % showEvery === 0 && (
-                    <text x={cx} y={TOP + PLOT_H + 18} textAnchor="middle" className={`text-[11px] ${hasData ? 'fill-[var(--color-ink-muted)]' : 'fill-zinc-700'}`}>
+                    <text x={cx} y={TOP + PLOT_H + 18} textAnchor="middle" className={`text-[11px] ${hasData ? 'fill-[var(--color-ink-muted)]' : 'fill-faint'}`}>
                       {monthLabel(m.key)}
                     </text>
                   )}
@@ -144,7 +144,7 @@ export function MonthlyChart({
               {covered && !covered.has(months[hover].key) ? (
                 <>
                   <div className="text-[13px] font-semibold text-zinc-300">No {source}</div>
-                  <div className="text-xs text-zinc-500">{monthLongLabel(months[hover].key)} isn't in any file yet</div>
+                  <div className="text-xs text-muted">{monthLongLabel(months[hover].key)} isn't in any file yet</div>
                 </>
               ) : (
                 <>

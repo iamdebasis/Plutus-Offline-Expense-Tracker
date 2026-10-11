@@ -8,7 +8,15 @@
 
   --color-canvas: #07090d;
   --color-panel: #0d1016;
+  --color-card: #0c0e13; /* a dashboard card, at 90% over the canvas (components/dash/Section.tsx) */
   --color-accent: #ffffff;
+
+  /* Text greys below zinc-400. Labels and values use zinc-100 to zinc-400 (7:1 and up); helper text uses muted,
+     oklch(0.63 0.016 286), 4.6:1 or more on every surface it sits on; faint, oklch(0.5 0.016 286), is for decoration
+     only (bullets, separators, a month with no data), never the only way something is said. Tailwind's zinc-500 to
+     700 don't reach 4.5:1 here, so no text uses them; web/tests/contrast.test.ts checks all of this. */
+  --color-muted: #888893;
+  --color-faint: #62626c;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -59,6 +67,24 @@
   color: color-mix(in oklab, var(--color-series-7) 60%, white);
   background: color-mix(in oklab, var(--color-series-7) 14%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-series-7) 40%, transparent);
+}
+
+/* A control's touch target at least 44 by 44 (Apple's default size) on a touch screen, without changing how it looks: an
+   invisible margin around it takes the tap. Only where the pointer is a finger, so a mouse never hits a neighbour's
+   margin. Not for a control placed absolutely, nor inside a box that clips it (give that box room, as the years do). */
+@utility tap {
+  @media (pointer: coarse) {
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      translate: -50% -50%;
+    }
+  }
 }
 
 @utility text-gradient {
@@ -128,6 +154,44 @@
   0% { transform: rotate(0deg); opacity: 0; }
   8%, 30% { opacity: 1; }
   40%, 100% { transform: rotate(360deg); opacity: 0; }
+}
+
+/* The Mac's Increase contrast (System Settings, Accessibility, Display): helper text at 7:1 or more, the faint grey
+   where helper text was, and stronger edges on rows, cards, tiles and controls. */
+@media (prefers-contrast: more) {
+  :root {
+    --color-muted: #b0b0b9;
+    --color-faint: #888893;
+  }
+  /* Faint white edges, by the classes that draw them (web/tests/contrast.test.ts fails if one is missing here): a
+     line between rows at 25% white; a card's, a tile's or a control's edge at 40%, 3:1 or more against a card. */
+  :is([class~="border-white/[0.04]"], [class~="border-white/[0.05]"], [class~="border-white/[0.06]"]) {
+    border-color: rgb(255 255 255 / 0.25);
+  }
+  [class~="divide-white/[0.05]"] > :not(:last-child) {
+    border-color: rgb(255 255 255 / 0.25);
+  }
+  :is(
+      [class~="border-white/[0.07]"],
+      [class~="border-white/[0.08]"],
+      [class~="border-white/[0.1]"],
+      [class~="border-white/10"],
+      [class~="border-white/[0.14]"],
+      [class~="border-white/15"]
+    ) {
+    border-color: rgb(255 255 255 / 0.4);
+  }
+  :is(
+      [class~="ring-white/[0.06]"],
+      [class~="ring-white/[0.07]"],
+      [class~="ring-white/[0.08]"],
+      [class~="ring-white/[0.1]"],
+      [class~="ring-white/10"],
+      [class~="ring-white/[0.12]"],
+      [class~="ring-white/15"]
+    ) {
+    --tw-ring-color: rgb(255 255 255 / 0.4);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

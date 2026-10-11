@@ -269,3 +269,28 @@ corner of the screen, as it always has.
 **Where**: `web/src/lib/useFits.ts`; the list in `components/dash/TransactionsTable.tsx`, the held rows in
 `components/Vault.tsx` (`HeldReview`); `YearTabs` and `Coverage` in `pages/Dashboard.tsx`; `useStepAside` in
 `components/AskOrb.tsx`; `dayMonthLabel` in `lib/periods.ts`, tested in `web/tests/periods.test.ts`.
+
+## 25. Every text readable, every control reachable, Increase contrast honoured
+
+**Decision**: every grey a word is set in reaches WCAG's 4.5:1 against every surface it sits on. Labels and values
+keep zinc-100 to zinc-400 (7:1 and up); helper text, which was zinc-500 (3.3 to 4.1:1), is `--color-muted`
+(#888893, 4.6:1 on the most raised surface, 5.5:1 on a card); zinc-600 and 700 (as low as 1.85:1) went to muted
+wherever they carried words (the "as printed" notes, times, the sum's + and =, placeholders, the Google Pay steps)
+and to `--color-faint` where they were decoration (bullets, separators, an icon beside its words, a chart's month
+with no data). Every control is at least 24 by 24 (WCAG 2.2's target size); on a touch screen the header's buttons,
+the years, the investments switch, the list's filters, search, each payment's tick and Show more take a 44px tap
+(Apple's default) through an invisible margin (`tap`), so nothing looks bigger; the list's category pickers, which
+can't take a margin, are 32px under a finger (above Apple's 28pt least). With the Mac's Increase contrast on,
+helper text is 7:1, the faint grey takes muted's place, lines between rows are 25% white and the edges of cards,
+tiles and controls 40% (3:1 against a card), all in one block of `index.css`.
+**Why**: about 300 pieces of text on the dashboard fell short of 4.5:1, and 95 controls on a phone were under 24px,
+some at 14 ([WCAG 2.2 contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html), [target
+size](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22), [Apple's control
+sizes](https://developer.apple.com/design/human-interface-guidelines/accessibility)). Named greys, checked by a test
+from the CSS itself, keep it that way: the test fails if text uses zinc-500 to 700, or a faint edge is missing from
+the Increase contrast block.
+**Costs**: labels and values keep Tailwind's zinc-100 to 400 (they pass); only the two roles that failed got names.
+A dropdown's touch target is its own size. In Increase contrast, a hover no longer brightens a faint edge (it's
+already bright).
+**Where**: `--color-muted`, `--color-faint`, `--color-card`, the `tap` utility and the `prefers-contrast: more` block
+in `web/src/index.css`; `web/tests/contrast.test.ts`.

@@ -129,7 +129,7 @@ function SheetHeader({ items, phase, onClose }: Props) {
           <h2 id="sheet-title" className="font-display text-[19px] font-semibold tracking-tight">
             {title}
           </h2>
-          <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p>
+          <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
         </div>
         <button
           type="button"
@@ -181,7 +181,7 @@ function Summary({ items, knownCardIds }: { items: Item[]; knownCardIds: Set<str
         <p className="text-sm text-zinc-300">{line}</p>
         {cards.length > 0 && (
           <>
-            <p className="mt-4 text-[11px] font-medium tracking-[0.12em] text-zinc-500 uppercase">
+            <p className="mt-4 text-[11px] font-medium tracking-[0.12em] text-muted uppercase">
               {fresh ? `${plural(fresh, 'new card')} found` : 'Cards in these files'}
             </p>
             <div className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pb-1">

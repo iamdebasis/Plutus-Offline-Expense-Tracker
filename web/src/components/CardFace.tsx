@@ -107,7 +107,7 @@ export function CardFace({ card, badge, dim, delay = 0, onSetNetwork, onSelect, 
             type="button"
             onClick={() => setMenu((m) => !m)}
             aria-label={`Set the card network for ${card.product ?? card.issuer ?? 'this card'}`}
-            className="absolute top-[10%] right-[5%] flex size-[11cqw] items-center justify-center rounded-full bg-black/40 text-white/90 opacity-0 backdrop-blur transition group-hover:opacity-100 focus-visible:opacity-100"
+            className="absolute top-[10%] right-[5%] flex size-[max(11cqw,1.5rem)] items-center justify-center rounded-full bg-black/40 text-white/90 opacity-0 backdrop-blur transition group-hover:opacity-100 focus-visible:opacity-100"
           >
             <Pencil className="size-[5cqw]" />
           </button>

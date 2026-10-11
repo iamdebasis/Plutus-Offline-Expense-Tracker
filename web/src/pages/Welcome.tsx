@@ -104,7 +104,7 @@ export function Welcome({ data, refresh, intake, activity }: Props) {
             </motion.span>
             <div>
               <p className="text-zinc-200">Or drop a mix of files anywhere on this page</p>
-              <p className="mt-0.5 text-sm text-zinc-500">
+              <p className="mt-0.5 text-sm text-muted">
                 We work out which is which ·{' '}
                 <button type="button" onClick={() => browse()} className="text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">
                   browse your Mac
@@ -140,10 +140,10 @@ export function Welcome({ data, refresh, intake, activity }: Props) {
               { icon: WifiOff, title: 'Works offline', text: 'No accounts, no cloud, no analytics. Try it with Wi-Fi off.' },
             ].map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex gap-3">
-                <Icon className="mt-0.5 size-4 shrink-0 text-zinc-500" strokeWidth={1.8} />
+                <Icon className="mt-0.5 size-4 shrink-0 text-muted" strokeWidth={1.8} />
                 <div>
                   <p className="text-zinc-300">{title}</p>
-                  <p className="text-zinc-500">{text}</p>
+                  <p className="text-muted">{text}</p>
                 </div>
               </li>
             ))}

@@ -49,7 +49,7 @@ export function TotalSpend({ totals, allTime, period }: Props) {
       <SectionHead icon={<ChartPie className="size-4" />} title="Total spend" note={`Cards and UPI together, counted once · ${period === 'all' ? 'all years' : period}`} />
 
       {totals.total <= 0.5 ? (
-        <p className="rounded-3xl border border-dashed border-white/10 px-5 py-10 text-center text-sm text-zinc-500">No spending {when} yet.</p>
+        <p className="rounded-3xl border border-dashed border-white/10 px-5 py-10 text-center text-sm text-muted">No spending {when} yet.</p>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           <Panel title="Breakdown">
@@ -93,7 +93,7 @@ function HowItAddsUp({ totals: t }: { totals: Totals }) {
         <p className="text-sm text-zinc-400">UPI only: no card statements or card bills in this period. Add a card statement, or your CRED payment history, to include your cards.</p>
       )}
       {notes.map((n) => (
-        <p key={n as string} className="mt-1.5 text-xs leading-relaxed text-zinc-500">
+        <p key={n as string} className="mt-1.5 text-xs leading-relaxed text-muted">
           {n}
         </p>
       ))}
@@ -112,9 +112,9 @@ function overlapNote(t: Totals): string {
 function Term({ op, label, value, strong }: { op?: string; label: string; value: number; strong?: boolean }) {
   return (
     <div className="flex items-baseline gap-1.5">
-      {op && <span className="mr-1 text-zinc-600">{op}</span>}
+      {op && <span className="mr-1 text-muted">{op}</span>}
       <dd className={strong ? 'font-semibold text-zinc-50' : 'text-zinc-200'}>{inr(value)}</dd>
-      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dt className="text-xs text-muted">{label}</dt>
     </div>
   )
 }

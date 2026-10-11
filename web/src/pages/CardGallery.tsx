@@ -10,7 +10,7 @@ export function CardGallery() {
         {GALLERY.map((c, i) => (
           <figure key={c.design}>
             <CardFace card={c} delay={i * 0.03} />
-            <figcaption className="mt-2 text-xs text-zinc-500">
+            <figcaption className="mt-2 text-xs text-muted">
               {c.issuer} {c.product ?? ''} · <span className="font-mono">{c.design}</span>
             </figcaption>
           </figure>

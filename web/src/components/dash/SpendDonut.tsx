@@ -139,7 +139,7 @@ export function SpendDonut({ slices, total, caption, selected, onSelect }: Props
               >
                 <span className="text-[22px] leading-none font-semibold tracking-tight text-zinc-50 tabular-nums">{formatPct(pct(s))}</span>
                 <span className="mt-1 text-sm leading-tight text-zinc-300 tabular-nums">{inr(s.amount)}</span>
-                <span className="mt-0.5 flex max-w-full items-center gap-1.5 text-xs leading-tight text-zinc-500">
+                <span className="mt-0.5 flex max-w-full items-center gap-1.5 text-xs leading-tight text-muted">
                   <span className="size-2 shrink-0 rounded-[3px]" style={{ background: s.colour }} />
                   <span className="truncate">{s.label}</span>
                 </span>
@@ -165,7 +165,7 @@ export function SpendDonut({ slices, total, caption, selected, onSelect }: Props
                 <span className="min-w-0">
                   <span className="block text-lg leading-none font-semibold text-zinc-50 tabular-nums">{formatPct(pct(s))}</span>
                   <span className="mt-1 block text-[13px] text-zinc-300 tabular-nums">{inr(s.amount)}</span>
-                  <span className="block truncate text-xs text-zinc-500">{s.label}</span>
+                  <span className="block truncate text-xs text-muted">{s.label}</span>
                 </span>
               </button>
             </li>

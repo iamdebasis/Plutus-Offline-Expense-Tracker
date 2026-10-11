@@ -216,10 +216,10 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
                   maxLength={300}
                   placeholder="Ask about your spending…"
                   aria-label="Your question"
-                  className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+                  className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-zinc-100 outline-none placeholder:text-muted"
                 />
                 <button type="submit" disabled={!draft.trim() || busy} aria-label="Ask"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 transition hover:bg-zinc-200 disabled:bg-white/15 disabled:text-zinc-500">
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 transition hover:bg-zinc-200 disabled:bg-white/15 disabled:text-muted">
                   <ArrowUp className="size-4" strokeWidth={2.4} />
                 </button>
               </div>
@@ -316,7 +316,7 @@ function Reply({ m, data, years, starters, onAsk, onChange, onShow }: {
       )}
       {a.notes.map((n) => (
         <p key={n} className="mt-2 flex gap-1.5 text-xs text-zinc-400">
-          <Info className="mt-px size-3.5 shrink-0 text-zinc-600" />
+          <Info className="mt-px size-3.5 shrink-0 text-faint" />
           {n}
         </p>
       ))}
@@ -381,11 +381,12 @@ function Lines({ lines, query }: { lines: AskLine[]; query: AskQuery }) {
 /** "How I read it": the reading, as chips you can change. Remove a filter, or pick another period, and the answer is
  *  worked out again. */
 function Reading({ query, data, years, byAi, onChange }: { query: AskQuery; data: LedgerData; years: number[]; byAi: boolean; onChange: (q: AskQuery) => void }) {
-  const chip = 'inline-flex items-center gap-1 rounded-full bg-white/[0.05] py-0.5 pr-1.5 pl-2.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]'
+  // 24px tall, WCAG's least target: the chip is a picker's whole target, and a remove button fills its height
+  const chip = 'inline-flex items-center gap-1 rounded-full bg-white/[0.05] py-1 pr-1.5 pl-2.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]'
   const remove = (label: string, change: Partial<AskQuery>) => (
     <span className={chip}>
       {label}
-      <button type="button" onClick={() => onChange({ ...query, ...change })} aria-label={`Remove ${label}`} className="rounded-full p-0.5 text-zinc-500 hover:bg-white/10 hover:text-zinc-100">
+      <button type="button" onClick={() => onChange({ ...query, ...change })} aria-label={`Remove ${label}`} className="-my-1 rounded-full p-1.5 text-muted hover:bg-white/10 hover:text-zinc-100">
         <X className="size-3" />
       </button>
     </span>
@@ -405,7 +406,7 @@ function Reading({ query, data, years, byAi, onChange }: { query: AskQuery; data
           <option key={y} value={String(y)} className="bg-zinc-900">{y}</option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-zinc-500" aria-hidden />
+      <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-muted" aria-hidden />
     </label>
   )
   const asYear = (p: AskPeriod | null) => (p && p.label === String(Number(p.label)) ? p.label : 'custom')
@@ -454,7 +455,7 @@ function Reading({ query, data, years, byAi, onChange }: { query: AskQuery; data
               <option key={y} value={String(y)} className="bg-zinc-900">{y}</option>
             ))}
           </select>
-          <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-zinc-500" aria-hidden />
+          <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-muted" aria-hidden />
         </label>
       )}
     </div>

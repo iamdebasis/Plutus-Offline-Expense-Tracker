@@ -42,7 +42,7 @@ export const FileRow = forwardRef<HTMLDivElement, Props>(function FileRow({ item
               type="button"
               onClick={onRemove}
               aria-label={`Remove ${item.file.name}`}
-              className="-mr-1 flex size-8 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-rose-400/10 hover:text-rose-300"
+              className="-mr-1 flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-rose-400/10 hover:text-rose-300"
             >
               <Trash2 className="size-4" />
             </button>
@@ -77,7 +77,7 @@ function Meta({ item }: { item: Item }) {
             style={reading ? undefined : { width: `${Math.max(6, item.progress * 100)}%` }}
           />
         </div>
-        <span className="w-20 text-right text-xs text-zinc-500 tabular-nums">{reading ? 'Identifying…' : item.progress ? `${Math.round(item.progress * 100)}%` : 'Queued'}</span>
+        <span className="w-20 text-right text-xs text-muted tabular-nums">{reading ? 'Identifying…' : item.progress ? `${Math.round(item.progress * 100)}%` : 'Queued'}</span>
       </div>
     )
   }
@@ -108,7 +108,7 @@ function Meta({ item }: { item: Item }) {
       <div className="mt-1 min-w-0 text-[13px]">
         <p className="truncate">
           <span className={d.kind === 'unknown' ? 'text-amber-300' : 'text-emerald-300'}>{d.label}</span>
-          {extra && <span className="text-zinc-500"> · {extra}</span>}
+          {extra && <span className="text-muted"> · {extra}</span>}
         </p>
         {item.status === 'importing' ? (
           <div className="mt-2 flex items-center gap-3">
@@ -122,7 +122,7 @@ function Meta({ item }: { item: Item }) {
     )
   }
   return (
-    <p className="mt-1 text-[13px] text-zinc-500">
+    <p className="mt-1 text-[13px] text-muted">
       {base}
       {item.locked && <span className="text-amber-300/90"> · password protected</span>}
     </p>
@@ -141,11 +141,11 @@ function ImportSummary({ status, kind }: { status: NonNullable<NonNullable<Item[
     <>
       <p className="mt-1 text-xs text-zinc-400">
         {parts.join(' · ')}
-        {status.method && !['text', 'export'].includes(status.method) && <span className="text-zinc-600"> · read via {METHOD[status.method] ?? status.method}</span>}
+        {status.method && !['text', 'export'].includes(status.method) && <span className="text-muted"> · read via {METHOD[status.method] ?? status.method}</span>}
       </p>
       {/* an export with many parts says what each held and what became of it */}
       {status.details && status.details.length > 0 && (
-        <ul className="mt-1.5 space-y-0.5 border-l border-white/10 pl-2.5 text-[11.5px] leading-snug text-zinc-500">
+        <ul className="mt-1.5 space-y-0.5 border-l border-white/10 pl-2.5 text-[11.5px] leading-snug text-muted">
           {status.details.map((line) => (
             <li key={line}>{line}</li>
           ))}
@@ -230,7 +230,7 @@ function KindSelect({ value, onChange, disabled }: { value: DeclaredKind; onChan
           </option>
         ))}
       </select>
-      {!disabled && <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-zinc-500" />}
+      {!disabled && <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted" />}
     </label>
   )
 }
@@ -251,10 +251,10 @@ function PasswordField({ value, onChange, wrong, disabled }: { value: string; on
           autoComplete="off"
           onChange={(e) => onChange(e.target.value)}
           placeholder="Statement password"
-          className="min-w-0 flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+          className="min-w-0 flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder:text-muted"
         />
       </label>
-      <p className="mt-1.5 text-xs text-zinc-500">Used once to unlock the file, never saved. Banks usually send the format in the statement email.</p>
+      <p className="mt-1.5 text-xs text-muted">Used once to unlock the file, never saved. Banks usually send the format in the statement email.</p>
     </motion.div>
   )
 }

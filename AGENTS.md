@@ -168,6 +168,10 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
 - Total spend (`web/src/lib/totals.ts`) must never double count: bills are placed and netted on the server
   (`app/billing.py`), the dashboard spreads each `estimate` over its cycle. The UPI section + the card section
   (`lib/cards.ts`, `CardSpending.tsx`: card-number purchases only) = Total spend, for every year and card filter.
+- Readable and reachable: text greys are zinc-100 to 400 or `text-muted` (4.5:1 or more on every surface), never
+  zinc-500 to 700; `text-faint` only for decoration. Every control is at least 24 by 24 (WCAG 2.2), and the main
+  ones on a phone get `tap` (a 44px target under a finger, looks unchanged). A new faint white edge goes in the
+  Increase contrast block of `index.css`. `web/tests/contrast.test.ts` fails otherwise.
 - Nothing scrolls sideways on a phone: content with a wide form has a narrow one, chosen by the width of its box
   (`lib/useFits.ts`), not the screen's: the transactions list and a held statement's rows are tables where they fit,
   lists in a narrower box, built from the same parts. The bar that stays at the top holds only what scopes the page

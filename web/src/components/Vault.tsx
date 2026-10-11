@@ -47,7 +47,7 @@ export function Vault({ uploads, cards, statements = [], txns = [], onShowRows, 
     >
       <div className="flex items-baseline justify-between gap-4 border-b border-white/[0.06] pb-3">
         <h2 className="font-display text-lg font-semibold tracking-tight">Your vault</h2>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           {plural(uploads.length, 'file')} · {plural(cards.length, 'card')}
         </p>
       </div>
@@ -121,7 +121,7 @@ function VaultRow({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm text-zinc-200">{upload.originalName}</p>
-          <p className="truncate text-xs text-zinc-500">
+          <p className="truncate text-xs text-muted">
             <span className={d.kind === 'unknown' ? 'text-amber-300/90' : 'text-zinc-400'}>{d.label}</span> · {meta}
           </p>
         </div>
@@ -133,7 +133,7 @@ function VaultRow({
             className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-zinc-300 ring-1 ring-white/10 transition hover:bg-white/[0.05]"
           >
             {statements.length > 1 ? <ManyMarks statements={statements} /> : <CheckMark statement={statement} />}
-            <ChevronDown className={`size-3.5 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`size-3.5 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
         )}
         <button
@@ -143,7 +143,7 @@ function VaultRow({
           className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs transition ${
             confirming
               ? 'bg-rose-400/15 text-rose-300'
-              : 'text-zinc-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white/[0.05] hover:text-zinc-200'
+              : 'text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white/[0.05] hover:text-zinc-200'
           }`}
         >
           <Trash2 className="size-3.5" />
@@ -213,7 +213,7 @@ function StatementCheck({
           {cardName} · {period}
         </p>
         <TotalsCheck statement={s} rows={{ debits, credits }} />
-        <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+        <p className="mt-3 text-xs leading-relaxed text-muted">
           {s.status === 'confirmed' && 'You checked these rows and confirmed them. '}
           {s.check === 'matched' &&
             'Every row is accounted for: it prints no balances, but the rows read come to its own totals of purchases and of payments, to the paisa.'}
@@ -231,15 +231,15 @@ function StatementCheck({
         </p>
         <dl className="mt-3 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm tabular-nums">
           <dt className="text-zinc-400">
-            Purchases and charges <span className="text-xs text-zinc-600">{plural(debits, 'row')} read</span>
+            Purchases and charges <span className="text-xs text-muted">{plural(debits, 'row')} read</span>
           </dt>
           <dd className="text-right text-zinc-200">{inrExact(s.debits)}</dd>
           <dt className="text-zinc-400">
-            Payments, refunds, cashback <span className="text-xs text-zinc-600">{plural(credits, 'row')} read</span>
+            Payments, refunds, cashback <span className="text-xs text-muted">{plural(credits, 'row')} read</span>
           </dt>
           <dd className="text-right text-zinc-200">{inrExact(s.credits)}</dd>
         </dl>
-        <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+        <p className="mt-3 text-xs leading-relaxed text-muted">
           The card's transactions over a span, exported from your bank: there are no totals to check the rows against. Purchases a
           statement of yours also lists are counted once, and a bill for a cycle this export lists whole adds no estimate.
         </p>
@@ -250,25 +250,25 @@ function StatementCheck({
     <div className="mt-3 rounded-2xl bg-white/[0.025] px-4 py-3.5 ring-1 ring-white/[0.06] sm:ml-13">
       <p className="text-sm text-zinc-200">
         {cardName} · {period}
-        {s.dueDate && <span className="text-zinc-500"> · due {formatDay(s.dueDate)}</span>}
+        {s.dueDate && <span className="text-muted"> · due {formatDay(s.dueDate)}</span>}
       </p>
       <dl className="mt-3 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm tabular-nums">
-        <dt className="text-zinc-400">Previous balance <span className="text-xs text-zinc-600">as printed</span></dt>
+        <dt className="text-zinc-400">Previous balance <span className="text-xs text-muted">as printed</span></dt>
         <dd className="text-right text-zinc-200">{s.previousBalance !== null ? inrExact(s.previousBalance) : 'not found'}</dd>
         <dt className="text-zinc-400">
-          − Payments, refunds, cashback <span className="text-xs text-zinc-600">{plural(credits, 'row')} read</span>
+          − Payments, refunds, cashback <span className="text-xs text-muted">{plural(credits, 'row')} read</span>
         </dt>
         <dd className="text-right text-zinc-200">{inrExact(s.credits)}</dd>
         <dt className="text-zinc-400">
-          + Purchases and charges <span className="text-xs text-zinc-600">{plural(debits, 'row')} read</span>
+          + Purchases and charges <span className="text-xs text-muted">{plural(debits, 'row')} read</span>
         </dt>
         <dd className="text-right text-zinc-200">{inrExact(s.debits)}</dd>
         <dt className="border-t border-white/[0.06] pt-1.5 text-zinc-300">= Total due, by the rows read</dt>
         <dd className="border-t border-white/[0.06] pt-1.5 text-right text-zinc-100">{result !== null ? inrExact(result) : '—'}</dd>
-        <dt className="text-zinc-400">Total due <span className="text-xs text-zinc-600">as printed</span></dt>
+        <dt className="text-zinc-400">Total due <span className="text-xs text-muted">as printed</span></dt>
         <dd className="text-right text-zinc-200">{s.totalDue !== null ? inrExact(s.totalDue) : 'not found'}</dd>
       </dl>
-      <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+      <p className="mt-3 text-xs leading-relaxed text-muted">
         {s.status === 'confirmed' && 'You checked these rows and confirmed them. '}
         {s.status === 'agreed' && "Nothing on it to check the rows against, but two independent readings (the rules and the local AI) found the same rows. "}
         {s.check === 'matched' && 'Every row is accounted for: the rows read add up to the total the bank printed.'}
@@ -309,19 +309,19 @@ function TotalsCheck({ statement: s, rows }: { statement: CardStatement; rows?: 
   return (
     <dl className="mt-3 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm tabular-nums">
       <dt className="text-zinc-400">
-        Purchases and charges <span className="text-xs text-zinc-600">{read(rows?.debits)}</span>
+        Purchases and charges <span className="text-xs text-muted">{read(rows?.debits)}</span>
       </dt>
       <dd className="text-right text-zinc-200">{inrExact(s.debits)}</dd>
       <dt className="text-zinc-400">
-        Purchases and charges <span className="text-xs text-zinc-600">as printed</span>
+        Purchases and charges <span className="text-xs text-muted">as printed</span>
       </dt>
       <dd className="text-right text-zinc-200">{inrExact(s.printedDebits ?? 0)}</dd>
       <dt className="border-t border-white/[0.06] pt-1.5 text-zinc-400">
-        Payments, refunds, cashback <span className="text-xs text-zinc-600">{read(rows?.credits)}</span>
+        Payments, refunds, cashback <span className="text-xs text-muted">{read(rows?.credits)}</span>
       </dt>
       <dd className="border-t border-white/[0.06] pt-1.5 text-right text-zinc-200">{inrExact(s.credits)}</dd>
       <dt className="text-zinc-400">
-        Payments, refunds, cashback <span className="text-xs text-zinc-600">as printed</span>
+        Payments, refunds, cashback <span className="text-xs text-muted">as printed</span>
       </dt>
       <dd className="text-right text-zinc-200">{inrExact(s.printedCredits ?? 0)}</dd>
     </dl>
@@ -384,7 +384,7 @@ function CheckMark({ statement: s }: { statement: CardStatement }) {
     )
   return (
     <>
-      <CircleDashed className="size-3.5 shrink-0 text-zinc-500" /> {s.kind === 'export' ? 'Export' : 'Not checked'}
+      <CircleDashed className="size-3.5 shrink-0 text-muted" /> {s.kind === 'export' ? 'Export' : 'Not checked'}
     </>
   )
 }
@@ -463,12 +463,12 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
     actions: (r: Draft, i: number) => (
       <>
         <button type="button" onClick={() => setPeek({ page: r.page, y: r.y })} aria-label={`Show where ${r.description} is printed`} title="Show where it's printed"
-          className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200">
+          className="rounded-full p-[5px] text-muted hover:bg-white/[0.06] hover:text-zinc-200">
           <FileSearch className="size-3.5" />
         </button>
         {editing && (
           <button type="button" onClick={() => setRows((all) => all.filter((_, j) => j !== i))} aria-label={`Remove ${r.description}`}
-            className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-rose-300">
+            className="rounded-full p-[5px] text-muted hover:bg-white/[0.06] hover:text-rose-300">
             <X className="size-3.5" />
           </button>
         )}
@@ -514,7 +514,7 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
     <div className="mt-3 rounded-2xl bg-amber-400/[0.03] px-4 py-3.5 ring-1 ring-amber-300/15 sm:ml-13">
       <p className="text-sm text-zinc-200">
         {cardName} · {period}
-        {s.dueDate && <span className="text-zinc-500"> · due {formatDay(s.dueDate)}</span>}
+        {s.dueDate && <span className="text-muted"> · due {formatDay(s.dueDate)}</span>}
       </p>
       <p className="mt-1.5 text-sm text-amber-100/90">
         On hold: {s.proof || "its rows couldn't be proven"}. Nothing from it is counted until you check it.
@@ -523,19 +523,19 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
       {byTotals(s) && <TotalsCheck statement={s} />}
       {s.previousBalance !== null && s.totalDue !== null && (
         <dl className="mt-3 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm tabular-nums">
-          <dt className="text-zinc-400">Previous balance <span className="text-xs text-zinc-600">as printed</span></dt>
+          <dt className="text-zinc-400">Previous balance <span className="text-xs text-muted">as printed</span></dt>
           <dd className="text-right text-zinc-200">{inrExact(s.previousBalance)}</dd>
-          <dt className="text-zinc-400">− Payments, refunds, cashback <span className="text-xs text-zinc-600">rows below</span></dt>
+          <dt className="text-zinc-400">− Payments, refunds, cashback <span className="text-xs text-muted">rows below</span></dt>
           <dd className="text-right text-zinc-200">{inrExact(s.credits)}</dd>
-          <dt className="text-zinc-400">+ Purchases and charges <span className="text-xs text-zinc-600">rows below</span></dt>
+          <dt className="text-zinc-400">+ Purchases and charges <span className="text-xs text-muted">rows below</span></dt>
           <dd className="text-right text-zinc-200">{inrExact(s.debits)}</dd>
           <dt className="border-t border-white/[0.06] pt-1.5 text-zinc-300">= Total due, by these rows</dt>
           <dd className="border-t border-white/[0.06] pt-1.5 text-right text-zinc-100">{result !== null ? inrExact(result) : '—'}</dd>
-          <dt className="text-zinc-400">Total due <span className="text-xs text-zinc-600">as printed</span></dt>
+          <dt className="text-zinc-400">Total due <span className="text-xs text-muted">as printed</span></dt>
           <dd className="text-right text-zinc-200">{inrExact(s.totalDue)}</dd>
         </dl>
       )}
-      <p className={`mt-2 text-xs ${adds ? 'text-[var(--color-status-good)]' : 'text-zinc-500'}`}>
+      <p className={`mt-2 text-xs ${adds ? 'text-[var(--color-status-good)]' : 'text-muted'}`}>
         {adds
           ? byTotals(s)
             ? 'These rows come to the totals the bank printed. Count them when they look right to you.'
@@ -549,7 +549,7 @@ function HeldReview({ statement: s, cardName, upload, onChanged }: { statement: 
         {wide ? (
           <table className="w-full text-sm tabular-nums" style={{ minWidth: HELD_MIN }}>
             <thead>
-              <tr className="text-left text-xs text-zinc-500">
+              <tr className="text-left text-xs text-muted">
                 <th className="py-1 pr-3 font-normal">Date</th>
                 <th className="py-1 pr-3 font-normal">As printed</th>
                 <th className="py-1 pr-3 text-right font-normal">Amount</th>

@@ -94,7 +94,7 @@ function AiPill({ activity }: { activity?: Activity }) {
         title={title}
         onClick={aiPanel.open}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400 transition hover:border-white/15 hover:bg-white/[0.06] hover:text-zinc-200"
+        className="tap inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400 transition hover:border-white/15 hover:bg-white/[0.06] hover:text-zinc-200"
       >
         <span className="relative flex size-2">
           {'pulse' in look && look.pulse && <span className={`absolute inset-0 animate-ping rounded-full opacity-70 ${look.dot}`} />}
@@ -120,7 +120,7 @@ function AiPill({ activity }: { activity?: Activity }) {
               type="button"
               onClick={() => answer(false)}
               aria-label="Not now"
-              className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-zinc-100"
+              className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-full text-muted transition hover:bg-white/10 hover:text-zinc-100"
             >
               <X className="size-3.5" />
             </button>

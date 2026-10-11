@@ -227,9 +227,9 @@ function UnnamedNotice({ count, amount, onShow }: { count: number; amount: numbe
       </span>
       <div className="min-w-0 flex-1 basis-56">
         <p className="text-sm text-zinc-100">
-          {plural(count, 'payment')} {count === 1 ? "doesn't" : "don't"} say who {count === 1 ? 'it' : 'they'} went to <span className="text-zinc-500 tabular-nums">· {inr(amount)}</span>
+          {plural(count, 'payment')} {count === 1 ? "doesn't" : "don't"} say who {count === 1 ? 'it' : 'they'} went to <span className="text-muted tabular-nums">· {inr(amount)}</span>
         </p>
-        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+        <p className="mt-0.5 text-xs leading-relaxed text-muted">
           The file they came from has no payee name, so they're different payees under one label and each needs its own answer.
         </p>
       </div>
@@ -282,11 +282,11 @@ function ReviewRow({
         <p className="truncate text-sm text-zinc-100" title={group.payee}>
           {group.payee}
         </p>
-        <p className="truncate text-xs text-zinc-500 tabular-nums">
+        <p className="truncate text-xs text-muted tabular-nums">
           {inr(group.amount)} · {group.count} payment{group.count === 1 ? '' : 's'} · {dayLabel(group.first)}
           {group.count > 1 && ` – ${dayLabel(group.last)}`}
           {group.elsewhere > 0 && (
-            <span className="text-zinc-600" title="Your answer covers these too">
+            <span className="text-muted" title="Your answer covers these too">
               {' '}
               · +{group.elsewhere} in other years
             </span>
@@ -298,7 +298,7 @@ function ReviewRow({
           value={draft.label}
           onChange={(e) => onDraft({ ...draft, label: e.target.value })}
           placeholder="Who is this? e.g. Milk"
-          className="w-40 rounded-full bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-white/10 outline-none placeholder:text-zinc-600 focus:ring-white/40"
+          className="w-40 rounded-full bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-white/10 outline-none placeholder:text-muted focus:ring-white/40"
         />
       )}
       <div className="w-48">

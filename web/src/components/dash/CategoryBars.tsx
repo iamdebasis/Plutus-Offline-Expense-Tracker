@@ -16,7 +16,7 @@ interface Props {
  *  every chart and the table to it and opens its sub-categories. */
 export function CategoryBars({ rows, total, selected, onSelect, colourOf }: Props) {
   const max = rows[0]?.amount ?? 0
-  if (!rows.length) return <p className="py-8 text-center text-sm text-zinc-500">No spending in this period yet.</p>
+  if (!rows.length) return <p className="py-8 text-center text-sm text-muted">No spending in this period yet.</p>
 
   return (
     <ul className="space-y-1">
@@ -34,7 +34,7 @@ export function CategoryBars({ rows, total, selected, onSelect, colourOf }: Prop
               } ${dim ? 'opacity-45' : ''}`}
             >
               <span className="flex min-w-0 items-center gap-1.5 text-sm text-zinc-200 sm:order-1">
-                <ChevronRight className={`size-3.5 shrink-0 text-zinc-500 transition ${open ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`size-3.5 shrink-0 text-muted transition ${open ? 'rotate-90' : ''}`} />
                 <span className="truncate" title={row.label}>
                   {row.label}
                 </span>
@@ -42,7 +42,7 @@ export function CategoryBars({ rows, total, selected, onSelect, colourOf }: Prop
               <Bar value={row.amount} max={max} colour={colourOf?.(row.id)} />
               <span className="text-right text-sm whitespace-nowrap tabular-nums sm:order-3 sm:w-28">
                 <span className="text-zinc-100">{inr(row.amount)}</span>
-                <span className="ml-2 text-xs text-zinc-500">{share(row.amount, total)}</span>
+                <span className="ml-2 text-xs text-muted">{share(row.amount, total)}</span>
               </span>
             </button>
             <AnimatePresence initial={false}>

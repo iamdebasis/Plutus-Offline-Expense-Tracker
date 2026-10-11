@@ -12,7 +12,7 @@ export function InvestmentsSwitch({ on, onChange }: { on: boolean; onChange: (on
       aria-label="Count investments"
       onClick={() => onChange(!on)}
       title={on ? 'Investments count as spending. Turn off to leave them out of everything.' : 'Investments are left out of everything. Turn on to count them as spending.'}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-xl py-2 pr-3 pl-2.5 text-[13px] font-semibold whitespace-nowrap ring-1 transition sm:gap-2.5 sm:pr-4 sm:pl-3 sm:text-sm ${
+      className={`tap inline-flex shrink-0 items-center gap-2 rounded-xl py-2 pr-3 pl-2.5 text-[13px] font-semibold whitespace-nowrap ring-1 transition sm:gap-2.5 sm:pr-4 sm:pl-3 sm:text-sm ${
         on ? 'text-zinc-100 ring-white/30' : 'text-zinc-400 ring-white/10 hover:text-zinc-100 hover:ring-white/25'
       }`}
     >
