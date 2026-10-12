@@ -57,5 +57,12 @@ steps, each keeping the rule that the AI reads the question and Plutus computes:
   names it hasn't been seen yet.
 - **A bill that isn't a whole bill** (a part payment, an advance), from CRED or a statement, is placed like any bill:
   it stands for the cycle it's taken to pay.
+- **The month-by-month table** fits a year without scrolling while each month is under ₹1 lakh (checked at 1024 to
+  1440px wide); bigger figures widen their column, and the names stay put while the months scroll. A phone always
+  scrolls ([DECISIONS.md](DECISIONS.md) #26).
+- **One shop, however it's spelt**: the same-shop rule (`categorize.same_shop`) takes numbers in a name for store
+  codes, so two local shops whose names differ only by a number are one payee in Total spend's top payees (the row
+  says how else it's spelt). A shop's name is its most used spelling, so it can change as payments arrive
+  ([DECISIONS.md](DECISIONS.md) #29).
 - **Ask Plutus**: card spending known only from card bills has no category or payee, so questions about one leave it
   out (and say how much); the rules know English words only, and other languages rely on the local AI.

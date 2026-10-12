@@ -1,8 +1,10 @@
 import os
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+VERSION = tomllib.loads((ROOT / "backend" / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]  # the one place it's set
 
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
 

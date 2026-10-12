@@ -83,6 +83,7 @@ make test     # the backend's tests with the network blocked, the dashboard's mo
 The [guide](docs/GUIDE.md) covers everything else: each source and how it's read, how the numbers add up, where each
 file lives, the local AI, and the tools. [How Plutus reads card statements](docs/READERS.md) is for whoever maintains
 the readers: how banks make their statements, how each step reads and proves them, and how to change a reader safely.
+The [release notes](docs/RELEASE-NOTES.md) say what each version holds and how it was checked.
 
 ## How it works
 

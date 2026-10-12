@@ -11,6 +11,7 @@ Read next, as the work needs:
 - [docs/READERS.md](docs/READERS.md): card statements: banks' layouts, diagnosing a statement, changing a reader.
 - [docs/GUIDE.md](docs/GUIDE.md): what the user sees and how every number is made.
 - [docs/ROADMAP.md](docs/ROADMAP.md): what's been discussed but not built, and known limits.
+- [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md): what each version holds and how it was checked.
 
 ## Core values: never broken
 
@@ -80,6 +81,9 @@ Check every change against these four. If something would bend one, don't build 
 - In zsh an unmatched glob aborts the whole command: delete by pattern with `find`, not `rm`.
 - Before committing: `make test`, and grep the diff for anything personal. Ask the person you work for before
   commits, pushes, or anything that removes data.
+- A release: the version is set once, in `backend/pyproject.toml`; `web/package.json` and a section of
+  [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md) follow it (`tests/test_version.py`). Before tagging: `make test`,
+  `make measure`, `make check-ui`, the sweep.
 - Keep the docs true: a new module, route or data file gets its line in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
   (`backend/tests/test_docs.py` checks); a decision goes in [docs/DECISIONS.md](docs/DECISIONS.md).
 

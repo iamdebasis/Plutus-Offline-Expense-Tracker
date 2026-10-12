@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import categorize, ledger, logs, storage, userdata, vault
-from app.config import settings
+from app.config import VERSION, settings
 from app.imports import importer
 from app.llm import llm
 from app.llm import setup as llm_setup
@@ -66,7 +66,7 @@ async def lifespan(_: FastAPI):
 
 
 # No /docs: Swagger UI loads from a CDN, and this app makes no external requests.
-app = FastAPI(title="Expense Tracker", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url="/api/openapi.json")
+app = FastAPI(title="Expense Tracker", version=VERSION, lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url="/api/openapi.json")
 # Blocks DNS-rebinding: a web page can't reach this server through another hostname.
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
 
