@@ -215,6 +215,7 @@ export interface PeriodView {
   months: { key: string; spent: number; count: number }[]
   cardMonths: { key: string; spent: number; count: number }[]
   byCategory: { id: string; label: string; amount: number; count: number; children: { id: string; label: string; amount: number; count: number }[] }[]
+  /** Who you paid, by shop (`Transaction.shop`): `payee` is the shop's name. */
   topPayees: { payee: string; amount: number; count: number; category: string }[]
   /** Where payments were paid from: an account, a wallet, or a card of yours (`card`, when the server knows which). */
   paidFrom: { mask: string; card: string | null; amount: number; count: number }[]
@@ -316,7 +317,7 @@ export function viewFor(data: LedgerData, period: PeriodKey, category: string | 
   const paidOut = txns.filter((t) => (t.direction === 'debit' || isLinkedRefund(t)) && !isIgnored(t))
   const payees = new Map<string, PeriodView['topPayees'][number]>()
   for (const t of paidOut.filter((t) => bucketOf(t) !== 'cardBill')) { // a bill pays your own card: no payee
-    const name = paymentOf(t)?.payee ?? t.payee // a refund is netted against who you paid
+    const name = (paymentOf(t) ?? t).shop // one shop however it's spelt; a refund is netted against who you paid
     const p = payees.get(name) ?? { payee: name, amount: 0, count: 0, category: t.category }
     p.amount += signed(t)
     p.count += payment(t)

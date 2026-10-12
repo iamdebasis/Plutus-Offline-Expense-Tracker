@@ -19,7 +19,7 @@ let n = 0
 /** A payment: by default a UPI payment from a bank account, in Shopping. */
 export function txn(at: string, amount: number, over: Partial<Transaction> = {}): Transaction {
   n += 1
-  return {
+  const t: Omit<Transaction, 'shop'> = {
     id: `t${n}`,
     at: `${at}T12:00:00+05:30`,
     amount,
@@ -43,6 +43,7 @@ export function txn(at: string, amount: number, over: Partial<Transaction> = {})
     merchantCategory: null,
     ...over,
   }
+  return { ...t, shop: over.shop ?? t.payee } // its own shop, unless a test spells one shop two ways
 }
 
 export const card = (id: string, last4: string, network: string | null = null): Instrument => ({

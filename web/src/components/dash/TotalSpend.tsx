@@ -1,32 +1,40 @@
 import { ChartPie } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { topOf } from '../../lib/ledger'
+import { topOf, type LedgerData, type PeriodView } from '../../lib/ledger'
 import { inr } from '../../lib/money'
 import type { PeriodKey } from '../../lib/periods'
 import { OTHER_COLOUR, colourSlots, type TotalSpend as Totals } from '../../lib/totals'
 import { CategoryBars } from './CategoryBars'
 import { Panel, SectionHead } from './Section'
+import { FocusDetail, Highlights, OTHER, type FocusProps } from './SpendFocus'
 import { SpendDonut, type Slice } from './SpendDonut'
 
-const OTHER = 'other'
-
 interface Props {
+  data: LedgerData
+  /** The period's view, the one `totals` was worked out from. */
+  view: PeriodView
   /** The period's totals (computed once on the dashboard, shared with Month by month). */
   totals: Totals
   /** All years, which decides each category's colour so it never changes between years. */
   allTime: Totals
   period: PeriodKey
+  /** Open these payments in Your transactions. */
+  onShow: (ids: string[], label: string) => void
+  onChanged: () => void
+  notify: (text: string) => void
 }
 
-/** Cards and UPI together, counted once: the ring on the left, where it went on the right, one selection
- *  shared by both. */
-export function TotalSpend({ totals, allTime, period }: Props) {
+/** Cards and UPI together, counted once: the ring on the left, where it went on the right, one selection shared by
+ *  both. Under the ring, the sum, then what you tapped in detail (components/dash/SpendFocus.tsx), or the period's
+ *  highlights. Side by side, the detail sits under the ring; stacked (below 1280px), it opens under the row you
+ *  tapped, so it shows where you tapped. */
+export function TotalSpend({ data, view, totals, allTime, period, onShow, onChanged, notify }: Props) {
   const slots = useMemo(() => colourSlots(allTime), [allTime])
   const [selected, setSelected] = useState<string | null>(null)
   useEffect(() => setSelected(null), [period])
-  // a selection whose category just left (investments switched off) lets go
+  // a selection whose category just left (investments switched off, its last payee answered) lets go
   useEffect(() => {
-    if (selected && selected !== OTHER && !totals.byCategory.some((c) => c.id === topOf(selected))) setSelected(null)
+    if (selected && selected !== OTHER && !totals.byCategory.some((c) => c.id === topOf(selected) && (c.id === selected || c.children.some((k) => k.id === selected)))) setSelected(null)
   }, [totals, selected])
 
   const colourOf = (id: string) => slots.get(topOf(id)) ?? OTHER_COLOUR
@@ -38,11 +46,22 @@ export function TotalSpend({ totals, allTime, period }: Props) {
     const rest = totals.byCategory.filter((c) => !slots.has(c.id)).reduce((s, c) => s + c.amount, 0)
     return rest > 0.5 ? [...named, { id: OTHER, label: 'Other', amount: rest, colour: OTHER_COLOUR }] : named
   }, [totals, slots])
+  const others = useMemo(() => totals.byCategory.filter((c) => !slots.has(c.id)), [totals, slots])
 
   // The ring knows top-level categories and "Other"; the bars know every row.
   const ringSelected = selected ? (slots.has(topOf(selected)) ? topOf(selected) : OTHER) : null
   const barsSelected = selected === OTHER ? null : selected
   const when = period === 'all' ? 'across all years' : `in ${period}`
+
+  // From a highlight: stacked, the row it opens is further down, so it's brought into view
+  const select = (id: string | null) => {
+    setSelected(id)
+    if (id && !matchMedia('(min-width: 80rem)').matches) {
+      requestAnimationFrame(() => document.querySelector(`[data-row="${CSS.escape(topOf(id))}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+  }
+  const focus = (id: string): FocusProps => ({ data, view, totals, period, selected: id, others, colourOf, onSelect: setSelected, onShow, onChanged, notify })
+  const highlights = <Highlights data={data} view={view} totals={totals} period={period} onSelect={select} onShow={onShow} />
 
   return (
     <section className="mt-6">
@@ -54,10 +73,35 @@ export function TotalSpend({ totals, allTime, period }: Props) {
         <div className="grid gap-4 xl:grid-cols-2">
           <Panel title="Breakdown">
             <SpendDonut slices={slices} total={totals.total} caption={`spent ${when}`} selected={ringSelected} onSelect={setSelected} />
-            <HowItAddsUp totals={totals} />
+            <SumLine totals={totals} />
+            <div className="mt-5">
+              {!selected ? (
+                highlights
+              ) : selected === OTHER ? (
+                <FocusDetail {...focus(OTHER)} />
+              ) : (
+                <>
+                  <div className="hidden xl:block">
+                    <FocusDetail {...focus(selected)} />
+                  </div>
+                  <div className="xl:hidden">{highlights}</div>
+                </>
+              )}
+            </div>
           </Panel>
           <Panel title="Where it went" note="Tap a row to focus on it">
-            <CategoryBars rows={totals.byCategory} total={totals.total} selected={barsSelected} onSelect={setSelected} colourOf={colourOf} />
+            <CategoryBars
+              rows={totals.byCategory}
+              total={totals.total}
+              selected={barsSelected}
+              onSelect={setSelected}
+              colourOf={colourOf}
+              detail={barsSelected && (
+                <div className="mx-2 mt-2 mb-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3.5 xl:hidden">
+                  <FocusDetail {...focus(barsSelected)} />
+                </div>
+              )}
+            />
           </Panel>
         </div>
       )}
@@ -65,48 +109,17 @@ export function TotalSpend({ totals, allTime, period }: Props) {
   )
 }
 
-/** The sum in one line, and what's in it: UPI (a card used on UPI included), purchases with a card's number read
- *  from statements, card purchases estimated from bills that pay no statement you added (less what UPI already
- *  counted), and what's left out. */
-function HowItAddsUp({ totals: t }: { totals: Totals }) {
-  const anyCards = t.cards > 0.5 || t.cardBills > 0.5
-  const notes = [
-    t.upiOnCards > 0.5 && `UPI includes ${inr(t.upiOnCards)} paid with your credit cards on UPI.`,
-    t.cards > 0.5 && `${inr(t.cards)} of purchases and charges with your cards (not on UPI), read from your card statements one by one, on the day you bought.`,
-    t.cardBills > 0.5 &&
-      `${inr(t.cardPurchases)} of card purchases estimated from ${inr(t.cardBills)} in card bills that pay no statement you added${overlapNote(t)}, each counted in the billing cycle it paid for.`,
-    t.coveredBills > 0.5 && `${inr(t.coveredBills)} in bills paid statements you added, so their purchases are counted one by one instead.`,
-    t.people > 0.5 && `Not counted: ${inr(t.people)} sent to people. Label a person and their payments move into spending.`,
-    t.invested > 0.5 && `Not counted: ${inr(t.invested)} invested. Investments are left out; switch "Count investments" on at the top to include them.`,
-  ].filter(Boolean)
-
+/** The sum in one line: UPI (a card used on UPI included), purchases with a card's number read from statements, and
+ *  card purchases estimated from bills that pay no statement you added. */
+function SumLine({ totals: t }: { totals: Totals }) {
   return (
-    <div className="mt-5 border-t border-white/[0.06] pt-4">
-      {anyCards ? (
-        <dl className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-sm tabular-nums">
-          <Term label="UPI" value={t.upi} />
-          {t.cards > 0.5 && <Term op="+" label="cards, from statements" value={t.cards} />}
-          {t.cardBills > 0.5 && <Term op="+" label="cards, estimated from bills" value={t.cardPurchases} />}
-          <Term op="=" label="total" value={t.total} strong />
-        </dl>
-      ) : (
-        <p className="text-sm text-zinc-400">UPI only: no card statements or card bills in this period. Add a card statement, or your CRED payment history, to include your cards.</p>
-      )}
-      {notes.map((n) => (
-        <p key={n as string} className="mt-1.5 text-xs leading-relaxed text-muted">
-          {n}
-        </p>
-      ))}
-    </div>
+    <dl className="mt-5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-white/[0.06] pt-4 text-sm tabular-nums">
+      <Term label="UPI" value={t.upi} />
+      {t.cards > 0.5 && <Term op="+" label="cards, from statements" value={t.cards} />}
+      {t.cardBills > 0.5 && <Term op="+" label="cards, estimated from bills" value={t.cardPurchases} />}
+      <Term op="=" label="total" value={t.total} strong />
+    </dl>
   )
-}
-
-function overlapNote(t: Totals): string {
-  if (t.cardOverlap <= 0.5) return ''
-  const counted = t.cardOverlap - t.cardOverlapLeftOut
-  if (t.cardOverlapLeftOut <= 0.5) return `, less ${inr(t.cardOverlap)} paid with those cards on UPI (counted under UPI)`
-  if (counted <= 0.5) return `, less ${inr(t.cardOverlap)} of investments paid with those cards on UPI, left out`
-  return `, less ${inr(t.cardOverlap)} paid with those cards on UPI (${inr(counted)} counted as UPI, ${inr(t.cardOverlapLeftOut)} investments left out)`
 }
 
 function Term({ op, label, value, strong }: { op?: string; label: string; value: number; strong?: boolean }) {

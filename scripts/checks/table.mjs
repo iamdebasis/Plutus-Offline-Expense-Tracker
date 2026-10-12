@@ -17,7 +17,7 @@ export default async function table(s) {
              ticked: [...p.querySelectorAll('[role=checkbox][aria-checked=true]')].map((b) => b.querySelector('span:nth-child(2)').textContent.trim()),
              fits: box.scrollWidth <= box.clientWidth + 1, over: box.scrollWidth - box.clientWidth }
   })()`)
-  const where = () => s.evaluate(`(() => { const out = {}; for (const b of ${s.section('Total spend')}.querySelectorAll('ul > li > button')) { const n = b.querySelector('span.truncate')?.textContent.trim(); const a = b.querySelector('span.text-zinc-100')?.textContent.trim(); if (n && a) out[n] = a } return out })()`)
+  const where = () => s.evaluate(`(() => { const out = {}; for (const b of ${s.panel('Total spend', 'Where it went')}.querySelectorAll(':scope > ul > li > button')) { const n = b.querySelector('span.truncate')?.textContent.trim(); const a = b.querySelector('span.text-zinc-100')?.textContent.trim(); if (n && a) out[n] = a } return out })()`)
   const tab = (label) => s.evaluate(`[...document.querySelectorAll('[role=tab]')].find((b) => b.textContent.trim() === ${JSON.stringify(label)}).click()`)
   const years = await s.evaluate(`[...document.querySelectorAll('[role=tab]')].map((b) => b.textContent.trim()).filter((t) => /^\\d{4}$/.test(t))`)
   const year = years.at(-1)

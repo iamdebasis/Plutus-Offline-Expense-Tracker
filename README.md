@@ -41,7 +41,8 @@ no cloud, no telemetry. It is named for the Greek god of wealth.
   categories. An optional local AI suggests the rest. Answer once for a payee and every payment to them follows, past
   and future.
 - **Shows where it went.** Total spend by category, month-by-month trends, spending per card, UPI spending and a
-  searchable ledger. Every chart has a table view.
+  searchable ledger. Tap a category to see who you paid in it and its biggest payments, one row per shop however
+  your files spell it. Every chart has a table view.
 - **Answers your questions.** Click the gold Plutus button in the corner and ask in your own words: "How much on
   electricity in 2025?", "Top 5 payees last year", "Food delivery during the monsoon", then "and by month?". The answer
   is the dashboard's own number, with how your question was read and the payments behind it. Rules read most questions

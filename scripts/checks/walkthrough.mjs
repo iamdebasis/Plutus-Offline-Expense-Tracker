@@ -1,7 +1,8 @@
-// Plutus used as a person would, start to finish: start over, add the files with the picker, pick one again, answer the
-// review list, change two payments and undo it, confirm a held statement, delete a file, ask with no local AI, open
-// the Local AI panel; the ledger checked after every change. It starts over, so it runs only when the demo was started
-// for these checks (`make check-ui` sets PLUTUS_CHECKS_MAY_START_OVER, and sends Start over to .demo/trash).
+// Plutus used as a person would, start to finish: start over, add the files with the picker, pick one again, answer a
+// payee waiting in Uncategorized from Total spend, answer the review list, change two payments and undo it, confirm a
+// held statement, delete a file, ask with no local AI, open the Local AI panel; the ledger checked after every change.
+// It starts over, so it runs only when the demo was started for these checks (`make check-ui` sets
+// PLUTUS_CHECKS_MAY_START_OVER, and sends Start over to .demo/trash).
 import { copyFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { sleep } from './browser.mjs'
@@ -71,6 +72,31 @@ export default async function walkthrough(s) {
   await sleep(800)
   const again = await status()
   s.check(again.transactions === after.transactions && again.uploads === after.uploads, 'and nothing reached the ledger')
+
+  // a payee waiting in Uncategorized, answered from what Total spend shows for it: its payments leave Uncategorized
+  await s.load()
+  const BARS = s.panel('Total spend', 'Where it went')
+  const uncategorized = () => s.evaluate(`(() => { const b = [...${BARS}.querySelectorAll(':scope > ul > li > button')].find((b) => b.querySelector('span.truncate')?.textContent.trim() === 'Uncategorized'); return b ? Number(b.querySelector('span.text-zinc-100').textContent.replace(/[^\\d.]/g, '')) : 0 })()`)
+  const waiting = await uncategorized()
+  if (waiting) {
+    await s.evaluate(`[...${BARS}.querySelectorAll(':scope > ul > li > button')].find((b) => b.querySelector('span.truncate')?.textContent.trim() === 'Uncategorized').click()`)
+    await sleep(600)
+    const REGION = `[...document.querySelectorAll('[aria-label="What you tapped, in detail"]')].find((r) => r.getBoundingClientRect().width > 0)`
+    const LI = `[...${REGION}.querySelectorAll('ul[aria-label="Waiting for a category"] > li')].find((li) => li.querySelector('select'))`
+    const shop = await s.evaluate(`(() => { const li = ${LI}; if (!li) return null; const sel = li.querySelector('select')
+      const to = [...sel.options].find((o) => !o.disabled && o.value && !/^(uncategorized|transfers|ignored|investments)/.test(o.value))
+      return { name: li.querySelector('span').textContent.trim(), amount: Number(li.innerText.match(/₹([\\d,]+)/)[1].replace(/,/g, '')), to: to.value } })()`)
+    if (s.check(!!shop, 'Total spend shows a payee waiting in Uncategorized, with its answer')) {
+      await pick(`${LI}.querySelector('select')`, shop.to)
+      await sleep(200)
+      await s.evaluate(`[...${LI}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save').click()`)
+      await sleep(2500)
+      await s.load()
+      const left = await uncategorized()
+      s.check(Math.abs(waiting - shop.amount - left) <= 1, `${shop.name}, answered there: its ${shop.amount} leaves Uncategorized (${waiting} → ${left})`)
+      await ledger(s, 'the ledger, after answering it')
+    }
+  }
 
   // the review list: one answer files every payment to that payee
   await s.load()

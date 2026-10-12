@@ -355,3 +355,37 @@ by the clock in a few places (an animation, a save), so a very slow Mac could fa
 believing it.
 **Where**: `scripts/checks/` (`run.mjs`, `browser.mjs`, one file per area), the `--checks` mode of
 `app/tools/demo.py`, `make check-ui`.
+
+## 29. Total spend says where a category's money went, one shop however it's spelt
+
+**Decision**: under Total spend's sum (which stays), the sentences explaining it are gone; in their place is what you
+tap. A category: its top six payees (its sub-categories together; a sub-category, its own), the rest in one line, and
+its five biggest payments, with **Show all** opening its payments in Your transactions. Uncategorized: its payees, each
+with a category picker (one answer files each spelling of that payee waiting there, in every year, the way the review
+list answers). Card purchases: the cards and each card's bills, since a bill doesn't say what it paid for. Other: its
+categories. With nothing tapped: the biggest payment, the top payee, the busiest month (Month by month's Together),
+the year against the one before over the months both years' files cover alike (the same kinds of file), and one
+action (the bigger of what waits in Uncategorized and what's only estimated from bills; adding a card when there's
+none). Side by side (1280px and wider) the detail sits under the ring; stacked, it opens under the row you tapped. A
+payee is one row per shop: the server sends each payment's shop with `/api/transactions` (`categorize.shops`: the
+merchant list's name when it knows the shop, else the spelling its payments use most), worked out when served, never
+stored. "Who you paid most", "Where you used your cards most" and Ask Plutus's top payees group the same way, and Ask
+matches a payee's word against its shop as well as its printed name.
+**Why**: the owner found the sentences under the sum were read by no one and asked to see where the money went: which
+payees, across a category's sub-categories, and its biggest payments, using the space. One row per shop because a card
+statement and a UPI app spell one shop differently ("BLINKIT GURGAON", "Blinkit"), which would split it in two. The
+rule already existed (`same_shop`, used when one payment is re-filed); keeping it on the server keeps it one rule. A few
+entries of the merchant list name a kind of payee, not one shop ("Electricity board", "Metro", "Gas"…: `"kind": true`):
+they still file a payment, but two electricity boards are two payees, shown as their files spell them (before this,
+re-filing one payment to one board offered the other board's payments as the same shop).
+Years are compared only over months alike, so card statements one year has and the other doesn't can't show as a rise.
+**Costs**: how card spending is estimated is explained where it applies (Card purchases' detail), not always on
+screen, and "sent to people" and "invested" are no longer stated under the sum (the line under the years still says
+what investments are left out). The same-shop rule takes numbers for store codes, so two local shops whose names
+differ only by a number ("Fake Store 12", "Fake Store 14") are one row; the row says how many spellings it has. A
+shop's name can change as payments arrive (its most used spelling). The demo has no category with more than six
+payees, so "and N more" is held by `web/tests/focus.test.ts`, not seen in the browser checks.
+**Where**: `web/src/lib/focus.ts` (tested in `web/tests/focus.test.ts`), `components/dash/SpendFocus.tsx`,
+`TotalSpend.tsx`, `CategoryBars.tsx` (the detail under its row); `categorize.shops`, `ListedTransaction`
+(`app/models.py`), `GET /api/transactions` (`backend/tests/test_shops.py`); `topPayees` in `lib/ledger.ts`, top payees
+and payee words in `lib/ask.ts`; `scripts/checks/focus.mjs`.

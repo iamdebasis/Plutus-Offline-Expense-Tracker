@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronRight } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { inr } from '../../lib/money'
 import type { PeriodView } from '../../lib/ledger'
 
@@ -10,11 +11,14 @@ interface Props {
   onSelect: (id: string | null) => void
   /** Colour per top-level category, when the bars sit beside a chart that uses the same colours. One hue otherwise. */
   colourOf?: (id: string) => string
+  /** Shown under the open row, after its sub-categories: Total spend's detail of what you tapped, where it sits beside
+   *  nothing (components/dash/TotalSpend.tsx). */
+  detail?: ReactNode
 }
 
 /** Ranked bars, one hue (the categories are the rows, not separate series). Selecting one narrows
  *  every chart and the table to it and opens its sub-categories. */
-export function CategoryBars({ rows, total, selected, onSelect, colourOf }: Props) {
+export function CategoryBars({ rows, total, selected, onSelect, colourOf, detail }: Props) {
   const max = rows[0]?.amount ?? 0
   if (!rows.length) return <p className="py-8 text-center text-sm text-muted">No spending in this period yet.</p>
 
@@ -24,7 +28,7 @@ export function CategoryBars({ rows, total, selected, onSelect, colourOf }: Prop
         const open = selected === row.id || row.children.some((c) => c.id === selected)
         const dim = selected !== null && !open
         return (
-          <li key={row.id}>
+          <li key={row.id} data-row={row.id}>
             <button
               type="button"
               onClick={() => onSelect(open && selected === row.id ? null : row.id)}
@@ -71,6 +75,7 @@ export function CategoryBars({ rows, total, selected, onSelect, colourOf }: Prop
                 </motion.ul>
               )}
             </AnimatePresence>
+            {open && detail}
           </li>
         )
       })}

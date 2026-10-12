@@ -176,6 +176,11 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
 - Total spend (`web/src/lib/totals.ts`) must never double count: bills are placed and netted on the server
   (`app/billing.py`), the dashboard spreads each `estimate` over its cycle. The UPI section + the card section
   (`lib/cards.ts`, `CardSpending.tsx`: card-number purchases only) = Total spend, for every year and card filter.
+- Under Total spend's sum, what you tap (`components/dash/SpendFocus.tsx`; numbers in `lib/focus.ts`): a category's
+  top payees and biggest payments, Card purchases' bills, Other's categories; nothing tapped, the period's highlights.
+  Payees are grouped by shop (`Transaction.shop`, from the server's `categorize.shops`, served with
+  `/api/transactions`, never stored), as are "Who you paid most" and Ask Plutus's top payees. A category's shops add up
+  to its figure in Where it went (`web/tests/focus.test.ts`).
 - Readable and reachable: text greys are zinc-100 to 400 or `text-muted` (4.5:1 or more on every surface), never
   zinc-500 to 700; `text-faint` only for decoration. Every control is at least 24 by 24 (WCAG 2.2), and the main
   ones on a phone get `tap` (a 44px target under a finger, looks unchanged). A new faint white edge goes in the

@@ -23,7 +23,8 @@
 
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import cache
@@ -123,8 +124,39 @@ def category_ids() -> dict[str, dict]:
 def same_shop(raw: str) -> str:
     """Names that are one shop share this key: the merchant list's name when it knows the shop ("Fakeclub" and
     "Fakeclub1" are both Fakeclub), otherwise the name without case, punctuation, company suffixes or store
-    codes ("FAKEMART LIMITED" = "fakemart"). Names that only share a word ("Fakeclub Swimming Academy") differ."""
-    return merchant_name(raw) or normalize(raw) or raw.strip().lower()
+    codes ("FAKEMART LIMITED" = "fakemart"). Names that only share a word ("Fakeclub Swimming Academy") differ, and so
+    do two companies of a kind the list knows (two electricity boards: `kinds`)."""
+    return shop_name(raw) or normalize(raw) or raw.strip().lower()
+
+
+def shop_name(raw: str) -> str | None:
+    """The merchant list's name for the shop, when the list knows it as one shop (not as a kind of payee)."""
+    name = merchant_name(raw)
+    return name if name and name not in kinds() else None
+
+
+@cache
+def kinds() -> frozenset[str]:
+    """The merchant list's entries that name a kind of payee, many companies under one name (every electricity board,
+    every metro): they file a payment, but don't make two of those companies one shop."""
+    rows = json.loads(resources.files("app.seed").joinpath("merchants.json").read_text(encoding="utf-8"))
+    return frozenset(r["name"] for r in rows if r.get("kind"))
+
+
+def shops(payees: Iterable[str]) -> dict[str, str]:
+    """Each payee name → the shop it is, as the page shows it (`same_shop`): the merchant list's name when it knows the
+    shop, else the spelling its payments use most (the first alphabetically on a tie), so "FAKEMART LIMITED" and
+    "Fakemart" are one row. `payees` has a name per payment. Payments with no name stay NO_NAME: many payees."""
+    uses = Counter(payees)
+    named = defaultdict(list)
+    for name in uses:
+        if name != NO_NAME:
+            named[same_shop(name)].append(name)
+    out = {NO_NAME: NO_NAME} if NO_NAME in uses else {}
+    for names in named.values():
+        shown = shop_name(names[0]) or min(names, key=lambda n: (-uses[n], n))
+        out.update(dict.fromkeys(names, shown))
+    return out
 
 
 def merchant_name(raw: str) -> str | None:

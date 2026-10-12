@@ -169,6 +169,12 @@ class Transaction(Model):
     merchant_category: str | None = None
 
 
+class ListedTransaction(Transaction):
+    """A payment as the page gets it: with its shop (`categorize.shops`), worked out when it's served, never stored."""
+
+    shop: str
+
+
 class CardPayment(Model):
     """A credit card bill payment. Settles card spend; never counted as spend itself."""
 

@@ -56,7 +56,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
 
   const ctx: AskContext = useMemo(() => ({
     categories: data.categories,
-    payees: [...new Set([...data.txns, ...data.leftOut].map((t) => t.payee))],
+    payees: [...new Set([...data.txns, ...data.leftOut].flatMap((t) => [t.payee, t.shop]))], // as files print them, and their shops
     cards: data.cards,
     today: new Date().toLocaleDateString('en-CA'),
   }), [data])

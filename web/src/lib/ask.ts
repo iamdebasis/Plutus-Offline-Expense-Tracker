@@ -201,6 +201,10 @@ export function payeeMatches(name: string, word: string): boolean {
   return compact(word).length >= 5 && compact(name).includes(compact(word))
 }
 
+/** Whether a payment went to a payee the word names: by the name its file prints, or by its shop's name (one shop
+ *  however it's spelt). */
+const paidTo = (t: Transaction, word: string) => payeeMatches(t.payee, word) || payeeMatches(t.shop, word)
+
 const isUnder = (category: string, id: string) => category === id || topOf(category) === id
 const CARD_BILL = 'transfers.card_bill'
 const INVESTMENTS = 'investments'
@@ -224,7 +228,7 @@ function select(data: LedgerData, q: AskQuery, period: AskPeriod | null): Row[] 
       buckets.has(r.bucket) &&
       inPeriodOf(period, r.day) &&
       (!q.categories.length || q.categories.some((c) => isUnder(r.t.category, c))) &&
-      (!q.payees.length || q.payees.some((w) => payeeMatches(r.owner.payee, w))) &&
+      (!q.payees.length || q.payees.some((w) => paidTo(r.owner, w))) &&
       (!q.cards.length || (!!r.owner.card && q.cards.includes(r.owner.card))) &&
       (q.channel === 'all' || (q.channel === 'cards') === (r.owner.channel === 'card')),
   )
@@ -295,7 +299,7 @@ export function answer(data: LedgerData, q: AskQuery): AskAnswer {
   if (query.categories.includes(CARD_BILL)) return billsAnswer(data, query)
   const rows = select(data, query, query.period)
   const est = estimates(data, query, query.period)
-  const matchedPayees = [...new Set(rows.map((r) => r.owner.payee))].filter((n) => query.payees.some((w) => payeeMatches(n, w))).sort()
+  const matchedPayees = query.payees.length ? [...new Set(rows.map((r) => r.owner.payee))].sort() : [] // every row is to one the words name
   const notes = notesFor(data, query, rows, est)
   const base = { query, ids: ids(rows), matchedPayees, notes, lines: [] as AskLine[], amount: null as number | null, payments: count(rows) }
   const what = about(data, query)
@@ -415,7 +419,7 @@ function topLines(data: LedgerData, q: AskQuery, rows: Row[]): { lines: AskLine[
   const groups = new Map<string, { amount: number; count: number }>()
   // by category: the top-level ones, or the children of the one category asked about
   const one = q.categories.length === 1 && !q.categories[0].includes('.') ? q.categories[0] : null
-  const keyOf = (r: Row) => (q.by === 'category' ? (one ? r.t.category : topOf(r.t.category)) : r.owner.payee)
+  const keyOf = (r: Row) => (q.by === 'category' ? (one ? r.t.category : topOf(r.t.category)) : r.owner.shop)
   for (const r of rows) {
     const g = groups.get(keyOf(r)) ?? { amount: 0, count: 0 }
     g.amount += r.amount
@@ -565,7 +569,7 @@ function notesFor(data: LedgerData, q: AskQuery, rows: Row[], est: ReturnType<ty
     if (sum(out) > 0.5) notes.push(`Investments are left out (your setting): ${inr(sum(out))} ${periodPhrase(q.period)}.`)
   }
   if (q.payees.length) {
-    const unmatched = q.payees.filter((w) => !rows.some((r) => payeeMatches(r.owner.payee, w)))
+    const unmatched = q.payees.filter((w) => !rows.some((r) => paidTo(r.owner, w)))
     if (unmatched.length && rows.length) notes.push(`No payee matched ${listOf(unmatched.map((w) => `“${w}”`))}.`)
   }
   return notes
@@ -582,7 +586,7 @@ function nothingSentence(data: LedgerData, q: AskQuery): string {
   const what = about(data, q)
   const onFile = data.txns.some((t) => inPeriodOf(q.period, t.at.slice(0, 10))) || data.payments.some((p) => inPeriodOf(q.period, p.at.slice(0, 10)))
   if (!onFile) return `Your files have nothing ${periodPhrase(q.period)} yet.`
-  if (q.payees.length && !data.txns.some((t) => q.payees.some((w) => payeeMatches(t.payee, w)))) {
+  if (q.payees.length && !data.txns.some((t) => q.payees.some((w) => paidTo(t, w)))) {
     return `No payee matches ${listOf(q.payees.map((w) => `“${w}”`))} in your files.`
   }
   return `No payments${what ? ` ${what}` : ''} ${periodPhrase(q.period)}.`

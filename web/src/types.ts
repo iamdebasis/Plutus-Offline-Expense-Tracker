@@ -186,6 +186,9 @@ export interface Transaction {
   channel: 'upi' | 'card' | 'other'
   app: string | null
   payee: string
+  /** The shop it is, however its file spells the payee: the merchant list's name when the server knows the shop, else
+   *  the spelling the shop's payments use most (backend/app/categorize.py `shops`). Top shops group by it. */
+  shop: string
   payeeHandle: string | null
   paidFrom: string | null
   category: string

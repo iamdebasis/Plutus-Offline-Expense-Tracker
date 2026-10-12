@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import Field
 
 from app import accounts, categorize, imports, ledger, logs, payees, statements
-from app.models import NO_NAME, CardPayment, CardStatement, CategorizedBy, Model, OwnAccount, Payee, Transaction
+from app.models import NO_NAME, CardPayment, CardStatement, CategorizedBy, ListedTransaction, Model, OwnAccount, Payee, Transaction
 from app.parsers import statement_reader
 
 router = APIRouter(prefix="/api")
@@ -16,8 +16,11 @@ log_parse = logs.get("parse")
 
 
 @router.get("/transactions")
-def transactions() -> list[Transaction]:
-    return ledger.load_transactions()
+def transactions() -> list[ListedTransaction]:
+    """Every payment, each with its shop: one shop however its files spell it."""
+    txns = ledger.load_transactions()
+    shop = categorize.shops(t.payee for t in txns)
+    return [ListedTransaction(**t.model_dump(), shop=shop[t.payee]) for t in txns]
 
 
 @router.get("/card-payments")

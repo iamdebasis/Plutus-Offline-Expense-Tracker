@@ -127,8 +127,23 @@ File names, counts and timings only; never your transactions.
 The UPI section and the Credit cards section add up to Total spend exactly, for every year and card; the frontend's
 tests (`web/tests/totals.test.ts`) check it.
 
-The line under the sum says which parts are in it. The ring gives the six biggest categories
-(across all years) a colour each, so a category keeps its colour whichever year you pick; the rest are "Other".
+The line under the ring is the sum, its parts named. The ring gives the six biggest categories (across all years) a
+colour each, so a category keeps its colour whichever year you pick; the rest are "Other".
+
+Under the sum, with nothing tapped, the period at a glance: your biggest payment, the payee you paid most, your busiest
+month (as Month by month adds it up), and how the year compares with the one before over the months both years' files
+cover alike (a month with only UPI history isn't set against one with your cards too). Then one thing to do: sort
+what's waiting in Uncategorized, or see which cards' spending is only estimated from bills. Tap a category, in *Where
+it went* or on the ring, and it shows where that category's money went: its top payees, its sub-categories together,
+and its biggest payments (a sub-category: just its own). A payee is one row however its files spell it ("BLINKIT
+GURGAON" on a card statement, "Blinkit" in a UPI app): a shop the merchant list knows by its name, otherwise the
+spelling its payments use most (two electricity boards stay two payees, though both are filed as electricity); a
+payee spelt more than one way says so. Its payees add up to the category's figure.
+**Show all** opens the category's payments in Your transactions, and a payment opens itself. **Uncategorized** lists
+its payees with a category picker each: one answer files every payment to that payee, in every year, as Needs your
+eyes does. **Card purchases** shows the cards and bills their estimate comes from: a bill doesn't say what it paid
+for, so add the card's statements to see its payees. Below 1280px wide, where the two panels stack, the detail opens
+under the row you tapped.
 
 **Month by month** (below it) draws each category's spending per month, from the same numbers. Tick the categories to
 draw; the scale fits what's ticked, so one category on its own shows its real ups and downs. Your ticks are

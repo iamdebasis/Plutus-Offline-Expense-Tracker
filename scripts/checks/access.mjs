@@ -3,7 +3,7 @@
 // contrast stepping helper text and edges up. On the dashboard and in Ask Plutus.
 import { sleep } from './browser.mjs'
 
-const CONTRAST = `(() => {
+export const CONTRAST = `(() => {
   const cv = document.createElement('canvas'); cv.width = cv.height = 1; const cx = cv.getContext('2d', { willReadFrequently: true }); const memo = {}
   const rgba = (c) => { if (c in memo) return memo[c]; cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return (memo[c] = [d[0], d[1], d[2], d[3] / 255]) }
   const over = (fg, bg) => [0, 1, 2].map((i) => fg[i] * fg[3] + bg[i] * (1 - fg[3]))
@@ -38,7 +38,7 @@ const CONTRAST = `(() => {
   }
   return { n, low }
 })()`
-const TARGETS = `(() => {
+export const TARGETS = `(() => {
   const small = []; let n = 0
   for (const el of document.querySelectorAll('button, a[href], input:not([type=hidden]), select, [role=button], summary')) {
     const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue

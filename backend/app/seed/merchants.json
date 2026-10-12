@@ -116,6 +116,7 @@
   },
   {
     "name": "Supermarket chain",
+    "kind": true,
     "category": "groceries.supermarket",
     "pattern": "\\b(star bazaar|smart bazaar|spar hypermarket|vishal mega mart|nilgiris|easyday|lulu hypermarket|metro cash and carry|ratnadeep|simpli namdhari|hypercity|big bazaar)\\b"
   },
@@ -186,11 +187,13 @@
   },
   {
     "name": "Metro",
+    "kind": true,
     "category": "transport.public",
     "pattern": "\\bmetro (rail|railway)\\b|\\b(bmrcl|dmrc|mmrcl|mmmocl|cmrl|kmrl|gmrc|nmrcl|mmrda|pmrda)\\b|\\b(namma|delhi|chennai|hyderabad|kochi|pune|maha|lucknow|nagpur|ahmedabad|kolkata|mumbai|jaipur|noida|gurgaon|gurugram|indore|bhopal|patna|kanpur|agra|bangalore|bengaluru) metro\\b"
   },
   {
     "name": "FASTag",
+    "kind": true,
     "category": "transport.tolls",
     "pattern": "\\bfastag\\b|\\bnetc\\b"
   },
@@ -336,6 +339,7 @@
   },
   {
     "name": "Mobile recharge",
+    "kind": true,
     "category": "bills.mobile",
     "pattern": "^mobile recharge$"
   },
@@ -361,16 +365,19 @@
   },
   {
     "name": "Electricity board",
+    "kind": true,
     "category": "bills.electricity",
     "pattern": "\\b(electricity|bescom|hescom|gescom|mescom|cesc|tneb|tangedco|kseb|mseb|msedcl|mahadiscom|bses|tpddl|tata power|adani electricity|torrent power|wbsedcl|tsspdcl|tsnpdcl|apspdcl|apepdcl|apcpdcl|uppcl|pvvnl|mvvnl|dvvnl|pspcl|jvvnl|avvnl|jdvvnl|dhbvn|uhbvn|nbpdcl|sbpdcl|cspdcl|mppkvvcl|dgvcl|mgvcl|pgvcl|ugvcl|tpcodl|tpsodl|kesco|hpseb|jkpdd|meecl|apdcl)\\b"
   },
   {
     "name": "Water board",
+    "kind": true,
     "category": "bills.water",
     "pattern": "\\b(water (board|supply|works)|jal (board|nigam|sansthan)|delhi jal|bwssb|hmwssb|cmwssb|kwa|phed)\\b"
   },
   {
     "name": "Gas",
+    "kind": true,
     "category": "bills.gas",
     "pattern": "\\bindane\\b|\\bhp gas\\b|\\bbharat gas\\b|\\bmahanagar gas\\b|\\bigl\\b"
   },
@@ -636,6 +643,7 @@
   },
   {
     "name": "Mutual fund",
+    "kind": true,
     "category": "investments",
     "pattern": "\\bmutual fund\\b|\\bbse star mf\\b|\\bcams\\b|\\bkfintech\\b"
   },
@@ -656,6 +664,7 @@
   },
   {
     "name": "Dairy cooperative",
+    "kind": true,
     "category": "groceries.local",
     "pattern": "\\b(mother dairy|nandini|kmf|aavin|milma|vijaya dairy|heritage foods|gokul|verka|sudha dairy|saras dairy|omfed|aarey|parag milk|banas dairy|mahananda)\\b"
   }

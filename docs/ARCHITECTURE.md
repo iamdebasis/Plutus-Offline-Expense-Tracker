@@ -58,7 +58,8 @@ flowchart LR
    run by `ledger.place_cards`, and again after every edit of the ledger). A bill is an app's record (CRED) or a
    statement's own payment row that no app recorded.
 8. **Shown**: the page reloads the ledger (`GET /api/transactions`, `/api/card-payments`, `/api/card-statements`) and
-   computes every total in the browser (`web/src/lib/`), from the same rows the tests check.
+   computes every total in the browser (`web/src/lib/`), from the same rows the tests check. Each payment comes with
+   its shop (`categorize.shops`: one shop however its files spell the payee), worked out when served, never stored.
 
 At startup (`app/main.py` lifespan), Plutus re-identifies files read by an older detector, re-reads files whose reader
 improved (`PARSER_VERSIONS` in `app/imports.py`), re-applies changed rules, folds duplicates, and picks the local
@@ -115,9 +116,9 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 
 | Module | What it does |
 |---|---|
-| `app/categorize.py` | The category of every payment, cheapest and most certain source first (the order is at the top of the file); refunds linked to their payments; the local AI for unknown names |
+| `app/categorize.py` | The category of every payment, cheapest and most certain source first (the order is at the top of the file); refunds linked to their payments; the local AI for unknown names; which shop a payee is (`same_shop`, and `shops`: the name shown) |
 | `app/billing.py` | Which card an app's "XXXX99" is; the bills a statement's own payment rows record that no app did (`statement_bills`); each card bill's cycle; whether a statement covers it; the estimate for a cycle no statement covers |
-| `app/seed/` | The same for everyone: `categories.json` (the category tree), `merchants.json` (public merchants), `bank_categories.json` (banks' own labels) |
+| `app/seed/` | The same for everyone: `categories.json` (the category tree), `merchants.json` (public merchants; `kind` marks an entry that names a kind of payee, many companies, not one shop), `bank_categories.json` (banks' own labels) |
 
 **The local AI** (optional)
 
@@ -301,7 +302,8 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/cards/parts.tsx` | Chip, network marks and wordmarks for card faces |
 | `components/brand/PlutusLogo.tsx` | The Plutus mark |
 | `components/dash/Section.tsx` | A dashboard section's title row |
-| `components/dash/TotalSpend.tsx` | Total spend: UPI + cards, with how card spending was counted |
+| `components/dash/TotalSpend.tsx` | Total spend: the ring and Where it went (one selection), the sum, then what you tap in detail or the period's highlights |
+| `components/dash/SpendFocus.tsx` | What Total spend shows for what you tap: a category's top payees and biggest payments (Uncategorized's answered there), Card purchases' cards and bills, Other's categories; with nothing tapped, the period's highlights and one thing to do |
 | `components/dash/MonthlyChart.tsx` | One series of monthly columns |
 | `components/dash/MonthlyTrends.tsx` | Month by month, per category |
 | `components/dash/Trends.tsx` | The shared month-by-month lines (categories, cards), estimated months dashed, a key under them; their table, a row a line and a column a month |
@@ -319,6 +321,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 |---|---|
 | `lib/ledger.ts` | The ledger as the page uses it: buckets, card bills, row tags, how each payment was paid (`howPaid`: the list's "Paid with"), one payment one row (a bill's sides folded: `billSides`, `oneRowPerPayment`, `billNote`), the view for a period |
 | `lib/totals.ts` | Total spend for a period, cards and UPI together, counted once; colours fixed per category |
+| `lib/focus.ts` | Total spend's detail: a category's shops (one shop however spelt) and biggest payments, card estimates bill by bill, the period's highlights; a category's shops add up to its figure |
 | `lib/cards.ts` | Spending per card (card-number purchases only); colours per card |
 | `lib/periods.ts` | Calendar years, months, labels |
 | `lib/scope.ts` | Investments left out or counted |
@@ -403,10 +406,11 @@ browser through its debugging protocol (`browser.mjs`: no packages, no downloads
 any failure. Its parts: `ledger.mjs` (the ledger through the API: ids, amounts, dates, sources, nothing counted twice,
 bills linked and estimated to the paisa, proven statements closing, held rows kept out), `money.mjs` (every figure
 shown in more than one place agrees, every year, investments counted or left out; Ask Plutus gives the same),
-`layout.mjs` (the page's width, the charts' keys), `table.mjs` (the month tables), `phone.mjs` (phones and small
-windows), `access.mjs` (contrast, tap targets, Increase contrast) and `walkthrough.mjs` (start over, add the files
-with the picker, answer the review list, change and undo, confirm a held statement, delete a file; the ledger checked
-after each).
+`layout.mjs` (the page's width, the charts' keys), `table.mjs` (the month tables), `focus.mjs` (what Total spend shows
+for every row you tap: its payees and bills add up to it, "Show all" opens its payments; the highlights are Month by
+month's), `phone.mjs` (phones and small windows), `access.mjs` (contrast, tap targets, Increase contrast) and
+`walkthrough.mjs` (start over, add the files with the picker, answer a payee from Total spend and the review list,
+change and undo, confirm a held statement, delete a file; the ledger checked after each).
 
 ## Adding a feature
 

@@ -9,7 +9,9 @@ const FIGURES = `(() => {
   const out = { terms: {}, where: [], upiWhere: [], faces: [] }
   const total = S('Total spend')
   for (const div of total?.querySelectorAll('dl > div') ?? []) out.terms[div.querySelector('dt').textContent.trim()] = num(div.querySelector('dd').textContent)
-  out.where = [...(total?.querySelectorAll('ul > li > button') ?? [])].map((b) => [b.querySelector('span.truncate')?.textContent.trim(), num(b.querySelector('span.text-zinc-100')?.textContent)])
+  // Where it went's own rows (not the lists in what you tapped, beside it)
+  const bars = [...(total?.querySelectorAll('section') ?? [])].find((p) => p.querySelector('h3')?.textContent.trim() === 'Where it went')
+  out.where = [...(bars?.querySelectorAll(':scope > ul > li > button') ?? [])].map((b) => [b.querySelector('span.truncate')?.textContent.trim(), num(b.querySelector('span.text-zinc-100')?.textContent)])
   const hero = (label) => num([...document.querySelectorAll('p')].find((p) => p.textContent.trim() === label)?.nextElementSibling?.textContent)
   out.upi = hero('Spent via UPI')
   out.cards = hero('Spent with your cards')

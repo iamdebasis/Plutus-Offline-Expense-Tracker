@@ -159,7 +159,16 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
         </div>
         <Coverage view={all} held={data.held} />
 
-        <TotalSpend totals={totals} allTime={allTime} period={period} />
+        <TotalSpend
+          data={data}
+          view={all}
+          totals={totals}
+          allTime={allTime}
+          period={period}
+          onShow={(ids, label) => show({ ids, label })}
+          onChanged={refresh}
+          notify={intake.notify}
+        />
         <MonthlyTrends data={data} view={all} totals={totals} allTime={allTime} period={period} leftOut={leftOut} />
         <CreditCards data={data} everything={everything} view={all} period={period} onChanged={refresh} />
         <UpiSpends data={data} all={upiAll} focused={upiFocused} category={category} setCategory={setCategory} refresh={refresh} notify={intake.notify} />
