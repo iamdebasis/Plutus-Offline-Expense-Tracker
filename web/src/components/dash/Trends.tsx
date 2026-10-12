@@ -1,7 +1,6 @@
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
 import { Check } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { fitLabel } from '../../lib/format'
 import { inr, inrCompact } from '../../lib/money'
 import { monthLabel, monthLongLabel } from '../../lib/periods'
 import { niceScale } from '../../lib/scale'
@@ -12,6 +11,8 @@ import { useEdgeFade } from '../../lib/useEdgeFade'
 const TOP = 16
 const AXIS_H = 30
 const LEFT = 52
+/** Room after the last month, for its dot. */
+const RIGHT = 14
 
 interface Props {
   months: string[]
@@ -49,6 +50,8 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
   const mainChips = main.filter((id) => (byId.has(id) || chosen.has(id)) && (!force || force.includes(id)))
   const rest = series.filter((s) => !main.includes(s.id) && (!force || force.includes(s.id))).sort((a, b) => b.amount - a.amount)
   const shown = series.filter((s) => chosen.has(s.id))
+  // the ticked lines with figures, in the chips' order: the table's rows and the chart's key
+  const ordered = [...mainChips, ...rest.map((s) => s.id)].filter((id) => chosen.has(id) && byId.has(id)).map((id) => byId.get(id)!)
   const toggle = (id: string) =>
     setTicked((s) => {
       const next = new Set(s)
@@ -98,20 +101,23 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
       {asTable ? (
         <TrendTable
           months={months}
-          series={[...mainChips, ...rest.map((s) => s.id)].filter((id) => chosen.has(id) && byId.has(id)).map((id) => byId.get(id)!)}
+          series={ordered}
           colourOf={colourOf}
           kind={kind[0]}
           empty={`Tick a ${kind[0]} to list its months.`}
         />
       ) : (
-        <TrendChart
-          months={months}
-          series={shown}
-          colourOf={colourOf}
-          focus={focus}
-          ariaLabel={ariaLabel}
-          empty={chosen.size ? `No spending on the ticked ${kind[1]} ${when}.` : `Tick a ${kind[0]} to see how it changes month by month.`}
-        />
+        <>
+          <TrendChart
+            months={months}
+            series={shown}
+            colourOf={colourOf}
+            focus={focus}
+            ariaLabel={ariaLabel}
+            empty={chosen.size ? `No spending on the ticked ${kind[1]} ${when}.` : `Tick a ${kind[0]} to see how it changes month by month.`}
+          />
+          <Key lines={ordered} colourOf={colourOf} onFocus={setFocus} />
+        </>
       )}
     </>
   )
@@ -187,6 +193,26 @@ function Box({ colour, checked }: { colour: string; checked: boolean }) {
   )
 }
 
+/** Which line is which, under the chart, so the plot can run the full width: each ticked line's mark (dashed where
+ *  the whole line is an estimate) and name, in the chips' order, wrapping when there are many. Pointing at a name
+ *  brings its line forward, as a chip does: the way to pick out one of the grey lines. One line needs no key. */
+function Key({ lines, colourOf, onFocus }: { lines: Trend[]; colourOf: (id: string) => string; onFocus: (id: string | null) => void }) {
+  if (lines.length < 2) return null
+  return (
+    // it starts where the plot does
+    <ul aria-label="Key" className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-300" style={{ paddingLeft: LEFT }}>
+      {lines.map((s) => (
+        <li key={s.id} data-line={s.id} onPointerEnter={() => onFocus(s.id)} onPointerLeave={() => onFocus(null)} className="flex items-center gap-1.5">
+          <svg aria-hidden width="16" height="6" className="shrink-0">
+            <line x1="1" x2="15" y1="3" y2="3" stroke={colourOf(s.id)} strokeWidth="2" strokeLinecap="round" strokeDasharray={s.dashed ? '4 3' : undefined} />
+          </svg>
+          {s.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 // ---- the chart -------------------------------------------------------------------------------------
 
 function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { months: string[]; series: Trend[]; colourOf: (id: string) => string; focus: string | null; empty: string; ariaLabel: string }) {
@@ -199,10 +225,11 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
   const { ticks, max: targetMax } = useMemo(() => niceScale(peak), [peak])
   const max = useTweened(targetMax, reduced) // the scale glides when lines are ticked or unticked
 
-  const wide = width >= 640
-  const plotH = wide ? 280 : 210
-  const right = wide ? 136 : 14
-  const plotW = Math.max(1, width - LEFT - right)
+  // the names are in the key under the chart, so the plot runs the full width; on a wider page it grows taller too
+  // (280, as before, until the chart is wider than about 1170px, a window of about 1510px; then with the width, at
+  // most 360)
+  const plotH = width >= 640 ? Math.round(Math.min(360, Math.max(280, width * 0.24))) : 210
+  const plotW = Math.max(1, width - LEFT - RIGHT)
   const n = months.length
   const band = plotW / Math.max(n, 1)
   const x = (i: number) => LEFT + band * i + band / 2
@@ -215,30 +242,6 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
   const gaps = months.map((_, i) => series.length > 0 && series.every((s) => s.values[i] === null)) // nothing ticked has data
   const multiYear = n > 0 && months[0].slice(0, 4) !== months[n - 1].slice(0, 4)
   const isEstimate = (s: Trend, i: number) => !!s.dashed || !!s.estimated?.[i]
-
-  // names at the ends of the lines, pushed apart so they never overlap
-  const ends = useMemo(() => {
-    if (!wide) return []
-    const items = series
-      .map((s) => {
-        const last = lastIndex(s.values)
-        return last < 0 ? null : { id: s.id, label: s.label, want: y(s.values[last]!), y: 0 }
-      })
-      .filter((e): e is NonNullable<typeof e> => !!e)
-      .sort((a, b) => a.want - b.want)
-    let top = TOP + 6
-    for (const e of items) {
-      e.y = Math.max(e.want, top)
-      top = e.y + 17
-    }
-    let bottom = TOP + plotH
-    for (const e of [...items].reverse()) {
-      e.y = Math.min(e.y, bottom)
-      bottom = e.y - 17
-    }
-    return items
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [series, max, wide, plotH])
 
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'ArrowRight') setHover((h) => Math.min(n - 1, (h ?? -1) + 1))
@@ -291,7 +294,7 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
               const { solid, dashed } = linePaths(s.values, (i) => isEstimate(s, i), x, y)
               const faded = (hover !== null && s.values[hover] === null) || (focus !== null && focus !== s.id && series.some((t) => t.id === focus))
               return (
-                <motion.g key={s.id} initial={{ opacity: 0 }} animate={{ opacity: faded ? 0.2 : 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                <motion.g key={s.id} data-line={s.id} initial={{ opacity: 0 }} animate={{ opacity: faded ? 0.2 : 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   {solid && (
                     <motion.path
                       d={solid}
@@ -329,15 +332,6 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
             })}
           </AnimatePresence>
 
-          {ends.map((e) => (
-            <g key={`end-${e.id}`} className="pointer-events-none">
-              <circle cx={LEFT + plotW + 12} cy={e.y} r={3} fill={colourOf(e.id)} />
-              <text x={LEFT + plotW + 20} y={e.y} dy="0.32em" className="fill-zinc-300 text-[12px]">
-                {fitLabel(e.label, right - 22, labelWidth)}
-              </text>
-            </g>
-          ))}
-
           {/* one target across the plot: hover, or focus and use ← → */}
           <rect
             x={LEFT}
@@ -360,7 +354,7 @@ function TrendChart({ months, series, colourOf, focus, empty, ariaLabel }: { mon
       )}
 
       {nothing && width > 0 && (
-        <p className="pointer-events-none absolute inset-x-0 flex items-center justify-center text-sm text-muted" style={{ top: TOP, height: plotH, left: LEFT, right }}>
+        <p className="pointer-events-none absolute inset-x-0 flex items-center justify-center text-sm text-muted" style={{ top: TOP, height: plotH, left: LEFT, right: RIGHT }}>
           {empty}
         </p>
       )}
@@ -524,11 +518,6 @@ function TrendTable({ months, series, colourOf, kind, empty }: { months: string[
 
 // ---- helpers ---------------------------------------------------------------------------------------
 
-function lastIndex(values: (number | null)[]): number {
-  for (let i = values.length - 1; i >= 0; i--) if (values[i] !== null) return i
-  return -1
-}
-
 /** A smooth line through the points that never overshoots them (monotone cubic, Fritsch–Carlson): it can't dip
  *  below ₹0 or above a real peak. A missing month breaks the line. Split in two: the stretches between months read
  *  one by one (solid) and those that touch an estimated month (dashed). */
@@ -633,16 +622,6 @@ function useTweened(target: number, reduced: boolean): number {
     return () => controls.stop()
   }, [target, reduced])
   return value
-}
-
-let ruler: CanvasRenderingContext2D | null = null
-
-/** How wide a line's name is drawn at its end (12px, in the page's font). */
-function labelWidth(text: string): number {
-  ruler ??= document.createElement('canvas').getContext('2d')
-  if (!ruler) return text.length * 7
-  ruler.font = `12px ${getComputedStyle(document.body).fontFamily}`
-  return ruler.measureText(text).width
 }
 
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {

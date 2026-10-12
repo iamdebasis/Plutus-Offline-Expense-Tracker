@@ -14,7 +14,7 @@ export const APP_NAME = 'Plutus'
 /** `activity`: the files being read, for the local AI's one-time hint once they're done. */
 export function Header({ actions, activity }: { actions?: ReactNode; activity?: Activity }) {
   return (
-    <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-6 sm:px-6">
+    <header className="page flex items-center justify-between gap-3 px-4 pt-6 sm:px-6">
       <div className="flex items-center gap-2.5">
         <PlutusLogo className="size-10 -my-1 drop-shadow-[0_4px_14px_rgb(247_179_45/0.25)]" animated title="" />
         <span className="font-display text-[17px] font-semibold tracking-tight">{APP_NAME}</span>

@@ -9,7 +9,6 @@ interface Month {
   count: number
 }
 
-const PLOT_H = 190
 const AXIS_H = 26
 const LEFT = 52
 const TOP = 18
@@ -48,7 +47,9 @@ export function MonthlyChart({
   const plotW = Math.max(width - LEFT - 8, 1)
   const band = plotW / Math.max(months.length, 1)
   const barW = Math.min(24, band * 0.56)
-  const y = (v: number) => TOP + PLOT_H - (max ? (v / max) * PLOT_H : 0)
+  // 190 tall in a narrow card, growing with a wider page (at most 240), so the bars keep their shape
+  const plotH = Math.round(Math.min(240, Math.max(190, width * 0.38)))
+  const y = (v: number) => TOP + plotH - (max ? (v / max) * plotH : 0)
   const peak = months.reduce((best, m, i) => (m.spent > (months[best]?.spent ?? 0) ? i : best), 0)
   const showEvery = band < 30 ? Math.ceil(30 / band) : 1
 
@@ -86,7 +87,7 @@ export function MonthlyChart({
         </table>
       ) : (
         <div ref={wrap} className="relative w-full min-w-0">
-          {width > 0 && <svg width={width} height={TOP + PLOT_H + AXIS_H} role="img" aria-label={title} className="block overflow-visible">
+          {width > 0 && <svg width={width} height={TOP + plotH + AXIS_H} role="img" aria-label={title} className="block overflow-visible">
             {ticks.map((t) => (
               <g key={t}>
                 <line x1={LEFT} x2={width - 8} y1={y(t)} y2={y(t)} stroke={t === 0 ? 'var(--color-axis)' : 'var(--color-grid)'} strokeWidth={1} shapeRendering="crispEdges" />
@@ -111,7 +112,7 @@ export function MonthlyChart({
                   )}
                   {!hasData && <rect x={cx - barW / 2} y={y(0) - 2} width={barW} height={2} rx={1} fill="var(--color-axis)" />}
                   {i % showEvery === 0 && (
-                    <text x={cx} y={TOP + PLOT_H + 18} textAnchor="middle" className={`text-[11px] ${hasData ? 'fill-[var(--color-ink-muted)]' : 'fill-faint'}`}>
+                    <text x={cx} y={TOP + plotH + 18} textAnchor="middle" className={`text-[11px] ${hasData ? 'fill-[var(--color-ink-muted)]' : 'fill-faint'}`}>
                       {monthLabel(m.key)}
                     </text>
                   )}
@@ -119,7 +120,7 @@ export function MonthlyChart({
                     x={LEFT + band * i}
                     y={TOP}
                     width={band}
-                    height={PLOT_H}
+                    height={plotH}
                     fill="transparent"
                     tabIndex={0}
                     aria-label={hasData ? `${monthLongLabel(m.key)}: ${inr(m.spent)}` : `${monthLongLabel(m.key)}: no ${source}`}

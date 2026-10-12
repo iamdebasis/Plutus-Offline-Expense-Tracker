@@ -167,6 +167,8 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   `components/dash/Trends.tsx`: a `Trend` per line, with its estimated months dashed and gaps as null. Its table is a
   row a line and a column a month (a year across several), from `lib/trendTable.ts`; a row's Total is the line's own
   figure, which its months add up to (`web/tests/totals.test.ts` holds it).
+- The page's width is one rule, `page` in `web/src/index.css` (header, dashboard, welcome): about 10% of the window
+  each side, never narrower than before, at most 1600px; a chart's names are in a key under it, never beside the plot.
 - Total spend (`web/src/lib/totals.ts`) must never double count: bills are placed and netted on the server
   (`app/billing.py`), the dashboard spreads each `estimate` over its cycle. The UPI section + the card section
   (`lib/cards.ts`, `CardSpending.tsx`: card-number purchases only) = Total spend, for every year and card filter.

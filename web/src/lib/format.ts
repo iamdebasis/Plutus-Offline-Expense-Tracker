@@ -39,19 +39,3 @@ export function shortPath(path: string, max = 56): string {
   for (let i = parts.length - 2; i > 1 && head.length + tail.length + parts[i].length + 3 <= max; i--) tail = `${parts[i]}/${tail}`
   return `${head}/…/${tail}`
 }
-
-/** Shortens a label to `room` pixels, as `width` measures text. A card's last digits ("Fake Bank ••1111") are what
- *  tell its line apart, so they stay and the name gives way: whole words first, then letters. */
-export function fitLabel(label: string, room: number, width: (text: string) => number): string {
-  if (width(label) <= room) return label
-  const tail = / ••\d+$/.exec(label)?.[0] ?? ''
-  const words = label.slice(0, label.length - tail.length).split(' ')
-  const shortened = (head: string) => `${head.replace(/[\s&,·–-]+$/, '')}…${tail}`
-  for (let n = words.length - 1; n > 0; n--) {
-    const s = shortened(words.slice(0, n).join(' '))
-    if (width(s) <= room) return s
-  }
-  let head = words[0]
-  while (head.length > 1 && width(shortened(head)) > room) head = head.slice(0, -1)
-  return shortened(head)
-}

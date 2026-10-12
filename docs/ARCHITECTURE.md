@@ -304,7 +304,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/dash/TotalSpend.tsx` | Total spend: UPI + cards, with how card spending was counted |
 | `components/dash/MonthlyChart.tsx` | One series of monthly columns |
 | `components/dash/MonthlyTrends.tsx` | Month by month, per category |
-| `components/dash/Trends.tsx` | The shared month-by-month lines (categories, cards), estimated months dashed; their table, a row a line and a column a month |
+| `components/dash/Trends.tsx` | The shared month-by-month lines (categories, cards), estimated months dashed, a key under them; their table, a row a line and a column a month |
 | `components/dash/SpendDonut.tsx` | Spending by category, as a ring |
 | `components/dash/CategoryBars.tsx` | Spending by category, as bars |
 | `components/dash/CardSpending.tsx` | Credit cards: purchases with each card's number |
@@ -349,7 +349,9 @@ one filter row, a table view for every chart, and colours that follow the entity
 fixed from all-time totals, never by rank in a period). Every state has a calm, worded version: empty, busy, error,
 done. Every text reads at 4.5:1 or more (helper text in `--color-muted`, never zinc-500 to 700; `--color-faint` for
 decoration), every control is at least 24 by 24, and the main ones take a 44px tap under a finger (`tap`); the Mac's
-Increase contrast steps text and edges up. `web/tests/contrast.test.ts` checks the colours from `index.css`.
+Increase contrast steps text and edges up. `web/tests/contrast.test.ts` checks the colours from `index.css`. The
+page's width is one rule, `page` in `index.css`, for the header, the dashboard and the welcome page: about 10% of the
+window each side, never narrower than 1104px of content, at most 1600.
 
 ## Privacy, enforced
 

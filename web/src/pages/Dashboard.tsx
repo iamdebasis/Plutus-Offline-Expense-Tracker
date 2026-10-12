@@ -123,7 +123,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
       />
       <AskPanel open={asking} onOpen={openAsk} onClose={closeAsk} data={data} onShow={(ids, label) => show({ ids, label })} />
 
-      <main className="mx-auto max-w-6xl px-4 sm:px-6">
+      <main className="page px-4 sm:px-6">
         {/* the timeline: one row that scopes everything below it */}
         <div ref={sentinel} aria-hidden className="h-6" />
         <div

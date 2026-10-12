@@ -317,3 +317,22 @@ scrolls: twelve figures don't fit 390px.
 **Where**: `web/src/lib/trendTable.ts` (tested in `web/tests/trendTable.test.ts`), `TrendTable` in
 `web/src/components/dash/Trends.tsx`, `web/src/lib/useEdgeFade.ts` (shared with the years); the months-add-up check in
 `web/tests/totals.test.ts`.
+
+## 27. The page grows with the window; a chart's names go under it
+
+**Decision**: the page is as wide as about 80% of the window, leaving about 10% each side, never narrower than it was
+(1104px of content, so a 1280px screen keeps its layout) and at most 1600px; one rule (`page` in `index.css`) sets it
+for the header, the dashboard and the welcome page, so their edges line up. Phones and tablets are unchanged. In the
+month-by-month charts the line names are a key under the chart (each ticked line's mark, dashed for an estimate, and
+name, in the chips' order, wrapping), not a column beside the plot, so the plot runs the full width of its card; it
+also grows taller with a wider page (280px, as before, until the window is about 1510px wide, then with the width, at
+most 360). The UPI
+month-by-month bars grow the same way (190 to 240). The transactions list's Payee column may take up to 28rem.
+**Why**: on a 1728px screen the page was 1104px wide, leaving 17% empty each side, and the chart kept 136px beside its
+plot for names that, with many lines ticked, stacked into a list that no longer sat by its lines. The owner asked for
+about a 10% gap each side and the names below the chart. The cap keeps a row of the transactions list readable on a
+very wide screen.
+**Costs**: lines aren't named where they end; the key and the tooltip name them, and pointing at a name in the key
+brings its line forward (the way to pick out one of the grey lines). Past 2000px the sides grow beyond 10%.
+**Where**: `page` in `web/src/index.css`; `Key` and the plot's size in `web/src/components/dash/Trends.tsx`;
+`web/src/components/dash/MonthlyChart.tsx`; the Payee column in `web/src/components/dash/TransactionsTable.tsx`.

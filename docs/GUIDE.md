@@ -132,8 +132,10 @@ The line under the sum says which parts are in it. The ring gives the six bigges
 **Month by month** (below it) draws each category's spending per month, from the same numbers. Tick the categories to
 draw; the scale fits what's ticked, so one category on its own shows its real ups and downs. Your ticks are
 remembered. Card purchases is dashed: it's estimated, spread over the billing cycles the bills paid for. A month no
-file covers is a gap, not ₹0. Seven categories have colours (the ring's six plus violet); others are grey and named at
-their line's end, since lines can cross anywhere and more colours would be too close to tell apart. Every category
+file covers is a gap, not ₹0. Seven categories have colours (the ring's six plus violet); others are grey, since lines can
+cross anywhere and more colours would be too close to tell apart. The key under the chart names every ticked line in
+the chips' order (a dashed mark for an estimated one); point at a name to bring its line forward, the way to pick out a
+grey one, and the chart runs the full width of its card. Every category
 with spending has its chip, the coloured ones first, then the grey ones by how much they hold; the row wraps when
 there are many, and **Only** on a chip shows that one alone.
 

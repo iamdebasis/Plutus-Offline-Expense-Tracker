@@ -41,7 +41,7 @@ export function Welcome({ data, refresh, intake, activity }: Props) {
       <Backdrop />
       <Header activity={activity} actions={<ImportActivity activity={activity} pending={intake.pending} />} />
 
-      <main className="mx-auto max-w-6xl px-6">
+      <main className="page px-6">
         <section className="mx-auto max-w-3xl pt-12 text-center sm:pt-16">
           <motion.div
             initial={{ opacity: 0, scale: 0.8, rotate: -8 }}

@@ -527,7 +527,7 @@ export function TransactionsTable({
                         {dayLabel(t.at)}
                         {time(t) && <span className="ml-1.5 text-xs text-muted">{time(t)}</span>}
                       </td>
-                      <td className="max-w-72 py-2 pr-4">
+                      <td className="max-w-[28rem] py-2 pr-4">
                         {payee(t)}
                         {subline(t)}
                       </td>

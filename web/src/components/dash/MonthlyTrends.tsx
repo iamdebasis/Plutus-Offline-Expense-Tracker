@@ -22,7 +22,7 @@ interface Props {
 export function MonthlyTrends({ data, view, totals, allTime, period, leftOut }: Props) {
   const { months, trends } = useMemo(() => monthlyTrends(data, view, totals), [data, view, totals])
   // Seven colours: the ring's six and violet. The palette's red sits too close to its orange for lines, which
-  // can cross anywhere; categories past seven are grey, and every line is named at its end and in the tooltip.
+  // can cross anywhere; categories past seven are grey, and every line is named in the key under the chart and in the tooltip.
   const slots = useMemo(() => colourSlots(allTime, 7), [allTime])
   const labels = useMemo(() => new Map(allTime.byCategory.map((c) => [c.id, c.label])), [allTime])
   const series = useMemo(() => trends.map((t) => ({ ...t, label: labels.get(t.id) ?? t.label, dashed: t.id === CARD_PURCHASES })), [trends, labels])

@@ -69,6 +69,16 @@
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-series-7) 40%, transparent);
 }
 
+/* The page's width, one for the header, the dashboard and the welcome page so their edges line up: about 10% of the
+   window each side (80% for the page), never narrower than it was (1104px of content, so a 1280px screen keeps its
+   layout), and at most 1600px, past which a row of the transactions list is too long to read across. Its padding
+   (1.5rem from 640px up) is set where it's used; the 3rem here is that padding, either side. */
+@utility page {
+  width: 100%;
+  max-width: calc(min(max(69rem, 80vw), 100rem) + 3rem);
+  margin-inline: auto;
+}
+
 /* A control's touch target at least 44 by 44 (Apple's default size) on a touch screen, without changing how it looks: an
    invisible margin around it takes the tap. Only where the pointer is a finger, so a mouse never hits a neighbour's
    margin. Not for a control placed absolutely, nor inside a box that clips it (give that box room, as the years do). */

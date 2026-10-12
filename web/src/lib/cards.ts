@@ -165,7 +165,7 @@ export function cardTrends(data: LedgerData, period: PeriodKey, category: string
 }
 
 /** Up to seven cards get a colour of their own, the most spent with across all your years (unscoped), so a card
- *  keeps its colour whichever year you pick; the rest are grey and named at their line's end. */
+ *  keeps its colour whichever year you pick; the rest are grey, named in the key under the chart. */
 export function cardColours(everything: LedgerData): Map<string, string> {
   return new Map(cardTrends(everything, 'all', null).trends.slice(0, 7).map((t, i) => [t.id, `var(--color-series-${i + 1})`]))
 }
