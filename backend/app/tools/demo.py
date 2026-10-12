@@ -7,7 +7,8 @@ or your model. Each run starts from nothing.
 
     ET_DATA_DIR=.demo/data ET_PORT=8001 python -m app.tools.demo      (make demo does this)
 
-With --screenshots it photographs the dashboard for the README (scripts/screenshots.mjs) and stops.
+With --screenshots it photographs the dashboard for the README (scripts/screenshots.mjs) and stops; with --checks it
+checks the page in a browser (scripts/checks/run.mjs; Start over goes to .demo/trash, not the Mac's Trash) and stops.
 """
 
 import os
@@ -375,12 +376,26 @@ def main() -> None:
     base = f"http://127.0.0.1:{settings.port}"
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=settings.port, log_level="warning"))
     code = 0
+    mode = sys.argv[1] if len(sys.argv) > 1 else None
+    script = {"--screenshots": "screenshots.mjs", "--checks": "checks/run.mjs"}.get(mode)
+    env = {**os.environ, "DEMO_URL": base}
+    if mode == "--checks":
+        from app import reset
+
+        trash = data.parent / "trash"
+
+        def to_trash(folder: Path) -> Path:  # Start over, in the checks: the demo's own "Trash", not this Mac's
+            trash.mkdir(exist_ok=True)
+            return Path(shutil.move(str(folder), trash / folder.name))
+
+        reset.to_trash = to_trash
+        env["PLUTUS_CHECKS_MAY_START_OVER"] = "1"
 
     def run() -> None:
         nonlocal code
         _feed(base, files)
-        if "--screenshots" in sys.argv[1:]:
-            code = subprocess.run(["node", str(ROOT / "scripts" / "screenshots.mjs")], env={**os.environ, "DEMO_URL": base}).returncode
+        if script:
+            code = subprocess.run(["node", str(ROOT / "scripts" / script)], env=env).returncode
             server.should_exit = True
 
     print(f"Making a year of made-up spending and reading it in, at {base} …", flush=True)

@@ -1,7 +1,7 @@
 PY := backend/.venv/bin/python
 
 .DEFAULT_GOAL := help
-.PHONY: help check setup ready dev start demo screenshots build test measure llm-check redact inspect inspect-takeout
+.PHONY: help check setup ready dev start demo screenshots check-ui build test measure llm-check redact inspect inspect-takeout
 
 help:             ## this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/^([a-z-]+):[^#]*## /  make \1\t/' | expand -t 24
@@ -35,6 +35,9 @@ demo: build       ## a year of made-up spending, in its own folder (.demo/, neve
 
 screenshots: build  ## the README's pictures (docs/screenshots/), taken from the demo with Chrome, Brave or Edge
 	ET_DATA_DIR=$(CURDIR)/.demo/data ET_PORT=8001 ET_OLLAMA_HOST=127.0.0.1:9 $(PY) -m app.tools.demo --screenshots
+
+check-ui: build   ## the page checked in a browser (Chrome, Brave or Edge), on the demo only: every figure, layout, phone, Start over
+	ET_DATA_DIR=$(CURDIR)/.demo/data ET_PORT=8001 ET_OLLAMA_HOST=127.0.0.1:9 $(PY) -m app.tools.demo --checks
 
 test: ready       ## backend tests (no network allowed) + the dashboard's money checks + TypeScript check
 	cd backend && .venv/bin/python -m pytest -q

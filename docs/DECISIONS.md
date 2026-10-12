@@ -336,3 +336,22 @@ very wide screen.
 brings its line forward (the way to pick out one of the grey lines). Past 2000px the sides grow beyond 10%.
 **Where**: `page` in `web/src/index.css`; `Key` and the plot's size in `web/src/components/dash/Trends.tsx`;
 `web/src/components/dash/MonthlyChart.tsx`; the Payee column in `web/src/components/dash/TransactionsTable.tsx`.
+
+## 28. The page's checks live in the project, and run on the demo only
+
+**Decision**: the browser checks that came before a release (every figure that shows in more than one place, the
+ledger through the API, the page's width, the month tables, phones, contrast and tap targets, and Plutus used start to
+finish) are in `scripts/checks/`, run by `make check-ui`. It starts the demo's made-up year on 8001 with the AI off,
+sends Start over to `.demo/trash` instead of the Mac's Trash, drives the Chromium-based browser already on the Mac
+(Chrome, Brave, Edge or Chromium) through its debugging protocol, and stops; it exits 1 if anything fails. `run.mjs`
+refuses any server whose data folder isn't `.demo/data`, and the walkthrough, which starts over, runs only when the
+demo was started for it (`PLUTUS_CHECKS_MAY_START_OVER`). The checks compare the page with itself and with the API
+(a figure in two places, the same; a total, its parts), so they hold for any made-up year, not only today's demo.
+**Why**: they lived in a scratch folder, were lost once and had to be rebuilt. In the project they can be run before
+every release, by anyone, and a change that breaks what they check is caught.
+**Costs**: about five minutes; a browser of Chromium's family is needed (as for `make screenshots`). They aren't in
+`make test` or CI, which have no such browser; the logic they check is in the unit tests there. The walkthrough waits
+by the clock in a few places (an animation, a save), so a very slow Mac could fail one; run it again before
+believing it.
+**Where**: `scripts/checks/` (`run.mjs`, `browser.mjs`, one file per area), the `--checks` mode of
+`app/tools/demo.py`, `make check-ui`.

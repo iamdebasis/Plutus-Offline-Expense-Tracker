@@ -179,7 +179,7 @@ web/src/
   lib/             the dashboard's arithmetic and Ask Plutus's answers, tested in web/tests/
   components/      dashboard sections, charts, card faces
 docs/              the guide, the architecture map, decisions, roadmap, the readers' guide, these screenshots
-scripts/           requirements check, dev server, commit guard, screenshots
+scripts/           requirements check, dev server, commit guard, screenshots, the page's checks in a browser
 ```
 
 ## Working on Plutus

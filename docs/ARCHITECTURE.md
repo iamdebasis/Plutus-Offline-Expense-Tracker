@@ -387,6 +387,7 @@ window each side, never narrower than 1104px of content, at most 1600.
 | `make test` | Backend tests (network blocked), the page's money checks, the TypeScript check |
 | `make measure` | 1000 random fake statements through identify → read → decide: none wrong, none unread |
 | `make demo` / `make screenshots` | The made-up year on 8001 / the README's pictures from it |
+| `make check-ui` | The page's checks in a headless browser, on the demo (`scripts/checks/`) |
 | `make inspect FILE=…` / `make redact FILE=…` / `make inspect-takeout FILE=…` | Masked structure of a file / an anonymised copy / a Takeout's structure |
 | `make llm-check` | A live round trip with the local model |
 
@@ -395,7 +396,17 @@ Fakes: `tests/statement_gen.py` (random statement layouts), `tests/fake_cards.py
 (`.github/workflows/ci.yml`) runs the backend tests, the page's tests, the type check and a build on a macOS runner.
 
 End-to-end checks run against a scratch server: `ET_DATA_DIR` set to a scratch folder (never `data/`), its own port,
-`ET_OLLAMA_HOST=127.0.0.1:9` unless the AI is under test, and a scratch Trash for Start over.
+`ET_OLLAMA_HOST=127.0.0.1:9` unless the AI is under test, and a scratch Trash for Start over. `make check-ui` is that,
+on the demo: `app/tools/demo.py --checks` makes the year, points Start over at `.demo/trash`, and runs
+`scripts/checks/run.mjs`, which refuses any server whose data isn't `.demo/data`, drives the Mac's own Chromium-based
+browser through its debugging protocol (`browser.mjs`: no packages, no downloads, a throwaway profile) and exits 1 on
+any failure. Its parts: `ledger.mjs` (the ledger through the API: ids, amounts, dates, sources, nothing counted twice,
+bills linked and estimated to the paisa, proven statements closing, held rows kept out), `money.mjs` (every figure
+shown in more than one place agrees, every year, investments counted or left out; Ask Plutus gives the same),
+`layout.mjs` (the page's width, the charts' keys), `table.mjs` (the month tables), `phone.mjs` (phones and small
+windows), `access.mjs` (contrast, tap targets, Increase contrast) and `walkthrough.mjs` (start over, add the files
+with the picker, answer the review list, change and undo, confirm a held statement, delete a file; the ledger checked
+after each).
 
 ## Adding a feature
 

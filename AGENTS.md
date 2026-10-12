@@ -70,6 +70,9 @@ Check every change against these four. If something would bend one, don't build 
   data folder.
 - **End-to-end checks** run on such a scratch server, in a headless browser, with made-up files (`tests/fake_cards.py`,
   `tests/statement_gen.py`); Start over there must use a scratch Trash. Never on the user's running Plutus.
+  `make check-ui` runs the page's checks (`scripts/checks/`) on the demo: the ledger, every figure shown twice, the
+  layout, phones, contrast, then a walkthrough that starts over (into `.demo/trash`). A visible change gets its check
+  there; `scripts/checks/run.mjs` refuses any server whose data isn't `.demo/data`.
 - **Tests first**: a test that fails without the change, with fake data; then switch the change off once to see it
   fail. Other readers or rules can mask a missing fix.
 - Don't run the `ollama` command-line client to inspect models (it opens the Ollama app); use its HTTP API on
@@ -91,6 +94,7 @@ Check every change against these four. If something would bend one, don't build 
 | `make test` | Backend tests (network blocked) + the page's money checks + TypeScript |
 | `make measure` | 1000 random fake statements: none wrong, none unread |
 | `make demo` | A made-up year at http://127.0.0.1:8001, in `.demo/`, never `data/` |
+| `make check-ui` | The page checked in a headless browser, on the demo only (Chrome, Brave, Edge or Chromium) |
 | `make inspect FILE=…` | What the detector and reader see in a PDF, masked |
 
 Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web && pnpm test && pnpm typecheck`.

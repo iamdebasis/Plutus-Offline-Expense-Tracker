@@ -29,6 +29,7 @@ make dev          # or: hot reload (UI on http://127.0.0.1:5173)
 make demo         # a made-up year of spending at http://127.0.0.1:8001, in .demo/ (never data/)
 make test         # backend tests (no network allowed), the dashboard's money checks, TypeScript
 make screenshots  # the README's pictures, taken from the demo (needs Chrome, Brave, Edge or Chromium)
+make check-ui     # the page checked in a browser, on the demo only: every figure, the layout, phones, Start over
 ```
 
 Open http://127.0.0.1:8000 and add your first files. The app starts empty and learns as you go: your cards, your
