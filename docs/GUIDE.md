@@ -215,7 +215,8 @@ has the same table, a row for each card.
   **Paid from → Also yours**, where **Not mine** undoes it. An account you pay rent *to* (your landlord's) is the
   opposite: give it a category such as Rent, and add a name if you like; that goes to your payee table.
 - **Who you paid most** lists people and shops, never card bills: a bill pays your own card, and what the card bought
-  is in the Credit cards section.
+  is in the Credit cards section. A shop is one row however its files spell it, named as in Total spend (a merchant the
+  list knows by its own name, so a statement's "STARBUCKS COFFEE" and an app's "Starbucks" are one Starbucks).
 
 **Paid with**, in the transactions list, says how each payment was made, as your files show it: **Card** for a
 purchase with the card's number (in a shop, tapped, or online: a statement doesn't say which, so Plutus doesn't
@@ -396,6 +397,10 @@ it's stored, recognised as a repeat and read exactly like the zip.
 Only completed payments count; failed, pending, cancelled and refunded ones are counted in the summary and left out.
 Topping up UPI Lite moves your own money, so it's ignored; payments made with UPI Lite or a RuPay credit card are
 recorded with that as "Paid from". The import summary lists, per folder, what was read and what became of it.
+
+A file in the export bigger than 64 MB unpacked can't be Google Pay's (years of activity is a few megabytes): it isn't
+unpacked at all, so a zip made to unpack into gigabytes can't fill your Mac's memory. The import summary says which
+file it couldn't read and why ("too big to be Google Pay's"), and the rest of the export is read.
 
 If the counts look wrong, `make inspect-takeout FILE=~/Downloads/takeout.zip` (or the folder) prints the export's
 structure with every name, amount and ID masked and dates reduced to their format, so it's safe to share.
