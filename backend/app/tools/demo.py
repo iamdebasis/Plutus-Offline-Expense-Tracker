@@ -172,7 +172,7 @@ def _cards(y: Year, rng: random.Random) -> None:
              ("INDIGO AIRLINES", "AIRLINES"), ("CROMA RETAIL", "ELECTRONICS"), ("DECATHLON SPORTS", "SPORTS"),
              ("BOOKMYSHOW", "ENTERTAINMENT"), ("STARBUCKS COFFEE", "RESTAURANTS"), ("IKEA INDIA", "HOME FURNISHING"),
              ("UBER INDIA", "TRANSPORT")]
-    previous = 0.0
+    previous, paid = 0.0, None
     for i, start in enumerate(month_starts[:-1]):
         frm = start.replace(day=STATEMENT_DAY + 1)
         nxt = month_starts[i + 1]
@@ -189,8 +189,8 @@ def _cards(y: Year, rng: random.Random) -> None:
         if rng.random() < 0.5:
             back = rng.choice([r for r in rows if r.category])
             rows.append(CardRow(min(to, back.day + timedelta(days=3)), f"REFUND {back.details}", "", back.amount, credit=True))
-        if previous:
-            rows.append(CardRow(frm + timedelta(days=11), "PAYMENT RECEIVED - THANK YOU", "", previous, credit=True))
+        if previous and paid:  # the last bill, received on the day it was paid (a card can't receive it before)
+            rows.append(CardRow(paid, "PAYMENT RECEIVED - THANK YOU", "", previous, credit=True))
         if rng.random() < 0.5:
             rows.append(CardRow(to - timedelta(days=1), "CASHBACK CREDIT", "", round(rng.uniform(25, 150), 2), credit=True))
         rows.sort(key=lambda r: r.day)

@@ -310,3 +310,22 @@ def test_the_inspector_shows_where_a_missing_name_is_without_showing_it(tmp_path
     assert 'class="content-cell' in out
     for secret in ("SECRET", "SHOP", "SWIGGY", "75.00", "2025", "1111", "href"):
         assert secret not in out, secret
+
+
+def test_a_file_too_big_to_be_google_pays_is_never_unpacked(tmp_path, monkeypatch):
+    """A file in the zip that unpacks to more than MAX_FILE_BYTES (a zip bomb, or not Google Pay's) is left unread and
+    said so, before a byte of it is unpacked; the rest of the export is read."""
+    sends = f"{fake_takeout.ROOT}/Money sends and requests/Money sends and requests.csv"
+    big = 10_000_000
+    path = tmp_path / "t.zip"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, text in fake_takeout.files().items():
+            zf.writestr(name, " " * big if name == sends else text)  # ten megabytes of spaces pack into a few kilobytes
+    monkeypatch.setattr(gpay_takeout, "MAX_FILE_BYTES", big - 1)
+    unpacked = []
+    real_read = zipfile.ZipFile.read
+    monkeypatch.setattr(zipfile.ZipFile, "read", lambda self, info, *a: unpacked.append(getattr(info, "filename", info)) or real_read(self, info, *a))
+    result = gpay_takeout.parse(path, "upl_x")
+    assert sends not in unpacked
+    assert result.warnings == ["Money sends and requests: couldn't read Money sends and requests.csv (10 MB unpacked, too big to be Google Pay's). The rest of the export was read."]
+    assert result.notes[0].startswith("My Activity: 13 entries")

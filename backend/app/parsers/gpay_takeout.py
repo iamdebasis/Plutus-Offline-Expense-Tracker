@@ -85,6 +85,10 @@ _ONE = {"not payments": "not a payment", "requests": "request", "unreadable rows
 
 # ---- reading the zip ---------------------------------------------------------------------------------
 
+# A file of the export bigger than this, unpacked, isn't Google Pay's (years of activity is a few megabytes): it's left
+# unread, before any of it is unpacked, so a zip built to unpack into gigabytes (a "zip bomb") can't fill memory.
+MAX_FILE_BYTES = 64_000_000
+
 
 def parse(path: Path, upload_id: str) -> ParseResult:
     try:
@@ -108,6 +112,9 @@ def parse(path: Path, upload_id: str) -> ParseResult:
                 not_read.append(PurePosixPath(info.filename).name)
                 continue
             reports[kind].files += 1
+            if info.file_size > MAX_FILE_BYTES:
+                reports[kind].unreadable.append(f"{PurePosixPath(info.filename).name} ({round(info.file_size / 1_000_000):,} MB unpacked, too big to be Google Pay's)")
+                continue
             before = deepcopy(reports[kind])
             try:
                 entries = _READERS[kind](zf.read(info), info.filename, reports[kind])
