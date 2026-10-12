@@ -5,7 +5,7 @@ import { describe, test } from 'node:test'
 import { cardFigures, cardTrends, cardsOnly } from '../src/lib/cards'
 import { periodsIn, upiOnly, viewFor, type LedgerData } from '../src/lib/ledger'
 import { scoped } from '../src/lib/scope'
-import { totalSpendFor } from '../src/lib/totals'
+import { monthlyTrends, totalSpendFor } from '../src/lib/totals'
 import { bill, byNumber, card, ledger, onUpi, statement, txn } from './fixtures'
 
 const near = (a: number, b: number, what: string) => assert.ok(Math.abs(a - b) < 0.01, `${what}: ${a.toFixed(2)} vs ${b.toFixed(2)}`)
@@ -31,6 +31,11 @@ function holds(data: LedgerData) {
         lines += t.amount
       }
       near(lines, cards.itemized + cards.estimated, `${tag}: the card lines add up to all cards`)
+
+      // a category's months add up to its figure (its chip, its bar), so the table's Total column is that figure
+      for (const t of monthlyTrends(d, all, totals).trends) {
+        near(t.values.reduce<number>((s, v) => s + (v ?? 0), 0), t.amount, `${tag}: ${t.id}'s months = its figure`)
+      }
       const byMonth = viewFor(cardsOnly(d, null), period, null)
       months.forEach((k, i) => {
         const shown = (byMonth.months.find((m) => m.key === k)?.spent ?? 0) + byMonth.estimatedBills.reduce((s, b) => s + (b.months.get(k) ?? 0), 0)

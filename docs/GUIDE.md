@@ -137,6 +137,14 @@ their line's end, since lines can cross anywhere and more colours would be too c
 with spending has its chip, the coloured ones first, then the grey ones by how much they hold; the row wraps when
 there are many, and **Only** on a chip shows that one alone.
 
+**Show table** gives the same numbers as a table: a row for each ticked category (its colour beside its name, in the
+chips' order), a column for each month, Jan to Dec, then **Total**, the category's figure for the year (the same as its
+chip and its bar in *Where it went*); **Together** under the rows adds up each month. In **All years**, a column for
+each year instead, each the sum of its months. "—" is a month no file covers, "≈" an estimate from a card bill, and
+₹0 is quieter so the amounts stand out. A year fits without scrolling on a laptop or desktop while each month is under
+₹1 lakh; on a phone, or with bigger figures, the names stay put while the months scroll. Credit cards' month by month
+has the same table, a row for each card.
+
 - **Spent**: payments for things and services, minus what was refunded (below).
 - **Sent to people**: UPI to individuals. Label a person once (e.g. "Water delivery") and they move into spending.
 - **Card bills paid**: from CRED, and from your statements. Every statement lists the payment it received ("PAYMENT

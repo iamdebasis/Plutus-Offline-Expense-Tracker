@@ -6,6 +6,8 @@ import { inr, inrCompact } from '../../lib/money'
 import { monthLabel, monthLongLabel } from '../../lib/periods'
 import { niceScale } from '../../lib/scale'
 import type { Trend } from '../../lib/totals'
+import { trendTable, type Cell } from '../../lib/trendTable'
+import { useEdgeFade } from '../../lib/useEdgeFade'
 
 const TOP = 16
 const AXIS_H = 30
@@ -94,7 +96,13 @@ export function Trends({ months, series, colourOf, main, labelOf, storageKey, wh
       </div>
 
       {asTable ? (
-        <TrendTable months={months} series={shown} empty={`Tick a ${kind[0]} to list its months.`} />
+        <TrendTable
+          months={months}
+          series={[...mainChips, ...rest.map((s) => s.id)].filter((id) => chosen.has(id) && byId.has(id)).map((id) => byId.get(id)!)}
+          colourOf={colourOf}
+          kind={kind[0]}
+          empty={`Tick a ${kind[0]} to list its months.`}
+        />
       ) : (
         <TrendChart
           months={months}
@@ -433,46 +441,83 @@ function change(v: number, prev: number | null): string {
   return `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct) >= 999 ? '999+' : Math.round(Math.abs(pct))}%`
 }
 
-function TrendTable({ months, series, empty }: { months: string[]; series: Trend[]; empty: string }) {
+/** The table view: a row a line (a category, a card) in the chips' order, its colour beside its name; a column a month,
+ *  or a year when the months span several (`trendTable`); the period's total last, and Together under the rows. "—" is
+ *  a month no file covers, "≈" an estimate from a bill, and ₹0 is quiet so the amounts stand out. Wider than the screen
+ *  (a phone), the names stay put while the months scroll, the far edge faded while there's more. */
+function TrendTable({ months, series, colourOf, kind, empty }: { months: string[]; series: Trend[]; colourOf: (id: string) => string; kind: string; empty: string }) {
+  const [box, fade, more] = useEdgeFade<HTMLDivElement>(`${months.join()}|${series.map((s) => s.id).join()}`, { start: false })
   if (!series.length) return <p className="py-10 text-center text-sm text-muted">{empty}</p>
-  const estimate = (s: Trend, i: number) => !!s.dashed || !!s.estimated?.[i]
-  const together = series.length > 1
+  const t = trendTable(months, series)
+  const money = (c: Cell) => (c.value === null ? '—' : `${c.estimate ? '≈ ' : ''}${inr(c.value)}`)
+  const tone = (c: Cell, strong: string) => (c.value === null || Math.abs(c.value) < 0.5 ? 'text-muted' : c.estimate ? 'text-zinc-400' : strong)
+  // the first column stays put while the months scroll under it, so it has the card's own colour; once something has
+  // gone under it, a short fade in that colour along its edge, so a cut figure slides under the names, not into them
+  const pinned = `sticky left-0 z-10 bg-card pr-3 text-left font-normal xl:pr-4 ${
+    more.before ? 'after:pointer-events-none after:absolute after:inset-y-0 after:-right-4 after:w-4 after:bg-gradient-to-r after:from-card after:to-transparent' : ''
+  }`
+  // a laptop's narrower card (1024 to 1279px): a size smaller and closer, so a whole year fits without scrolling
+  const gap = 'pl-3 lg:pl-2 xl:pl-3'
   return (
-    <div className="-mx-1 overflow-x-auto px-1">
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs text-muted">
-          <tr>
-            <th className="py-1.5 pr-4 font-normal">Month</th>
-            {series.map((s) => (
-              <th key={s.id} className="py-1.5 pl-4 text-right font-normal whitespace-nowrap">
-                {s.label}
+    <div>
+      {/* no padding in the scroller: the pinned column covers its whole left edge, so nothing shows beside it */}
+      <div ref={box} className="overflow-x-auto" style={fade}>
+        <table className="w-full text-[13px] tabular-nums lg:text-xs xl:text-[13px]">
+          <thead className="text-xs text-muted">
+            <tr>
+              <th scope="col" className={`${pinned} py-1.5`}>
+                {kind[0].toUpperCase() + kind.slice(1)}
               </th>
-            ))}
-            {together && <th className="py-1.5 pl-4 text-right font-normal">Together</th>}
-          </tr>
-        </thead>
-        <tbody className="tabular-nums">
-          {months.map((k, i) => {
-            const any = series.some((s) => s.values[i] !== null)
-            return (
-              <tr key={k} className="border-t border-white/[0.05]">
-                <td className="py-1.5 pr-4 whitespace-nowrap text-zinc-300">{monthLongLabel(k)}</td>
-                {series.map((s) => (
-                  <td key={s.id} className={`py-1.5 pl-4 text-right whitespace-nowrap ${s.values[i] === null ? 'text-muted' : estimate(s, i) ? 'text-zinc-400' : 'text-zinc-100'}`}>
-                    {s.values[i] === null ? '—' : `${estimate(s, i) ? '≈ ' : ''}${inr(s.values[i]!)}`}
+              {t.columns.map((c) => (
+                <th key={c.key} scope="col" title={c.title} className={`py-1.5 text-right font-normal whitespace-nowrap ${gap}`}>
+                  {c.label}
+                </th>
+              ))}
+              <th scope="col" className="py-1.5 pl-4 text-right font-normal">
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {t.rows.map((r) => (
+              <tr key={r.id} className="border-t border-white/[0.05]">
+                <th scope="row" className={`${pinned} py-1.5`}>
+                  <span className="flex max-w-44 items-center gap-2 text-zinc-200" title={r.label}>
+                    <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: colourOf(r.id) }} />
+                    <span className="truncate">{r.label}</span>
+                  </span>
+                </th>
+                {r.cells.map((c, j) => (
+                  <td key={t.columns[j].key} className={`py-1.5 text-right whitespace-nowrap ${gap} ${tone(c, 'text-zinc-100')}`}>
+                    {money(c)}
                   </td>
                 ))}
-                {together && (
-                  <td className="py-1.5 pl-4 text-right whitespace-nowrap text-zinc-300">
-                    {any ? inr(series.reduce((t, s) => t + (s.values[i] ?? 0), 0)) : '—'}
-                  </td>
-                )}
+                <td className="py-1.5 pl-4 text-right font-medium whitespace-nowrap text-zinc-50">
+                  {r.estimate ? '≈ ' : ''}
+                  {inr(r.total)}
+                </td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
-      {series.some((s) => s.dashed || s.estimated?.some(Boolean)) && <p className="mt-3 text-xs text-muted">≈ estimated from bills that pay no statement you added</p>}
+            ))}
+            {t.together && (
+              <tr className="border-t border-white/10">
+                <th scope="row" className={`${pinned} py-2 text-zinc-400`}>
+                  Together
+                </th>
+                {t.together.cells.map((c, j) => (
+                  <td key={t.columns[j].key} className={`py-2 text-right whitespace-nowrap ${gap} ${tone(c, 'text-zinc-300')}`}>
+                    {money(c)}
+                  </td>
+                ))}
+                <td className="py-2 pl-4 text-right font-semibold whitespace-nowrap text-zinc-50">
+                  {t.together.estimate ? '≈ ' : ''}
+                  {inr(t.together.total)}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {t.rows.some((r) => r.estimate) && <p className="mt-3 text-xs text-muted">≈ estimated from bills that pay no statement you added</p>}
     </div>
   )
 }

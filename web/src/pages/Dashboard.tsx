@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { CircleCheck, CirclePause, CreditCard, ListChecks, Plus, Smartphone, TrendingUp, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { AskPanel } from '../components/AskPanel'
 import { Backdrop } from '../components/Backdrop'
@@ -26,6 +26,7 @@ import { inr, inrExact } from '../lib/money'
 import { INVESTMENTS, scoped } from '../lib/scope'
 import { totalSpendFor } from '../lib/totals'
 import type { CardStatement, OwnAccount } from '../types'
+import { FADE_PX, useEdgeFade } from '../lib/useEdgeFade'
 import type { Activity } from '../lib/useImportActivity'
 import { dayLabel, monthKey, periodLabel, spanLabel, type PeriodKey } from '../lib/periods'
 
@@ -226,47 +227,27 @@ function Coverage({ view, held }: { view: PeriodView; held: CardStatement[] }) {
   )
 }
 
-const FADE_PX = 24
-
 /** The years and All years: the row that scopes the page. When they need more room than the bar has (many years, a
- *  narrow phone), they scroll sideways, fading at an edge with more beyond it, and the chosen one is kept in view. */
+ *  narrow phone), they scroll sideways, fading at an edge with more beyond it (`useEdgeFade`), and the chosen one is
+ *  kept in view. */
 function YearTabs({ years, period, onChange }: { years: number[]; period: PeriodKey; onChange: (p: PeriodKey) => void }) {
-  const list = useRef<HTMLDivElement>(null)
-  const [more, setMore] = useState({ before: false, after: false })
-  useLayoutEffect(() => {
-    const el = list.current
-    if (!el) return
-    const edges = () => setMore({ before: el.scrollLeft > 1, after: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 })
-    // the chosen year clear of the fade, where it can be: the next one peeks in, saying there's more
-    const keep = () => {
-      const on = el.querySelector<HTMLElement>('[aria-selected=true]')
-      if (on) {
-        const box = el.getBoundingClientRect()
-        const tab = on.getBoundingClientRect()
-        if (tab.left < box.left + FADE_PX) el.scrollLeft -= box.left + FADE_PX - tab.left
-        else if (tab.right > box.right - FADE_PX) el.scrollLeft += tab.right - (box.right - FADE_PX)
-      }
-      edges()
-    }
-    keep()
-    el.addEventListener('scroll', edges, { passive: true })
-    const watch = new ResizeObserver(keep)
-    watch.observe(el)
-    return () => {
-      el.removeEventListener('scroll', edges)
-      watch.disconnect()
-    }
-  }, [period, years])
-  const mask = more.before || more.after
-    ? `linear-gradient(to right, ${more.before ? 'transparent' : 'black'}, black ${FADE_PX}px, black calc(100% - ${FADE_PX}px), ${more.after ? 'transparent' : 'black'})`
-    : undefined
+  // the chosen year clear of the fade, where it can be: the next one peeks in, saying there's more
+  const keep = (el: HTMLDivElement) => {
+    const on = el.querySelector<HTMLElement>('[aria-selected=true]')
+    if (!on) return
+    const box = el.getBoundingClientRect()
+    const tab = on.getBoundingClientRect()
+    if (tab.left < box.left + FADE_PX) el.scrollLeft -= box.left + FADE_PX - tab.left
+    else if (tab.right > box.right - FADE_PX) el.scrollLeft += tab.right - (box.right - FADE_PX)
+  }
+  const [list, fade] = useEdgeFade<HTMLDivElement>(`${period}|${years.join()}`, { settle: keep })
   return (
     <div
       ref={list}
       role="tablist"
       aria-label="Year"
       className="-my-1 flex min-w-0 gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] sm:gap-2"
-      style={{ maskImage: mask, WebkitMaskImage: mask }}
+      style={fade}
     >
       {[...years, 'all' as const].map((p) => {
         const active = period === p

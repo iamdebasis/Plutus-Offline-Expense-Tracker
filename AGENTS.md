@@ -164,7 +164,9 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   view for every chart. Colours follow the entity: `colourSlots` in `web/src/lib/totals.ts` fixes a category's colour
   from all-time totals (`cardColours` in `lib/cards.ts` a card's); never assign colours by rank within a period.
   Month-by-month lines (categories in Total spend, cards in Credit cards) are one shared component,
-  `components/dash/Trends.tsx`: a `Trend` per line, with its estimated months dashed and gaps as null.
+  `components/dash/Trends.tsx`: a `Trend` per line, with its estimated months dashed and gaps as null. Its table is a
+  row a line and a column a month (a year across several), from `lib/trendTable.ts`; a row's Total is the line's own
+  figure, which its months add up to (`web/tests/totals.test.ts` holds it).
 - Total spend (`web/src/lib/totals.ts`) must never double count: bills are placed and netted on the server
   (`app/billing.py`), the dashboard spreads each `estimate` over its cycle. The UPI section + the card section
   (`lib/cards.ts`, `CardSpending.tsx`: card-number purchases only) = Total spend, for every year and card filter.

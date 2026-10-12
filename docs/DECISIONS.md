@@ -294,3 +294,26 @@ A dropdown's touch target is its own size. In Increase contrast, a hover no long
 already bright).
 **Where**: `--color-muted`, `--color-faint`, `--color-card`, the `tap` utility and the `prefers-contrast: more` block
 in `web/src/index.css`; `web/tests/contrast.test.ts`.
+
+## 26. The month-by-month table: a row a category, a column a month
+
+**Decision**: the table under **Show table** (Month by month in Total spend, and in Credit cards) has a row for each
+ticked line, a category or a card, in the chips' order with its colour beside its name, and a column for each month,
+Jan to Dec, then **Total**: the line's own figure for the period, the same as its chip (a category's months add up to
+it, and a test holds that for every year, investments counted or not). **Together** under the rows adds up each
+month. Across several years (All years) the columns are the years, each the sum of its months, so the table stays a
+dozen columns wide. "—" is a month no file covers, "≈" an estimate from a bill, and ₹0 is in the quieter grey so the
+amounts stand out. From 1024 to 1279px wide the table is a size smaller and closer, so a whole year fits a laptop;
+on a phone, or where the figures are too wide, the names stay put while the months scroll, the far edge faded, and
+what slides under the names fades into them.
+**Why**: the owner found the table, a row a month and a column a category, hard to read: with many categories ticked
+it scrolled sideways, and All years made it a hundred rows long. Months across the top is how a year of figures is
+read (left to right), and a category's row reads like its line in the chart. A total each row says what the months
+come to. Years as columns keep All years to a handful of columns instead of a hundred.
+**Costs**: a year fits without scrolling while each month is under ₹1 lakh (checked in a browser at 1024, 1200, 1280
+and 1440px); bigger figures widen their column, and with every month of every row at ₹1 lakh or more it runs about
+80px over (230 if every figure is also an estimate), where the pinned names and the fade take over. A phone always
+scrolls: twelve figures don't fit 390px.
+**Where**: `web/src/lib/trendTable.ts` (tested in `web/tests/trendTable.test.ts`), `TrendTable` in
+`web/src/components/dash/Trends.tsx`, `web/src/lib/useEdgeFade.ts` (shared with the years); the months-add-up check in
+`web/tests/totals.test.ts`.

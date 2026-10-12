@@ -304,7 +304,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/dash/TotalSpend.tsx` | Total spend: UPI + cards, with how card spending was counted |
 | `components/dash/MonthlyChart.tsx` | One series of monthly columns |
 | `components/dash/MonthlyTrends.tsx` | Month by month, per category |
-| `components/dash/Trends.tsx` | The shared month-by-month lines (categories, cards), estimated months dashed |
+| `components/dash/Trends.tsx` | The shared month-by-month lines (categories, cards), estimated months dashed; their table, a row a line and a column a month |
 | `components/dash/SpendDonut.tsx` | Spending by category, as a ring |
 | `components/dash/CategoryBars.tsx` | Spending by category, as bars |
 | `components/dash/CardSpending.tsx` | Credit cards: purchases with each card's number |
@@ -327,6 +327,8 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/selection.ts` | Ticking payments; what the ticked ones add up to |
 | `lib/useSelection.ts` | The files picked to add, before they're sent |
 | `lib/useFits.ts` | Whether a box is wide enough for a table, followed as it resizes: the narrow form (a list) otherwise |
+| `lib/useEdgeFade.ts` | A box that scrolls sideways (the years, the month-by-month table) fades at an edge with more beyond it |
+| `lib/trendTable.ts` | The month-by-month table's figures: a row a line, a column a month (a year, across several), totals, Together |
 | `lib/useImportActivity.ts` | What the server is reading, polled for the whole page |
 | `lib/aiHint.ts` | When the one-time AI hint shows, and what it says |
 | `lib/aiPanel.ts` | The Local AI panel's open state, shared |
