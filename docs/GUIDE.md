@@ -414,7 +414,8 @@ Click the gold Plutus button in the dashboard's bottom-right corner (it stays th
 window it shrinks into the corner while you scroll down, so it never sits on what you're scrolling past) and ask about your
 spending in your own words: "How much on electricity in 2025?", "Top 5 payees last year", "Compare FY 2024-25 and FY 2025-26", "Food delivery by month in 2026", "Biggest
 payments last month", "When did I last pay rent?", "How much came in as cashback this year?". Then follow up: "and in
-2024?", "only UPI".
+2024?", "only UPI". Close it with ✕, Escape, or a click anywhere outside it: it slides away, and what you clicked still
+works.
 
 **Every number is the dashboard's.** Plutus reads what you asked, then works the answer out from your files the way
 the dashboard does: a year's total equals Total spend for that year, a category's equals its bar, a payee's equals

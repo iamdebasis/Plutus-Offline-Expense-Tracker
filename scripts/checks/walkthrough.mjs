@@ -265,8 +265,37 @@ export default async function walkthrough(s) {
   await sleep(500)
   const odd = await s.evaluate(`[...${PANEL}.querySelectorAll('[role=log] > *')].at(-1).innerText.replace(/\\s+/g, ' ')`)
   s.check(odd.length > 20 && !/error|undefined|NaN/i.test(odd), 'a question the rules can\'t read, with no local AI, gets a calm answer')
-  await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
-  await sleep(500)
+
+  // closing it with a click outside: it slides away and what was clicked still works, the focus left there; a click
+  // inside, a drag from inside to past its edge, or a click in a window it opened (the Local AI panel) keeps it open.
+  // Real presses of the mouse, as a person's.
+  const centre = (el) => s.evaluate(`(() => { const r = (${el}).getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } })()`)
+  const mouse = (type, p) => s.send('Input.dispatchMouseEvent', { type, x: p.x, y: p.y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 })
+  const clickAt = async (p) => {
+    await mouse('mousePressed', p)
+    await mouse('mouseReleased', p)
+    await sleep(900)
+  }
+  const askOpen = () => s.evaluate(`!!${PANEL}`)
+  const inside = await centre(`${PANEL}.querySelector('[role=log] > p')`) // your question, as you asked it: no control there
+  await clickAt(inside)
+  s.check(await askOpen(), 'a click inside Ask Plutus keeps it open')
+  await mouse('mousePressed', inside)
+  await mouse('mouseMoved', { x: 200, y: inside.y })
+  await mouse('mouseReleased', { x: 200, y: inside.y })
+  await sleep(900)
+  s.check(await askOpen(), 'so does selecting its text and dragging past its edge')
+  await clickAt(await centre(`[...${PANEL}.querySelectorAll('header button')].find((b) => /local AI/.test(b.textContent))`))
+  const aiOpen = () => s.evaluate(`!!document.querySelector('[role=dialog][aria-modal="true"]')`)
+  const opened = await aiOpen()
+  await clickAt({ x: 24, y: 24 }) // the Local AI panel's backdrop
+  s.check(opened && !(await aiOpen()) && (await askOpen()), 'a click on a window it opened closes that window, not Ask Plutus')
+  const TAB = `[...document.querySelectorAll('[role=tab]')].find((b) => b.textContent.trim() === 'All years')`
+  await clickAt(await centre(TAB))
+  await s.until(`!${PANEL}`, 'Ask Plutus sliding away', 5)
+  s.check(await s.evaluate(`${TAB}.getAttribute('aria-selected') === 'true' && document.activeElement === ${TAB}`),
+    'a click outside slides it away, and what was clicked still works, the focus left there (All years)')
+  s.check(await s.evaluate(`document.querySelector('button[aria-label="Ask Plutus"][aria-haspopup="dialog"]').getAttribute('aria-expanded') === 'false'`), 'the orb is back')
   await s.evaluate(`[...document.querySelectorAll('header button')].find((b) => b.textContent.includes('AI')).click()`)
   await sleep(1500)
   s.check((await s.evaluate(`[...document.querySelectorAll('[role=dialog]')].map((d) => d.innerText).join(' ')`)).length > 50, 'the Local AI panel opens and says what suits this Mac')

@@ -88,6 +88,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow, onChanged }: {
   const scroller = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const orb = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLElement>(null)
 
   const ctx: AskContext = useMemo(() => ({
     categories: data.categories,
@@ -101,17 +102,37 @@ export function AskPanel({ open, onOpen, onClose, data, onShow, onChanged }: {
   const lastQuery = [...messages].reverse().find((m): m is Extract<Message, { from: 'plutus' }> => m.from === 'plutus' && !!m.answer)?.answer?.query ?? null
 
   // the local AI: whether there's one to ask (checked each time the panel opens); focus to the question, and back to
-  // the orb when it closes
+  // the orb when it closes with ✕ or Escape. A click outside closes it too, and what was clicked still works (the
+  // dashboard isn't covered), with the focus left there. Only where the press began counts, so selecting an answer's
+  // text and dragging past the edge keeps it open, as does a click in a window it opened (the Local AI panel).
   useEffect(() => {
     if (!open) return
     setAiFailed(false)
     api.llmStatus().then((s) => setAiReady(s.state !== 'unavailable' && s.modelInstalled !== false)).catch(() => setAiReady(false))
     requestAnimationFrame(() => input.current?.focus())
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const away = (target: EventTarget | null) =>
+      target instanceof Element && !panel.current?.contains(target) && !target.closest('[role=dialog]') && !document.querySelector('[aria-modal="true"]')
+    let pressedAway = false
+    let clickedAway = false
+    const onPress = (e: PointerEvent) => {
+      pressedAway = away(e.target)
+    }
+    const onClick = (e: MouseEvent) => {
+      if (pressedAway && away(e.target)) {
+        clickedAway = true
+        onClose()
+      }
+      pressedAway = false // a click from the keyboard, or a label's second click, has no press of its own
+    }
     window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onPress, true)
+    window.addEventListener('click', onClick, true)
     return () => {
       window.removeEventListener('keydown', onKey)
-      orb.current?.focus()
+      window.removeEventListener('pointerdown', onPress, true)
+      window.removeEventListener('click', onClick, true)
+      if (!clickedAway) orb.current?.focus()
     }
   }, [open, onClose])
 
@@ -316,6 +337,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow, onChanged }: {
       <AnimatePresence>
         {open && (
           <motion.aside
+            ref={panel}
             role="dialog"
             aria-label="Ask Plutus"
             initial={{ x: '100%', opacity: 0.6 }}

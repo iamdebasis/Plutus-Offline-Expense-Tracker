@@ -29,6 +29,8 @@ made.
   Bengal?", "Where was I in February?".
 - A place changes no payment and no figure: your places are kept apart from the ledger (`data/places.json`), and each
   payment's place comes from its day. A statement for those days added later shows the place too.
+- **Ask Plutus closes with a click outside it**, as well as with ✕ or Escape: it slides away, and what you clicked
+  still works. A click inside it, a window it opened, or selecting its text past its edge keeps it open.
 - **Ask Plutus never gets more power than a button on the dashboard**: what it offers from the chat is what a button
   does, through the same route, shown first, done by your click, and undoable.
 
@@ -40,7 +42,7 @@ made.
 | `make test`: the dashboard's arithmetic, Ask Plutus, places and states, contrast | 205 passed |
 | `make test`: TypeScript | no errors |
 | `make measure`: 1000 random fake card statements | 926 proven, 74 held (they print nothing to check them by), none wrong, none unread |
-| `make check-ui`: the page in a headless browser, on the demo | 516 passed, none failed |
+| `make check-ui`: the page in a headless browser, on the demo | 521 passed, none failed |
 
 Among them: a place's spending is the same in its Places card, in Ask Plutus, and counted independently from the
 API; the Location column names the place on exactly its days; telling a stay keeps nothing until its button, a typed
