@@ -3,6 +3,64 @@
 What each version of Plutus holds, how it was checked before release, and what it can't do yet. Plans and ideas are
 in [ROADMAP.md](ROADMAP.md), the reasons behind the design in [DECISIONS.md](DECISIONS.md).
 
+## Added since 1.0.0 · not in a release yet
+
+Where you were, told to Ask Plutus, with its state. Still version 1.0.0: these become a version's notes when one is
+made.
+
+### What's new
+
+- **Tell Ask Plutus where you were**, in your own words: "I was in Goa from 1st Jan 2026 to 5th March 2026", "Coorg
+  trip 12-19 March", "I'm in Goa since 1 Oct", "I'll be in Goa from 20 to 25 Dec". It shows what that would do (the
+  days, the payments on them, what you spent, and any days it takes from a place told before) and keeps nothing until
+  you press its button; *Undo* takes it back. "Forget Goa" works the same way. Days the rules can't place exactly
+  ("the second week of March") are read by the local AI if it's set up; otherwise Ask Plutus asks for the days.
+- **Places**, a new section between UPI spends and Your transactions: a card for each place with what you spent there,
+  a day's average and the top categories, with *Show payments*, *Edit*, *Remove* (and *Undo*), and *Add a place*.
+- **A Location column** in Your transactions, after Payee (beside the day on a phone), a *Place* filter, and the search
+  finds a place.
+- **A place's state**: "Darjeeling, WB", written with the place (its number-plate code, or its name after a comma) and
+  kept as written. Without one, Ask Plutus offers the state you gave that place before. Otherwise, with the local AI
+  set up, it asks the AI about the place's name alone, never a payment or the rest of the sentence. You get its usual
+  spelling and state (*Mark as Mumbai, MH*, "you wrote “Mambaii”"), a button for each state when a name is in several
+  (Aurangabad: Maharashtra, Bihar), and always *Keep as written*. Places' *Edit* has a State list. Nothing is
+  downloaded: India's 36 states and union territories are a fixed table in Plutus.
+- **Ask Plutus answers about places**: "How much did I spend in Goa?", "Goa by category", "How much did I spend in West
+  Bengal?", "Where was I in February?".
+- A place changes no payment and no figure: your places are kept apart from the ledger (`data/places.json`), and each
+  payment's place comes from its day. A statement for those days added later shows the place too.
+- **Ask Plutus never gets more power than a button on the dashboard**: what it offers from the chat is what a button
+  does, through the same route, shown first, done by your click, and undoable.
+
+### How it was checked
+
+| Check | Result |
+|---|---|
+| `make test`: backend tests, with the network blocked | 407 passed |
+| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, contrast | 205 passed |
+| `make test`: TypeScript | no errors |
+| `make measure`: 1000 random fake card statements | 926 proven, 74 held (they print nothing to check them by), none wrong, none unread |
+| `make check-ui`: the page in a headless browser, on the demo | 516 passed, none failed |
+
+Among them: a place's spending is the same in its Places card, in Ask Plutus, and counted independently from the
+API; the Location column names the place on exactly its days; telling a stay keeps nothing until its button, a typed
+"yes" changes nothing, Undo and Remove put things back exactly, and the ledger is byte for byte the same afterwards.
+Each rule (the latest place told wins a shared day, a refund takes its payment's day, questions aren't read as stays,
+a time to come is the next one, a state written after a place, codes only in capitals, the local AI's answer about a
+place checked) was switched off once and its test failed. The local AI's place cards (one suggestion, a name in two states, a place it
+doesn't know, checking) were looked at in the browser with a stand-in for the AI, on a desktop and a phone: every text
+reads and every control reaches.
+
+### Known limits
+
+- One place a day: a day trip and home on the same day can't be split.
+- Card spending known only from bills has no days, so it gets no place; a place's card and answers say about how much
+  of it falls on its days.
+- The rules read English and the date forms above; other wordings need the local AI, or the days said again.
+- Without the local AI, a place's spelling isn't checked and its state is only what you write. A state's code is read
+  only in capitals ("up", "as" and "or" are words), and "London, UK" reads as Uttarakhand (the card names the state
+  before you keep it).
+
 ## 1.0.0 · 12 October 2026
 
 The first release: everything below works on a Mac with no internet connection, with or without the optional local

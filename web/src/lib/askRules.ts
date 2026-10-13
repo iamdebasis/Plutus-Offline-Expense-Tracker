@@ -1,6 +1,7 @@
 import type { Instrument } from '../types'
 import { emptyQuery, fyPeriod, lastDayOf, monthPeriod, payeeMatches, rangePeriod, SEASONS, seasonPeriod, yearPeriod, type AskKind, type AskPeriod, type AskQuery, type Season } from './ask'
 import type { Category } from './ledger'
+import { asStated, codesReadIn, isStateCode, placeKey, STATE_NAME, stateAt, STATES, statesIn } from './places'
 
 /** Reading a question with rules, here in the page, instantly: the periods ("2025", "last month", "FY 2024-25"), the
  *  kind of question ("how much", "top 5", "vs", "by month"…), categories by name and by the words people use for them,
@@ -13,6 +14,8 @@ export interface AskContext {
   /** Every payee name in your ledger. */
   payees: string[]
   cards: Instrument[]
+  /** The places you told Plutus you were ("Goa"), so a question can name one. */
+  places: string[]
   /** "2026-10-07": what "this year" and "last month" mean. */
   today: string
 }
@@ -197,6 +200,15 @@ export function readQuestion(question: string, ctx: AskContext, previous: AskQue
     text = text.replace(/\bcards?\b/g, ' ')
   }
 
+  // places: those you told Plutus you were, by your own names, and states (lib/places.ts): before categories, so your
+  // word wins
+  for (const { word, said } of placesIn(question, ctx.places)) {
+    if (!q.places.some((p) => placeKey(p) === placeKey(word))) q.places.push(word)
+    const plain = plainText(said).replace(/[^a-z0-9]+/g, ' ').trim()
+    if (plain) text = text.replace(new RegExp(`\\b${escape(plain)}\\b`), ' ')
+    found.target = true
+  }
+
   // categories, by their names and the words people use, longest first
   const phrases = categoryPhrases(ctx.categories)
   for (const [phrase, id] of phrases) {
@@ -240,7 +252,7 @@ export function readQuestion(question: string, ctx: AskContext, previous: AskQue
     const next: AskQuery = { ...previous, compareTo: q.kind === 'compare' ? q.compareTo : previous.compareTo }
     if (found.kind && q.kind !== 'total') Object.assign(next, { kind: q.kind, by: q.by, per: q.per, limit: q.limit })
     if (found.period) next.period = q.period
-    if (q.categories.length || q.payees.length) Object.assign(next, { categories: q.categories, payees: q.payees, money: q.money })
+    if (q.categories.length || q.payees.length || q.places.length) Object.assign(next, { categories: q.categories, payees: q.payees, places: q.places, money: q.money })
     if (q.cards.length) next.cards = q.cards
     if (q.channel !== 'all') next.channel = q.channel
     return { query: next, sure: unknown.length === 0, unknown }
@@ -261,6 +273,7 @@ export function couldBePayee(words: string, ctx: AskContext): boolean {
 }
 
 function kindOf(text: string): AskKind {
+  if (/\bwhere (?:was|were) (?:i|we)\b|\bwhere did (?:i|we) (?:go|stay|travel)\b/.test(text)) return 'where'
   if (/\b(why|what made|what caused|how come|reasons?)\b/.test(text)) return 'why'
   if (/\b(compare|compared|versus|vs\.?|against)\b/.test(text)) return 'compare'
   if (/\b(average|avg|typical|typically|mean)\b/.test(text)) return 'average'
@@ -403,5 +416,218 @@ function cardNamed(text: string, c: Instrument): boolean {
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** Lower case, accents and apostrophes gone: "Café's" → "cafes". */
-const plainText = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, '').replace(/&/g, ' and ').toLowerCase()
+/** Accents and apostrophes gone, "&" said: "Café's" → "Cafes". */
+const plainCase = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, '').replace(/&/g, ' and ')
+/** The same, in lower case: "Café's" → "cafes". */
+const plainText = (s: string) => plainCase(s).toLowerCase()
+
+/** The places a question names: those you told Plutus, by your own names, longest first, each with a state written after
+ *  it ("Aurangabad, MH": that place in that state); then states, by name ("West Bengal") or by code in capitals after
+ *  "in" or a comma ("in WB"), as their names. Each with the words it took, to take out of the question. */
+function placesIn(question: string, told: string[]): { word: string; said: string }[] {
+  let s = ` ${plainCase(question)} `
+  const codes = codesReadIn(question)
+  const out: { word: string; said: string }[] = []
+  const take = (at: number, length: number, word: string) => {
+    out.push({ word, said: s.slice(at, at + length) })
+    s = s.slice(0, at) + ' '.repeat(length) + s.slice(at + length)
+  }
+  for (const place of [...told].sort((a, b) => b.length - a.length)) {
+    const parts = plainText(place).match(/[a-z0-9]+/g)
+    if (!parts) continue
+    const m = new RegExp(String.raw`(?<![\p{L}\p{N}])${parts.map(escape).join(String.raw`[^\p{L}\p{N}]+`)}(?![\p{L}\p{N}])`, 'iu').exec(s)
+    if (!m) continue
+    const state = stateAt(s.slice(m.index + m[0].length), codes)
+    take(m.index, m[0].length + (state?.length ?? 0), state ? `${place}, ${state.region}` : place)
+  }
+  for (const st of statesIn(s, codes)) take(st.at, st.length, STATES[st.region])
+  return out
+}
+
+// ---- telling Plutus where you were ---------------------------------------------------------------------------------
+
+/** "I was in Goa from 1 Jan to 5 Mar 2026": a stay to keep, once you confirm it with the button (Ask Plutus never
+ *  keeps one on its own); "forget Goa", "I wasn't in Goa in January": stays to remove, the same way. `start` and `end`
+ *  are null when the sentence names no days ("I was in Goa": the reply asks when); `place` is null for every place
+ *  ("forget all my places"). */
+export type StayReading =
+  | { kind: 'stay'; place: string; region: string | null; start: string | null; end: string | null }
+  | { kind: 'forget'; place: string | null; region: string | null; start: string | null; end: string | null }
+
+/** A question, not something you're telling: those are read by `readQuestion`. */
+const QUESTION = /^\s*(how|what|which|where|when|why|who|whom|show|list|compare|did|do|does|is|are|can|could|would|top|biggest|largest|total|sum)\b/i
+const PLACE = String.raw`(\p{L}[\p{L}\p{N}.'&()/-]*(?:\s+[\p{L}\p{N}][\p{L}\p{N}.'&()/-]*){0,5})`
+/** Where a place's name ends: a word about when, or another part of the sentence. */
+const STOP = new Set(('from between during on since till until up to before after for in at the last this next and with week weekend month year ' +
+  'today yesterday tomorrow trip trips holiday holidays vacation vacations stay stays visit days day nights night all whole ' +
+  'entire of by around over through thru mark tag set as please too also again').split(' '))
+const STAYED = [
+  // "I was in Goa", "we were at Mumbai", "I'm in Goa", "I'll be in Kerala", "I stayed in Goa", "we visited Goa"
+  new RegExp(String.raw`\b(?:i|we)(?:'m|'re|'ll be|'ve been|'d been|\s+(?:was|were|am|are|will be|shall be|have been|had been|stayed|was staying|were staying|lived|was living|were living|went|travelled|traveled|visited|holidayed|vacationed))\s+(?:(?:in|at|to|around)\s+)?${PLACE}`, 'iud'),
+  // "trip to Goa", "a holiday in Kerala"
+  new RegExp(String.raw`\b(?:trip|holiday|vacation|stay|visit)\s+(?:to|in|at)\s+${PLACE}`, 'iud'),
+  // "mark 1-5 Jan as Goa"
+  new RegExp(String.raw`\b(?:mark|tag|set|label|record)\b.*?\b(?:as|under)\s+${PLACE}`, 'iud'),
+  // "Goa trip 12-19 March"
+  new RegExp(String.raw`^\s*${PLACE}\s+(?:trip|holiday|vacation|stay)\b`, 'iud'),
+]
+const FORGET = [
+  // "I wasn't in Goa in January", "we didn't go to Goa"
+  new RegExp(String.raw`\b(?:i|we)\s+(?:was not|wasn't|were not|weren't|didn't go to|did not go to|never went to)\s+(?:(?:in|at|to)\s+)?${PLACE}`, 'iud'),
+  // "forget Goa", "remove the stay in Goa", "delete my Goa trip"
+  new RegExp(String.raw`\b(?:forget|remove|delete|clear|erase|drop)\b(?:\s+(?:my|the|that|this|those|all))*(?:\s+(?:stays?|trips?|places?)\s+(?:in|at|to))?\s+${PLACE}`, 'iud'),
+]
+
+/** What you're telling Plutus, when the sentence tells it where you were (or weren't); null for a question. */
+export function readStay(sentence: string, ctx: AskContext): StayReading | null {
+  const s = sentence.normalize('NFC').replace(/[’‘]/g, "'").replace(/[–—]/g, '-').trim()
+  if (!s || s.includes('?') || QUESTION.test(s)) return null
+  const future = /\b(will be|'ll be|shall be|am going|are going|going to be|plan(?:ning)? to be|next (?:week|month|year))\b/i.test(s)
+
+  // forgetting: every place ("forget all my places"), or one
+  if (/\b(?:forget|remove|delete|clear|erase)\b(?:\s+(?:all|every|my|the))*\s+(?:places|stays|trips)\b/i.test(s)) {
+    const days = dayRange(s.toLowerCase(), ctx.today, future)
+    return { kind: 'forget', place: null, region: null, start: days?.start ?? null, end: days?.end ?? null }
+  }
+  for (const re of FORGET) {
+    const found = placeIn(s.match(re), s)
+    if (found) {
+      const days = dayRange(found.rest.toLowerCase(), ctx.today, future)
+      return { kind: 'forget', place: known(found.place, ctx), region: found.region, start: days?.start ?? null, end: days?.end ?? null }
+    }
+  }
+  for (const re of STAYED) {
+    const found = placeIn(s.match(re), s)
+    if (found) {
+      const days = dayRange(found.rest.toLowerCase(), ctx.today, future)
+      return { kind: 'stay', place: known(found.place, ctx), region: found.region, start: days?.start ?? null, end: days?.end ?? null }
+    }
+  }
+  return null
+}
+
+/** The place a pattern caught in the sentence, cut where its name ends ("Goa from 1 Jan" → "Goa") and tidied, with its
+ *  state: one written after it (", WB", " (WB)", " WB"), or the one it is ("Goa", "Jammu and Kashmir"; "Goa Velha" is a
+ *  place in Goa, not Goa). `rest`: the sentence without them, to read the days from. Null if nothing's left. */
+function placeIn(m: RegExpMatchArray | null, s: string): { place: string; region: string | null; rest: string } | null {
+  const at = m?.indices?.[1]?.[0]
+  if (!m || at === undefined) return null
+  const codes = codesReadIn(s)
+  const code = (word: string) => codes && isStateCode(word.replace(/[.,]+$/, ''))
+  const month = new RegExp(`^${MONTH_RE}$`)
+  // where a name can end: nothing more, a mark, a word about when, or a state's code
+  const endsAt = (i: number) => {
+    const next = s.slice(i).match(/^\s*(\S*)/)![1]
+    const bare = next.toLowerCase().replace(/[.,']+$/, '')
+    return !next || /^[,.;:!?)(]/.test(next) || STOP.has(bare) || /\d/.test(next) || month.test(bare) || code(next)
+  }
+  let name: string | null = null
+  let end = at
+  const state = s.slice(at).match(STATE_NAME)
+  if (state && endsAt(at + state[0].length)) {
+    // a state, its name whole even with "and" in it
+    name = state[0]
+    end = at + state[0].length
+  } else {
+    const words: string[] = []
+    for (const w of m[1].matchAll(/\S+/g)) {
+      const bare = w[0].toLowerCase().replace(/[.,']+$/, '')
+      if (words.length && code(w[0])) break // "Darjeeling WB": its state, after it
+      if (!code(w[0]) && (STOP.has(bare) || /\d/.test(w[0]) || month.test(bare))) break
+      const word = w[0].replace(/[.,]+$/, '')
+      words.push(word)
+      end = at + w.index! + word.length
+    }
+    name = words.join(' ')
+  }
+  const stated = name ? asStated(name) : null
+  if (!stated) return null
+  const after = stateAt(s.slice(end), codes)
+  return { place: stated.place, region: after?.region ?? stated.region, rest: `${s.slice(0, at)} ${s.slice(end + (after?.length ?? 0))}` }
+}
+
+/** A place you've told before, as you first wrote it ("goa" is your "Goa"). */
+const known = (place: string, ctx: AskContext) => ctx.places.find((p) => placeKey(p) === placeKey(place)) ?? place
+
+/** The days a sentence names: "1st Jan 2026 to 5th March 2026", "1-5 Jan", "Jan 1 - Mar 5", "01/01/2026 to 05/03/2026",
+ *  "2026-01-01 to 2026-03-05", "since 3 Mar", "on 12 Jan", and everything a question's period can be ("in December",
+ *  "last week", "from March to June 2025"). A day without its year is the latest such day that has begun, or, when you
+ *  say you will be somewhere, the next. Null when it names no days, or days that aren't real or are out of order. */
+export function dayRange(lower: string, today: string, future = false): { start: string; end: string } | null {
+  let text = ` ${lower.replace(/(\d{1,2})(?:st|nd|rd|th)\b/g, '$1').replace(/(\d{1,2})\s+of\s+/g, '$1 ').replace(/,/g, ' ').replace(/\s+/g, ' ')} `
+  const D = '(\\d{1,2})'
+  const Y = '(?:\\s+(\\d{4}))?'
+  const M = MONTH_RE
+  const SEP = '\\s*(?:-|to|till|until|through|thru|and)\\s*(?:the\\s+)?' // "to the 5th"
+  const month = (name: string) => monthIndex(name) + 1
+  const m = (re: string) => text.match(new RegExp(re))
+  let r: RegExpMatchArray | null
+  // whole days, both ends named
+  if ((r = m(`\\b${D}\\s+${M}${Y}${SEP}${D}\\s+${M}${Y}\\b`))) return resolve([+r[1], month(r[2]), r[3]], [+r[4], month(r[5]), r[6]], today, future)
+  if ((r = m(`\\b${M}\\s+${D}${Y}${SEP}${M}\\s+${D}${Y}\\b`))) return resolve([+r[2], month(r[1]), r[3]], [+r[5], month(r[4]), r[6]], today, future)
+  if ((r = m(`\\b${D}${SEP}${D}\\s+${M}${Y}\\b`))) return resolve([+r[1], month(r[3]), r[4]], [+r[2], month(r[3]), r[4]], today, future)
+  if ((r = m(`\\b${M}\\s+${D}${SEP}${D}${Y}\\b`))) return resolve([+r[2], month(r[1]), r[4]], [+r[3], month(r[1]), r[4]], today, future)
+  if ((r = m(`\\b(\\d{4})-(\\d{2})-(\\d{2})${SEP}(\\d{4})-(\\d{2})-(\\d{2})\\b`))) return resolve([+r[3], +r[2], r[1]], [+r[6], +r[5], r[4]], today, future)
+  if ((r = m(`\\b(\\d{1,2})[/.-](\\d{1,2})(?:[/.-](\\d{2,4}))?${SEP}(\\d{1,2})[/.-](\\d{1,2})(?:[/.-](\\d{2,4}))?\\b`))) {
+    return resolve([+r[1], +r[2], r[3] && fullYear(r[3])], [+r[4], +r[5], r[6] && fullYear(r[6])], today, future)
+  }
+  // from a day on: "since 3 Mar", "from 3 March till now"
+  if ((r = m(`\\b(?:since|from)\\s+${D}\\s+${M}${Y}(?:\\s+(?:till|until|to)\\s+(?:now|today|date))?\\b`))) {
+    const start = resolve([+r[1], month(r[2]), r[3]], [+r[1], month(r[2]), r[3]], today, false)
+    return start && start.start <= today ? { start: start.start, end: today } : null
+  }
+  // one end only ("until 5 Jan", "up to 5 Jan", "before 5 Jan", "after 5 Jan"): not that one day; the reply asks when
+  if (new RegExp(`\\b(?:to|till|until|before|after|by)\\s+(?:${D}\\s+${M}|${M}\\s+${D}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/.]\\d{1,2})\\b`).test(text)) return null
+  // one day: "on 12 Jan", "Jan 12 2026", "12/01/2026", "2026-01-12"
+  if ((r = m(`\\b${D}\\s+${M}${Y}\\b`))) return resolve([+r[1], month(r[2]), r[3]], [+r[1], month(r[2]), r[3]], today, future)
+  if ((r = m(`\\b${M}\\s+${D}${Y}\\b`))) return resolve([+r[2], month(r[1]), r[3]], [+r[2], month(r[1]), r[3]], today, future)
+  if ((r = m(`\\b(\\d{4})-(\\d{2})-(\\d{2})\\b`))) return resolve([+r[3], +r[2], r[1]], [+r[3], +r[2], r[1]], today, future)
+  if ((r = m(`\\b(\\d{1,2})[/.](\\d{1,2})[/.](\\d{2,4})\\b`))) return resolve([+r[1], +r[2], fullYear(r[3])], [+r[1], +r[2], fullYear(r[3])], today, future)
+  // "the second week of March", "early January", "the end of May": part of a month, which the rules won't widen to the
+  // whole of it; left for the local AI, or for you to say the days
+  if (/\b(?:first|second|third|fourth|early|mid|middle|late|end|beginning|start|half|fortnight|couple|few)\b/.test(text)) return null
+  // a question's periods: months, years, seasons, "last week", "today"
+  const take = (re: RegExp) => {
+    const found = text.match(re)
+    if (found) text = text.slice(0, found.index) + ' '.repeat(found[0].length) + text.slice(found.index! + found[0].length)
+    return found
+  }
+  const [p] = periodsOf(take, today, (re) => text.match(re))
+  if (!p) return null
+  // a month or season said of a time to come is the next one, not the last
+  if (future && p.to < today) return { start: `${Number(p.from.slice(0, 4)) + 1}${p.from.slice(4)}`, end: lastOrSame(`${Number(p.to.slice(0, 4)) + 1}${p.to.slice(4)}`) }
+  return { start: p.from, end: p.to }
+}
+
+/** "2027-02-29" isn't a day: the last of its month. */
+function lastOrSame(day: string): string {
+  const [y, m, d] = day.split('-').map(Number)
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return `${y}-${pad(m)}-${pad(Math.min(d, last))}`
+}
+
+/** Two days from [day, month, year or nothing]: the missing year taken from the other end, else the latest that has
+ *  begun (or, `future`, the next that hasn't ended); a span crossing the new year ("28 Dec to 3 Jan") runs into the
+ *  next. Null for a day that doesn't exist, or an end before the start. */
+function resolve(a: [number, number, string | number | undefined], b: [number, number, string | number | undefined], today: string, future: boolean) {
+  const day = (y: number, m: number, d: number) => {
+    const t = new Date(Date.UTC(y, m - 1, d))
+    return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d ? `${y}-${pad(m)}-${pad(d)}` : null
+  }
+  const ya = a[2] ? Number(a[2]) : null
+  const yb = b[2] ? Number(b[2]) : null
+  const wraps = a[1] > b[1] || (a[1] === b[1] && a[0] > b[0])
+  let [startYear, endYear] = ya && yb ? [ya, yb] : yb ? [wraps ? yb - 1 : yb, yb] : ya ? [ya, wraps ? ya + 1 : ya] : [0, 0]
+  if (!ya && !yb) {
+    const ty = Number(today.slice(0, 4))
+    ;[startYear, endYear] = [ty, wraps ? ty + 1 : ty]
+    const start = day(startYear, a[1], a[0])
+    const end = day(endYear, b[1], b[0])
+    if (!start || !end) return null
+    if (!future && start > today) [startYear, endYear] = [startYear - 1, endYear - 1]
+    if (future && end < today) [startYear, endYear] = [startYear + 1, endYear + 1]
+  }
+  const start = day(startYear, a[1], a[0])
+  const end = day(endYear, b[1], b[0])
+  return start && end && start <= end ? { start, end } : null
+}

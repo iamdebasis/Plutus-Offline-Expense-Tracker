@@ -332,6 +332,9 @@ def write_files(folder: Path, y: Year) -> list[Path]:
 ANSWERS = [{"payee": "Mr Fake Landlord", "category": "home.rent", "label": "Rent"},
            {"payee": "Ms Fake Sister", "category": "transfers.p2p", "label": "Sister"}]
 NETWORKS = {"card-hdfc-bank-2222": "RuPay", "card-icici-bank-3333": "Visa", "card-sbi-card-1111": "Mastercard"}
+# A week away, as the person would tell Ask Plutus ("I was in Goa from 19 to 25 Sep", which keeps Goa's state with it):
+# Places and the Location column.
+PLACES = [{"place": "Goa", "region": "GA", "start": "2026-09-19", "end": "2026-09-25"}]
 
 
 def _feed(base: str, files: list[Path]) -> None:
@@ -354,6 +357,8 @@ def _feed(base: str, files: list[Path]) -> None:
         for card, network in NETWORKS.items():
             client.put(f"/api/instruments/{card}", json={"network": network})
         client.post("/api/categorize/bulk", json={"items": ANSWERS})
+        for stay in PLACES:
+            client.post("/api/places", json=stay)
     print(f"\nThe demo is ready: {base}  (made-up data in {userdata.root()}; Ctrl+C stops it)\n", flush=True)
 
 

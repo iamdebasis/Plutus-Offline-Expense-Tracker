@@ -9,6 +9,7 @@ import { CardSpending } from '../components/dash/CardSpending'
 import { CategoryBars } from '../components/dash/CategoryBars'
 import { Panel, SectionHead } from '../components/dash/Section'
 import { MonthlyTrends } from '../components/dash/MonthlyTrends'
+import { Places } from '../components/dash/Places'
 import { TotalSpend } from '../components/dash/TotalSpend'
 import { MonthlyChart } from '../components/dash/MonthlyChart'
 import { InvestmentsSwitch } from '../components/dash/InvestmentsSwitch'
@@ -23,9 +24,10 @@ import { plural } from '../lib/format'
 import { skinFor } from '../components/cards/skins'
 import { NO_NAME, bucketOf, bestPeriod, describeSource, periodsIn, topOf, upiOnly, viewFor, type LedgerData, type PeriodView } from '../lib/ledger'
 import { inr, inrExact } from '../lib/money'
+import { placeKey, placeLabel, staysOf } from '../lib/places'
 import { INVESTMENTS, scoped } from '../lib/scope'
 import { totalSpendFor } from '../lib/totals'
-import type { CardStatement, OwnAccount } from '../types'
+import type { CardStatement, OwnAccount, Stay } from '../types'
 import { FADE_PX, useEdgeFade } from '../lib/useEdgeFade'
 import type { Activity } from '../lib/useImportActivity'
 import { dayLabel, monthKey, periodLabel, spanLabel, type PeriodKey } from '../lib/periods'
@@ -82,6 +84,10 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
   const upiFocused = useMemo(() => viewFor(upi, period, category), [upi, period, category])
   const allTime = useMemo(() => totalSpendFor(everything, viewFor(everything, 'all', null)), [everything])
   const totals = useMemo(() => totalSpendFor(data, all), [data, all])
+  // where you told Plutus you were: each payment's place, from its day (lib/places.ts), and the places as shown
+  // ("Darjeeling, WB"), for the list's Place filter
+  const placeOf = useMemo(() => staysOf(data), [data])
+  const placeNames = useMemo(() => [...new Map(data.stays.map((s) => [placeKey(placeLabel(s)), placeLabel(s)])).values()].sort((a, b) => a.localeCompare(b)), [data])
   const categoryLabel = category ? data.categories.get(category)?.label : null
 
   // Ask Plutus: questions about your spending, answered from these same numbers (the orb in the corner opens it;
@@ -121,7 +127,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
           </button>
         }
       />
-      <AskPanel open={asking} onOpen={openAsk} onClose={closeAsk} data={data} onShow={(ids, label) => show({ ids, label })} />
+      <AskPanel open={asking} onOpen={openAsk} onClose={closeAsk} data={data} onShow={(ids, label) => show({ ids, label })} onChanged={refresh} />
 
       <main className="page px-4 sm:px-6">
         {/* the timeline: one row that scopes everything below it */}
@@ -172,6 +178,7 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
         <MonthlyTrends data={data} view={all} totals={totals} allTime={allTime} period={period} leftOut={leftOut} />
         <CreditCards data={data} everything={everything} view={all} period={period} onChanged={refresh} />
         <UpiSpends data={data} all={upiAll} focused={upiFocused} category={category} setCategory={setCategory} refresh={refresh} notify={intake.notify} />
+        <Places data={data} period={period} allTime={allTime} onShow={(ids, label) => show({ ids, label })} onChanged={refresh} notify={intake.notify} />
         <YourTransactions
           data={data}
           txns={focused.txns}
@@ -179,6 +186,8 @@ export function Dashboard({ data: everything, refresh, intake, activity }: Props
           category={category}
           leftOut={leftOut}
           request={request}
+          placeOf={placeOf}
+          placeNames={placeNames}
           onAllYears={() => setPeriod('all')}
           onShowUnnamed={() => show({ text: NO_NAME })}
           refresh={refresh}
@@ -653,6 +662,8 @@ function YourTransactions({
   category,
   leftOut,
   request,
+  placeOf,
+  placeNames,
   onAllYears,
   onShowUnnamed,
   refresh,
@@ -665,6 +676,8 @@ function YourTransactions({
   category: string | null
   leftOut: string[]
   request: ShowRequest | null
+  placeOf: Map<string, Stay>
+  placeNames: string[]
   onAllYears: () => void
   onShowUnnamed: () => void
   refresh: () => void
@@ -696,6 +709,8 @@ function YourTransactions({
           category={category}
           leftOut={leftOut}
           request={request}
+          placeOf={placeOf}
+          placeNames={placeNames}
           onChanged={refresh}
           notify={notify}
         />

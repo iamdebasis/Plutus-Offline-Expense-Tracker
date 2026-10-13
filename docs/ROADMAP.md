@@ -30,8 +30,9 @@ steps, each keeping the rule that the AI reads the question and Plutus computes:
 
 - **Saved chats**, only if wanted: kept in the data folder (a new file listed in `app/userdata.py`, removed by Start
   over), never in the browser's storage.
-- **Actions from the chat**: "file these under Groceries", shown as the change it would make and done only when you
-  confirm it, through the same routes the dashboard uses.
+- **Actions from the chat**: the first is done, telling it where you were ([DECISIONS.md](DECISIONS.md) #30): shown
+  first, kept only by its button, through the dashboard's own route, with Undo. Next, if wanted: "file these under
+  Groceries", the same way.
 - **Measure the question reading** on the suggested models: fake questions with known queries, part of the model
   measurement above.
 

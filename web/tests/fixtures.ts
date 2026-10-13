@@ -126,6 +126,7 @@ export function ledger(parts: Partial<LedgerData>): LedgerData {
     statements: [],
     held: [],
     leftOut: [],
+    stays: [],
     ...parts,
   }
 }

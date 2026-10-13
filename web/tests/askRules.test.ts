@@ -21,6 +21,7 @@ const ctx: AskContext = {
   payees: ['SWIGGY BANGALORE', 'ZOMATO LTD', 'FAKE POWER CO', 'Mr Fake Payee', 'BIGBASKET FAKE', 'AMAZON PAY INDIA', 'UBER INDIA',
     'NETFLIX.COM', 'FAKE MUTUAL FUND'],
   cards: [card('fakebank-1141', '1141'), { ...card('otherbank-2222', '2222'), issuer: 'Other Bank' }],
+  places: [],
   today: '2026-10-07',
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
-import type { CardPayment, CardStatement, CategoryNode, Instrument, OwnAccount, Preferences, Transaction, UploadRecord } from '../types'
+import type { CardPayment, CardStatement, CategoryNode, Instrument, OwnAccount, Preferences, Stay, Transaction, UploadRecord } from '../types'
 import { inrExact } from './money'
 import { dayLabel, inPeriod, monthKey, monthsOf, yearOf, type PeriodKey } from './periods'
 
@@ -30,6 +30,8 @@ export interface LedgerData {
   /** Payments the dashboard leaves out (investments, when you choose so; see lib/scope.ts). Out of every view,
    *  kept only so card bills still know what they paid for. */
   leftOut: Transaction[]
+  /** Where you told Plutus you were (data/places.json): each payment's place comes from its day (lib/places.ts). */
+  stays: Stay[]
 }
 
 export function useLedger() {
@@ -38,15 +40,16 @@ export function useLedger() {
 
   const refresh = useCallback(async () => {
     try {
-      const [txns, payments, tree, cards, uploads, accounts, preferences, statements] = await Promise.all([
+      const [txns, payments, tree, cards, uploads, accounts, preferences, statements, stays] = await Promise.all([
         api.transactions(), api.cardPayments(), api.categories(), api.instruments(), api.uploads(), api.accounts(), api.preferences(),
-        api.cardStatements(),
+        api.cardStatements(), api.places(),
       ])
       setData({
         txns, payments, categories: flatten(tree), tree, cards, uploads, accounts, preferences,
         statements: statements.filter((s) => s.status !== 'on_hold'),
         held: statements.filter((s) => s.status === 'on_hold'),
         leftOut: [],
+        stays,
       })
       setError(null)
     } catch (e) {

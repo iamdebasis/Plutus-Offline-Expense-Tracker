@@ -6,7 +6,7 @@ from importlib import resources
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from app import categorize, ledger, logs, payees, preferences, reset, userdata, vault
+from app import categorize, ledger, logs, payees, places, preferences, reset, userdata, vault
 from app import ask as asking
 from app.llm import LLMUnavailable, llm, setup
 from app.models import Model, Payee
@@ -120,6 +120,22 @@ async def ask(req: AskRequest) -> dict:
         return await asking.read_question(req.question, req.previous, date.today())
     except ValueError as exc:
         raise HTTPException(400, {"code": "bad_question", "message": str(exc)}) from exc
+    except LLMUnavailable as exc:
+        raise HTTPException(409, {"code": "no_ai", "message": str(exc)}) from exc
+
+
+class PlaceRequest(Model):
+    written: str  # the place only, as you wrote it
+
+
+@router.post("/ask/place")
+async def ask_place(req: PlaceRequest) -> dict:
+    """A place you told Ask Plutus, read by the local AI into its usual spelling and its state: suggestions the page
+    shows with a button each, never kept here. The model gets only the place's words. 409 without a local AI."""
+    try:
+        return await asking.read_place(req.written)
+    except places.BadStay as exc:
+        raise HTTPException(400, {"code": exc.code, "message": str(exc)}) from exc
     except LLMUnavailable as exc:
         raise HTTPException(409, {"code": "no_ai", "message": str(exc)}) from exc
 

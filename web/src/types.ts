@@ -136,6 +136,21 @@ export interface AiSetup {
 }
 
 /** One of your own bank accounts (data/accounts.json): transfers to and from it are left out. */
+/** Where you were on some days, as you told Plutus (data/places.json). It changes no payment: each payment's place is
+ *  worked out from its day (lib/places.ts). */
+export interface Stay {
+  id: string
+  /** As you wrote it: "Goa". */
+  place: string
+  /** Its state, by number-plate code ("WB"; lib/places.ts `STATES`), when you gave one: shown "Darjeeling, WB". */
+  region?: string | null
+  /** "2026-01-01" … "2026-03-05", both days included. */
+  start: string
+  end: string
+  /** When you told it: the latest you told wins a day two stays share. */
+  addedAt: string
+}
+
 export interface OwnAccount {
   last4: string
   label: string
@@ -325,4 +340,13 @@ export interface AiQuery {
   by: 'payee' | 'category'
   per: 'payment' | 'month'
   limit: number
+}
+
+/** A sentence the local AI read as telling where you were (`stay`) or weren't (`forget`): a proposal the page shows,
+ *  kept only when you press its button. Days are null when the sentence named none the AI could read. */
+export interface AiAction {
+  kind: 'stay' | 'forget'
+  place: string | null
+  from: string | null
+  to: string | null
 }

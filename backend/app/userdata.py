@@ -47,6 +47,7 @@ FILES = {
     "row_answers.json": "the category you set for one payment, kept with its row, so adding its file again restores it",
     "state.json": "which rules your ledger was last sorted with",
     "statement_ai.json": "the local AI's answers about statements the rules couldn't prove",
+    "places.json": "where you told Plutus you were, and on which days",
 }
 FOLDERS = {
     "ledger": "your transactions, one file per calendar year",

@@ -7,7 +7,7 @@ built, see the [README](../README.md).
 - [What happens to a file](#what-happens-to-a-file) · [What the terminal tells you](#what-the-terminal-tells-you)
 - [How the numbers add up](#how-the-numbers-add-up) · [Credit cards](#credit-cards) ·
   [Credit card statements](#credit-card-statements) · [Google Pay](#google-pay-from-google-takeout)
-- [Ask Plutus](#ask-plutus) · [Where things live](#where-things-live) · [Card designs](#card-designs) ·
+- [Ask Plutus](#ask-plutus) · [Places](#places-where-you-were) · [Where things live](#where-things-live) · [Card designs](#card-designs) ·
   [Local AI](#local-ai-optional) · [Tools](#tools)
 
 ## Requirements
@@ -459,9 +459,56 @@ difference and splits it into what made it, by category (by payee when you name 
 known only from bills a line of its own, the biggest changes first, each with what it was before and after; the lines
 add up to the difference. With one period named, it's set against the period before: the month before, the year
 before, the financial year before, the same season a year earlier; the **against** chip changes that. It says which
-way it really went, even if the question guessed the other. **What it can't:** give advice, or change anything
-(re-file a payment, add a file). The chat stays while you close and reopen the panel; reloading
+way it really went, even if the question guessed the other. **What it can't:** give advice, or change your payments
+(re-file one, add a file). The one thing you can tell it is where you were ([Places](#places-where-you-were)), and even
+that it only shows you first: its button keeps it. The chat stays while you close and reopen the panel; reloading
 the page or *Clear the chat* empties it. Nothing about a question is saved, and the terminal never shows one.
+
+## Places: where you were
+
+Plutus can't know where you were: your files don't say (a card statement prints a shop's town, but for anything bought
+online it's the company's, and UPI histories print none). So you tell it, in Ask Plutus, in your own words:
+
+- "I was in Goa from 1st Jan 2026 to 5th March 2026", "we were in Kerala 28 Dec to 3 Jan", "Coorg trip 12-19 March",
+  "mark 01/03/2026 to 05/03/2026 as Goa" (day first, as in India), "I'm in Goa since 1 Oct", "I was in Goa last week",
+  "I'll be in Goa from 20 to 25 Dec". A day without its year is the latest such day that has begun, or the next one
+  when you say you *will* be there. "The second week of March" or "early January" is read by the local AI if it's set
+  up; otherwise Ask Plutus asks you for the days.
+- It answers with what it would do: the days, how many payments fall on them and what you spent, and any days it takes
+  from a place you told before (a day two places share is the latest told's). **Nothing is kept until you press
+  *Mark as Goa*.** Typing "yes" changes nothing. After, *Undo* takes it back and *Show these payments* opens them.
+- "Forget Goa" or "I wasn't in Goa in January" shows the stays it would forget, with the same button and Undo. To
+  change a stay's days instead, use Edit in Places.
+
+**Its state.** Write it with the place and it's kept as you wrote it: "I was in Darjeeling, WB from 1 to 5 Jan", by
+its number-plate code in capitals (", WB", " WB", "(WB)"; an old code like TS for Telangana after a comma), or by its
+name after a comma ("Darjeeling, West Bengal"). A place that is a state ("Goa", "Kerala") is that state. Without one:
+
+- A place you gave a state before is offered with it again (*Mark as Darjeeling, WB*).
+- Otherwise, if the local AI is set up, it's asked about the place's name alone: never a payment, never the rest of
+  what you wrote. It gives the usual spelling and the state: *Mark as Mumbai, MH*, saying "you wrote “Mambaii”". For a
+  name found in more than one state (Aurangabad, in Maharashtra and in Bihar), you get a button for each.
+- *Keep as written* always keeps it your way, without a state. Without the local AI, or for a place it doesn't know,
+  that's what it does, and the card says how to add a state.
+
+Places' *Edit* has a State list to add, change or clear one. A state shows as "Darjeeling, WB", its name when you hover;
+a place that is a state shows by its name alone ("Goa").
+
+A place is a label on days: it changes no payment, no category and no figure. Each payment shows the place of its day
+(a refund, its payment's day), so a statement for those days that you add later shows it too, and re-reading a file
+can't lose it. Your places are kept in `data/places.json`, and Start over removes them with everything else.
+
+**Where it shows:**
+
+- **Places**, between UPI spends and Your transactions, once you've told one: a card for each stay with days in the
+  year you're looking at, with what you spent on those days, a day's average and the top categories, and *Show
+  payments*, *Edit* (its place, state and days) and *Remove* (with *Undo*). *Add a place* adds one without the chat. Card spending known only from
+  card bills has no days, so no place: a card says about how much of it falls on its days (each bill's estimate spread
+  over the days of the cycle it paid, as Total spend spreads it).
+- **Your transactions**: a *Location* column after Payee (on a phone, beside the day), a *Place* filter, and the search
+  finds a place's name or its state's.
+- **Ask Plutus**: "How much did I spend in Goa?", "Goa by category", "top payees in Goa", "How much did I spend in West
+  Bengal?" (every place you told in that state), "in Aurangabad, MH", "Where was I in February?".
 
 ## Where things live
 
@@ -475,6 +522,7 @@ the page or *Clear the chat* empties it. Nothing about a question is saved, and 
 | `data/card_networks.json` | The network you set for each card; survives deleting the files that found it |
 | `data/card_statements.json` | Your card statements and exports: period, due date, the bank's totals, and whether the rows add up |
 | `data/accounts.json` | Your own bank accounts, last four digits only, so transfers between them are left out |
+| `data/places.json` | Where you told Plutus you were: a place, its state if you gave one, and its days |
 | `data/payees.json` | Your payee table: people and accounts you pay, e.g. "Mr Fake Payee" → Water delivery, your landlord → Rent |
 | `data/merchant_memory.json` | Your corrections and the local AI's earlier answers, per payee name |
 | `data/row_answers.json` | The category you set for one payment, kept with its row: delete a file and add it again, and your answers come back |

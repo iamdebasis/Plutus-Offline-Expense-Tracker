@@ -1,20 +1,25 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertCircle, Check, CornerDownRight, Search, Sparkles, Undo2, X } from 'lucide-react'
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { AlertCircle, Check, ChevronDown, CornerDownRight, MapPin, Search, Sparkles, Undo2, X } from 'lucide-react'
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../api'
 import { cardName } from '../../lib/cards'
 import { NO_NAME, billNote, billSides, cardSide, countsAs, howPaid, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
 import { plural } from '../../lib/format'
 import { inrExact } from '../../lib/money'
 import { dayLabel, dayMonthLabel, timeLabel } from '../../lib/periods'
+import { placeLabel, placeTitle, samePlace } from '../../lib/places'
 import { keepShown, tick, tickedTotal } from '../../lib/selection'
 import { useFits } from '../../lib/useFits'
-import type { CardPayment, CategoryNode, Instrument, OwnAccount, PaymentState, Transaction } from '../../types'
+import type { CardPayment, CategoryNode, Instrument, OwnAccount, PaymentState, Stay, Transaction } from '../../types'
 import { CategorySelect } from './CategorySelect'
 
 const PAGE = 60
 /** The table's width with every column readable; in a narrower box (a phone, a tablet) each payment is a list item. */
 const TABLE_MIN = 760
+/** The Location column, once you've told Plutus where you were: the table needs this much more before it fits. */
+const PLACE_COL = 128
+/** How many columns the table has, for a row that spans them all (an offer, a warning). */
+const Columns = createContext(6)
 
 /** A request from elsewhere on the page to show some payments: a search ("Show them": no payee name), one file's rows
  *  ("Show these rows": a card statement in the vault), or exactly these payments (`ids`: an answer in Ask Plutus).
@@ -64,6 +69,8 @@ export function TransactionsTable({
   category,
   leftOut,
   request,
+  placeOf = new Map(),
+  placeNames = [],
   onChanged,
   notify,
 }: {
@@ -80,6 +87,10 @@ export function TransactionsTable({
   /** Top-level categories the dashboard leaves out (investments, when switched off). */
   leftOut: string[]
   request?: ShowRequest | null
+  /** Where you were when each payment was made, as you told Plutus (lib/places.ts `staysOf`), by payment id. */
+  placeOf?: Map<string, Stay>
+  /** Every place you told, as shown ("Darjeeling, WB"): with any, the list has a Location column and a Place filter. */
+  placeNames?: string[]
   onChanged: () => void
   notify: (text: string) => void
 }) {
@@ -104,6 +115,11 @@ export function TransactionsTable({
   const ignoredCount = useMemo(() => txns.filter(isIgnored).length, [txns])
   const [shown, setShown] = useState(PAGE)
   const [source, setSource] = useState<Source>('all')
+  const [place, setPlace] = useState('') // '': every place, and none
+  const places = placeNames.length > 0
+  // a payment's place, shown "Darjeeling, WB"; searched by that and by its state's name too
+  const placeName = (t: Transaction) => { const s = placeOf.get(t.id); return s && placeLabel(s) }
+  const placeWords = (t: Transaction) => { const s = placeOf.get(t.id); return s ? `${placeLabel(s)} ${placeTitle(s)}`.toLowerCase() : '' }
   // one file's rows, or exactly the payments an answer is made of: all of them, whatever the period, category or source
   const [file, setFile] = useState<{ upload?: string; ids?: Set<string>; label: string } | null>(null)
   useEffect(() => {
@@ -111,8 +127,12 @@ export function TransactionsTable({
     setQuery(request.text ?? '')
     setFile(request.upload || request.ids ? { upload: request.upload, ids: request.ids && new Set(request.ids), label: request.label ?? 'this file' } : null)
     setSource('all')
+    setPlace('')
     setShown(PAGE)
   }, [request])
+  useEffect(() => {
+    if (place && !placeNames.some((p) => samePlace(p, place))) setPlace('') // a place you just removed
+  }, [place, placeNames])
   const hasCards = useMemo(() => txns.some((t) => t.channel === 'card'), [txns])
   const [offer, setOffer] = useState<Offer | null>(null)
   // The payment an open offer is about stays on screen until the offer closes, even once it no longer fits
@@ -129,13 +149,14 @@ export function TransactionsTable({
     const out = base
       .filter((t) => file || !category || t.category === category || topOf(t.category) === category)
       .filter((t) => file || source === 'all' || (source === 'cards') === (t.channel === 'card'))
+      .filter((t) => file || !place || samePlace(placeName(t) ?? '', place))
       .filter((t) => !onlyReview || t.needsReview)
       .filter((t) => showIgnored || category === 'ignored' || !isIgnored(t))
-      .filter((t) => !q || t.payee.toLowerCase().includes(q) || (t.payeeHandle ?? '').toLowerCase().includes(q) || String(t.amount).includes(q))
+      .filter((t) => !q || t.payee.toLowerCase().includes(q) || (t.payeeHandle ?? '').toLowerCase().includes(q) || String(t.amount).includes(q) || placeWords(t).includes(q))
     if (held && !out.some((t) => t.id === held.id)) out.push(txns.find((t) => t.id === held.id) ?? held)
     // a file's own rows, or an answer's exact payments, are shown as they are; otherwise each payment once
     return (file ? out : oneRowPerPayment(out, sides)).sort((a, b) => b.at.localeCompare(a.at))
-  }, [txns, everything, file, source, category, onlyReview, showIgnored, query, held, sides])
+  }, [txns, everything, file, source, place, placeOf, category, onlyReview, showIgnored, query, held, sides])
 
   const leavesView = (id: string) => leftOut.includes(topOf(id))
 
@@ -153,7 +174,7 @@ export function TransactionsTable({
   useEffect(() => setTicked((s) => keepShown(s, visible)), [visible])
   const total = useMemo(() => tickedTotal(rows, ticked), [rows, ticked])
   const allTicked = visible.length > 0 && visible.every((id) => ticked.has(id))
-  const [box, wide] = useFits<HTMLDivElement>(TABLE_MIN)
+  const [box, wide] = useFits<HTMLDivElement>(TABLE_MIN + (places ? PLACE_COL : 0))
   const headerBox = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (headerBox.current) headerBox.current.indeterminate = ticked.size > 0 && !allTicked
@@ -399,6 +420,23 @@ export function TransactionsTable({
             </div>
           )
         )}
+        {places && !file && (
+          <label className="tap relative flex items-center rounded-full ring-1 ring-white/10 focus-within:ring-white/40">
+            <MapPin className="pointer-events-none absolute left-3 size-3.5 text-muted" aria-hidden />
+            <select
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              aria-label="Place"
+              className="cursor-pointer appearance-none bg-transparent py-1 pr-8 pl-8 text-sm text-zinc-200 outline-none"
+            >
+              <option value="" className="bg-zinc-900">All places</option>
+              {placeNames.map((p) => (
+                <option key={p} value={p} className="bg-zinc-900">{p}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 size-3.5 text-muted" aria-hidden />
+          </label>
+        )}
         <label className="tap flex min-h-6 cursor-pointer items-center gap-2 text-sm text-zinc-400">
           <input type="checkbox" checked={onlyReview} onChange={(e) => setOnlyReview(e.target.checked)} className="accent-white" />
           Needs review only
@@ -497,9 +535,10 @@ export function TransactionsTable({
         )}
       </AnimatePresence>
 
+      <Columns.Provider value={places ? 7 : 6}>
       <div ref={box} className={wide ? 'overflow-x-auto' : undefined}>
         {wide ? (
-          <table className="w-full text-sm" style={{ minWidth: TABLE_MIN }}>
+          <table className="w-full text-sm" style={{ minWidth: TABLE_MIN + (places ? PLACE_COL : 0) }}>
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-white/[0.06]">
                 <th className="w-7 py-2 pr-2 font-normal">
@@ -507,6 +546,7 @@ export function TransactionsTable({
                 </th>
                 <th className="py-2 pr-4 font-normal">Date</th>
                 <th className="py-2 pr-4 font-normal">Payee</th>
+                {places && <th className="py-2 pr-4 font-normal">Location</th>}
                 <th className="py-2 pr-4 font-normal">Paid with</th>
                 <th className="py-2 pr-4 font-normal">Category</th>
                 <th className="py-2 text-right font-normal">Amount</th>
@@ -531,6 +571,16 @@ export function TransactionsTable({
                         {payee(t)}
                         {subline(t)}
                       </td>
+                      {places && (
+                        <td className="max-w-[10rem] py-2 pr-4">
+                          {placeName(t) && (
+                            <span className="flex min-w-0 items-center gap-1.5 text-zinc-300" title={`You told Plutus you were in ${placeTitle(placeOf.get(t.id)!)} that day`}>
+                              <MapPin className="size-3.5 shrink-0 text-muted" aria-hidden />
+                              <span className="truncate">{placeName(t)}</span>
+                            </span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-2 pr-4">{paidWith(t, paidFromLabel(t, cards, accounts))}</td>
                       <td className="py-2 pr-4">
                         <div className="w-44">{categoryOf(t)}</div>
@@ -571,9 +621,17 @@ export function TransactionsTable({
                         <div className="mt-1.5">{paidWith(t, paidFromLabel(t, cards, accounts), true)}</div>
                         {/* nothing cut: on a very narrow screen the category moves under the day */}
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                          <span className="text-xs whitespace-nowrap text-muted tabular-nums">
-                            {oneYear ? dayMonthLabel(t.at) : dayLabel(t.at)}
-                            {time(t) && ` · ${time(t)}`}
+                          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                            <span className="whitespace-nowrap tabular-nums">
+                              {oneYear ? dayMonthLabel(t.at) : dayLabel(t.at)}
+                              {time(t) && ` · ${time(t)}`}
+                            </span>
+                            {placeName(t) && (
+                              <span className="flex min-w-0 items-center gap-1" title={`You told Plutus you were in ${placeTitle(placeOf.get(t.id)!)} that day`}>
+                                <MapPin className="size-3 shrink-0" aria-hidden />
+                                <span className="truncate text-zinc-300">{placeName(t)}</span>
+                              </span>
+                            )}
                           </span>
                           <div className="ml-auto w-40">{categoryOf(t)}</div>
                         </div>
@@ -587,6 +645,7 @@ export function TransactionsTable({
           </>
         )}
       </div>
+      </Columns.Provider>
       {rows.length > shown && (
         <button
           type="button"
@@ -603,6 +662,7 @@ export function TransactionsTable({
 /** What a payment opens under itself (an offer, a warning): it unfolds, and folds away. In the table it's a row of its
  *  own across every column; in the list, part of the payment's item. */
 function Unfold({ inTable, children }: { inTable: boolean; children: ReactNode }) {
+  const columns = useContext(Columns)
   const body = (
     <motion.div
       initial={{ height: 0, opacity: 0 }}
@@ -616,7 +676,7 @@ function Unfold({ inTable, children }: { inTable: boolean; children: ReactNode }
   )
   return inTable ? (
     <tr>
-      <td colSpan={6} className="p-0">
+      <td colSpan={columns} className="p-0">
         {body}
       </td>
     </tr>

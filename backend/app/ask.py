@@ -5,18 +5,24 @@ The model turns the question into a query of a fixed shape; the page computes th
 the category tree (the same for everyone), today's date and, for a follow-up, the last reading. Its answer is held to a
 JSON schema and checked again here: unknown categories dropped, dates that aren't dates refused, limits kept sane.
 The question itself is never written to the log.
+
+Telling where you were, the page can ask it one more thing (`read_place`): the place as you wrote it, only those words,
+to have it spelt as usual and given its state, as a suggestion the page shows with a button.
 """
 
 import json
 import re
 from datetime import date
 
-from app import categorize, logs
+from app import categorize, logs, places
 from app.llm import llm
 
 log = logs.get("llm")
 
-KINDS = ["total", "count", "average", "top", "largest", "compare", "trend", "list", "last", "why"]
+KINDS = ["total", "count", "average", "top", "largest", "compare", "trend", "list", "last", "why", "where"]
+# What a sentence can tell rather than ask: where you were ("stay") or weren't ("forget"). Only ever a proposal: the
+# page shows what it would do, and only your button keeps it (POST /api/places).
+ACTIONS = ["none", "stay", "forget"]
 # India's seasons, as the page reads them (web/src/lib/ask.ts `SEASONS`; a test keeps the two the same): the month each
 # starts and how many months it lasts. IMD's months, December in winter, as the owner chose (docs/DECISIONS.md #22).
 SEASONS = {"winter": (12, 3), "summer": (3, 3), "monsoon": (6, 4), "post-monsoon": (10, 2)}
@@ -38,6 +44,7 @@ kind:
 - "last": the most recent payment
 - "why": what made a period's spending differ: from/to the period asked about, compare_from/compare_to the one it
   changed from (null when the question names only one: Plutus sets it against the period before)
+- "where": where the person was, the places they told Plutus, in a period
 money: "in" for money received (salary, refunds, cashback); else "out".
 channel: "upi" if the question says UPI, Google Pay, PhonePe or Paytm; "cards" if it says credit card(s); else "all".
 
@@ -57,7 +64,13 @@ spending, or asks which category got the most (kind "top", by "category"):
 
 payees: names of particular shops, apps, companies or people, copied from the question as written; none if it names
 none. A kind of payee ("shops", "doctors", "the electricity company") is a category or nothing, never a payee.
-understood: false only if the question isn't about money spent or received.
+understood: false only if the question isn't about money spent or received, or where the person was.
+
+action: "stay" when the sentence tells where the person was or will be on some days instead of asking ("I was in Goa
+from 1 Jan to 5 Mar", "we're in Kerala this week"): place = the place as written in the sentence, from/to = its days.
+"forget" when it asks to forget or remove a place told before ("forget Goa", "I wasn't in Goa in January"): place, and
+from/to only if it names days. Otherwise "none".
+place: the place for an action, copied from the sentence as written; null otherwise.
 
 The previous question's query:
 {previous}
@@ -66,6 +79,22 @@ query and change only what the new question changes, keeping its categories and 
 alone, ignore the previous query.
 
 Question: {question}"""
+
+
+PLACE_PROMPT = """Someone told an app where they stayed in India. They wrote the place as: "{written}"
+It may be misspelt, or not capitalised. Answer only with JSON in the given format.
+
+places: the place they meant: its name, spelt as it is usually written, and the state or union territory it is in, by
+its code from the list below.
+- If places in more than one state have that name, give each one, the best known first, at most 4.
+- Keep the name they used: correct only its spelling. Never give another name for the same place, a newer or an older
+  one.
+- If the name is a state or union territory itself, give that, with its own code.
+known: false, with no places, if you don't know a place in India by that name, or aren't sure. Never guess.
+
+States and union territories:
+{states}"""
+MAX_CANDIDATES = 4
 
 
 def _seasons() -> str:
@@ -94,9 +123,11 @@ def schema() -> dict:
             "per": {"type": "string", "enum": ["payment", "month"]},
             "limit": {"type": "integer"},
             "understood": {"type": "boolean"},
+            "action": {"type": "string", "enum": ACTIONS},
+            "place": {"type": ["string", "null"]},
         },
         "required": ["kind", "categories", "payees", "channel", "money", "from", "to", "compare_from", "compare_to", "by",
-                     "per", "limit", "understood"],
+                     "per", "limit", "understood", "action", "place"],
     }
 
 
@@ -121,10 +152,29 @@ def _compact(text: str) -> str:
     return re.sub(r"\W+", "", text.casefold())
 
 
+def _told(answer: dict, today: date, question: str) -> dict | None:
+    """A sentence telling where you were (or weren't), as a proposal for the page to show: the place must be written in
+    the sentence; days that aren't real or are out of order are left out, so the page asks when. Nothing is kept here."""
+    kind = answer.get("action")
+    if kind not in ("stay", "forget"):
+        return None
+    raw = answer.get("place")
+    place = re.sub(r"[^\w .,'&()/-]+", " ", raw).strip()[:40] if isinstance(raw, str) else ""
+    if place and _compact(place) not in _compact(question):
+        place = ""
+    if not place and kind == "stay":
+        return {"understood": False, "query": None}
+    days = _period(answer.get("from"), answer.get("to"), today)
+    action = {"kind": kind, "place": place or None, "from": days["from"] if days else None, "to": days["to"] if days else None}
+    return {"understood": True, "query": None, "action": action}
+
+
 def checked(answer: dict, today: date, question: str) -> dict:
     """The model's answer as a query the page can run, or `understood: false`. Nothing it says is taken unchecked: a
     payee must be in the question (not a guess, not a name from an example), and a list of most categories is
-    "everything", not a filter."""
+    "everything", not a filter. A sentence telling where you were comes back as a proposal (`_told`)."""
+    if (told := _told(answer, today, question)) is not None:
+        return told
     ids = {cid for cid, _ in _categories()}
     tops = [cid for cid in ids if "." not in cid]
     said = _compact(question)
@@ -158,6 +208,55 @@ def checked(answer: dict, today: date, question: str) -> dict:
             "limit": min(max(limit, 1), 50) if isinstance(limit, int) and not isinstance(limit, bool) else 5,
         },
     }
+
+
+def place_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "known": {"type": "boolean"},
+            "places": {"type": "array", "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "state": {"type": "string", "enum": list(places.STATES)}},
+                "required": ["name", "state"],
+            }},
+        },
+        "required": ["known", "places"],
+    }
+
+
+def checked_places(answer) -> list[dict]:
+    """What the model says a place is, as suggestions: each a short plain name and a state of India's (an old code
+    taken as today's); no repeats; at most `MAX_CANDIDATES`. Nothing when it doesn't know the place."""
+    if not isinstance(answer, dict) or answer.get("known") is not True or not isinstance(answer.get("places"), list):
+        return []
+    out: list[dict] = []
+    for row in answer["places"]:
+        if not isinstance(row, dict) or not isinstance(row.get("name"), str) or not isinstance(row.get("state"), str):
+            continue
+        try:
+            place, region = places.place_name(row["name"]), places.region_code(row["state"])
+        except places.BadStay:
+            continue
+        if not any(p["place"].casefold() == place.casefold() and p["region"] == region for p in out):
+            out.append({"place": place, "region": region})
+    return out[:MAX_CANDIDATES]
+
+
+async def read_place(written: str) -> dict:
+    """A place as you wrote it, read by the local AI into its usual spelling and its state; `places` is empty when it
+    doesn't know it. Raises places.BadStay unless it's a short plain name, LLMUnavailable without a local AI."""
+    written = places.place_name(written)
+    prompt = PLACE_PROMPT.format(written=written, states="\n".join(f"- {code}: {name}" for code, name in places.STATES.items()))
+    async with llm.session() as ai:
+        raw = await ai.chat([{"role": "user", "content": prompt}], schema=place_schema(), timeout=90, purpose="read a place",
+                            limit=200)
+    try:
+        answer = json.loads(raw)
+    except json.JSONDecodeError:
+        log.warning("the local AI's reading of a place wasn't valid JSON")
+        return {"places": []}
+    return {"places": checked_places(answer)}
 
 
 def _previous(previous: dict | None) -> str:

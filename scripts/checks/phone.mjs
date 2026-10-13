@@ -40,7 +40,7 @@ export default async function phone(s) {
     s.check(bar.fits || bar.chosen, `${tag}: the chosen year in view`)
 
     await to('#transactions', 120)
-    const rows = await s.evaluate(`document.querySelectorAll('#transactions select').length`)
+    const rows = await s.evaluate(`document.querySelectorAll('#transactions select:not([aria-label="Place"])').length`) // a payment's category; not the Place filter
     const money = await s.evaluate(amounts('#transactions'))
     const off = await s.evaluate(offScreen('#transactions select, #transactions .chip-card, #transactions .chip-upi, #transactions input[type=checkbox]'))
     s.check(rows >= 60 && money.n >= rows && !money.off.length && !off.length, `${tag}: each payment's payee, chips, category and amount on screen (${rows})`)

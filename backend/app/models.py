@@ -112,6 +112,18 @@ class OwnAccount(Model):
     added_at: datetime
 
 
+class Stay(Model):
+    """Where you were on some days, as you told Plutus (data/places.json). It changes no payment: the page works out each
+    payment's place from its day (web/src/lib/places.ts)."""
+
+    id: str
+    place: str  # as you wrote it: "Goa"
+    region: str | None = None  # its state, as a number-plate code: "WB" (app/places.py `STATES`)
+    start: date  # both days included
+    end: date
+    added_at: datetime  # the latest you told wins a day two stays share
+
+
 class Payee(Model):
     id: str
     name: str

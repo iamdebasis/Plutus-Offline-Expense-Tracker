@@ -159,3 +159,85 @@ def test_a_why_question_keeps_what_it_is_set_against(model, client):
     q = client.post("/api/ask", json={"question": "what drove 2026 above 2025?"}).json()["query"]
     assert (q["kind"], q["compareTo"]) == ("why", {"from": "2025-01-01", "to": "2025-12-31"})
     assert "why" in model.schemas[-1]["properties"]["kind"]["enum"] and '"why"' in model.prompts[-1]
+
+
+def test_telling_where_you_were_comes_back_as_a_stay_to_confirm(model, client):
+    """The model only reads the sentence; what it reads is a proposal the page shows, saved only by your button. The
+    place must be written in the sentence, the days real and in order (else the page asks when); nothing else is an
+    action."""
+    from app import ask
+
+    stay = {**WINTER, "action": "stay", "place": "Goa", "from": "2026-01-01", "to": "2026-03-05"}
+    model.answer = stay
+    said = "spent new year's day through the fifth of march in goa"
+    assert client.post("/api/ask", json={"question": said}).json() == {
+        "understood": True, "query": None, "action": {"kind": "stay", "place": "Goa", "from": "2026-01-01", "to": "2026-03-05"}}
+    model.answer = {**stay, "place": "Kerala"}  # not in the sentence: never taken
+    assert client.post("/api/ask", json={"question": said}).json() == {"understood": False, "query": None}
+    model.answer = {**stay, "from": "2026-03-05", "to": "2026-01-01"}  # backwards: the page asks when
+    assert client.post("/api/ask", json={"question": said}).json()["action"] == {"kind": "stay", "place": "Goa", "from": None, "to": None}
+    model.answer = {**stay, "action": "forget", "from": None, "to": None}
+    assert client.post("/api/ask", json={"question": "please forget goa"}).json()["action"] == {
+        "kind": "forget", "place": "Goa", "from": None, "to": None}
+    model.answer = {**WINTER, "action": "delete_everything", "place": "Goa"}  # not an action Plutus has: a question
+    res = client.post("/api/ask", json={"question": "goa"}).json()
+    assert "action" not in res and res["query"]["kind"] == "total"
+    assert model.schemas[-1]["properties"]["action"]["enum"] == ["none", "stay", "forget"]
+    assert '"stay"' in ask.PROMPT and '"where"' in ask.PROMPT
+
+
+def test_where_was_i_is_a_kind_of_question(model, client):
+    model.answer = {**WINTER, "kind": "where", "categories": [], "from": "2026-02-01", "to": "2026-02-28"}
+    q = client.post("/api/ask", json={"question": "which town was I in during feb"}).json()["query"]
+    assert (q["kind"], q["period"]) == ("where", {"from": "2026-02-01", "to": "2026-02-28"})
+
+
+def test_a_place_is_read_into_its_usual_spelling_and_its_state(model, client, caplog):
+    """Telling a stay, the page sends the local AI only the place as written (never a payment, never the rest of the
+    sentence); what comes back is a suggestion the page shows, never kept by itself. The place never reaches the log."""
+    from app import places
+
+    model.answer = {"known": True, "places": [{"name": "Mumbai", "state": "MH"}]}
+    with caplog.at_level("INFO"):
+        res = client.post("/api/ask/place", json={"written": "mambaii"})
+    assert res.status_code == 200 and res.json() == {"places": [{"place": "Mumbai", "region": "MH"}]}
+    [prompt] = model.prompts
+    assert '"mambaii"' in prompt and "- WB: West Bengal" in prompt and "- DD: Dadra and Nagar Haveli and Daman and Diu" in prompt
+    assert model.schemas[0]["properties"]["places"]["items"]["properties"]["state"]["enum"] == list(places.STATES)
+    assert "mambaii" not in caplog.text.lower() and "mumbai" not in caplog.text.lower()
+
+
+def test_a_name_in_several_states_comes_back_as_each(model, client):
+    model.answer = {"known": True, "places": [{"name": "Aurangabad", "state": "MH"}, {"name": "Aurangabad", "state": "BR"}]}
+    assert client.post("/api/ask/place", json={"written": "Aurangadad"}).json()["places"] == [
+        {"place": "Aurangabad", "region": "MH"}, {"place": "Aurangabad", "region": "BR"}]
+
+
+def test_what_the_ai_says_about_a_place_is_checked_not_trusted(model, client):
+    """A state from India's 36 (an old code taken as today's), a short plain name, no repeats, at most four; a place
+    it doesn't know, or an answer of the wrong shape, is nothing: the page keeps the place as you wrote it."""
+    model.answer = {"known": True, "places": [
+        {"name": "Fakenagar", "state": "XX"}, {"name": "Fake<b>pur", "state": "WB"}, {"name": "x" * 41, "state": "KA"},
+        {"name": "Fakeganj", "state": None}, {"name": None, "state": "KA"}, "Fakepur",
+        {"name": "  Fakeganj ", "state": "ts"}, {"name": "fakeganj", "state": "TG"},
+        {"name": "Fakepur", "state": "WB"}, {"name": "Fakepur", "state": "OD"}, {"name": "Fakepur", "state": "BR"},
+        {"name": "Fakepur", "state": "UP"}]}
+    assert client.post("/api/ask/place", json={"written": "fakepur"}).json()["places"] == [
+        {"place": "Fakeganj", "region": "TG"}, {"place": "Fakepur", "region": "WB"}, {"place": "Fakepur", "region": "OD"},
+        {"place": "Fakepur", "region": "BR"}]
+    for answer in [{"known": False, "places": [{"name": "Fakepur", "state": "WB"}]}, "not json at all",
+                   {"known": True, "places": "Fakepur"}, ["Fakepur"]]:
+        model.answer = answer
+        assert client.post("/api/ask/place", json={"written": "fakepur"}).json() == {"places": []}, answer
+
+
+def test_a_place_to_read_is_a_short_plain_name(model, client):
+    for bad in ["", "   ", "x" * 41, "Goa\nKerala", "{Goa}"]:
+        r = client.post("/api/ask/place", json={"written": bad})
+        assert r.status_code == 400 and r.json()["detail"]["code"] == "bad_place", repr(bad)
+    assert model.prompts == []
+
+
+def test_without_a_local_ai_a_place_isnt_read(client):
+    res = client.post("/api/ask/place", json={"written": "fakepur"})  # conftest: no LLM in tests
+    assert res.status_code == 409 and res.json()["detail"]["code"] == "no_ai"

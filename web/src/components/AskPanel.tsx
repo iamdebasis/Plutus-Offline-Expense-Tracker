@@ -1,14 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUp, ChevronDown, Info, ListFilter, RotateCcw, Sparkles, X } from 'lucide-react'
+import { ArrowUp, Check, ChevronDown, Info, ListFilter, MapPin, RotateCcw, Sparkles, Undo2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
 import { answer, emptyQuery, periodBefore, rangePeriod, showLabel, suggestions, yearPeriod, type AskAnswer, type AskLine, type AskPeriod, type AskQuery } from '../lib/ask'
-import { couldBePayee, readQuestion, type AskContext } from '../lib/askRules'
+import { couldBePayee, readQuestion, readStay, type AskContext, type StayReading } from '../lib/askRules'
 import { aiPanel } from '../lib/aiPanel'
 import { periodsIn, type LedgerData } from '../lib/ledger'
 import { inr, inrExact } from '../lib/money'
-import { monthLabel } from '../lib/periods'
-import type { AiQuery } from '../types'
+import { plural } from '../lib/format'
+import { dayLabel, monthLabel } from '../lib/periods'
+import { parsePlace, placeKey, placeLabel, samePlace, STATES, stayPreview, toldBefore } from '../lib/places'
+import type { AiAction, AiQuery, Stay } from '../types'
 import { AskOrb } from './AskOrb'
 import { PlutusLogo } from './brand/PlutusLogo'
 
@@ -29,19 +31,52 @@ type Message =
       offerAi?: boolean
       /** The local AI is set up but couldn't be reached for this one (not started, not answering). */
       aiFailed?: boolean
+      /** Something you told: a stay to keep, or stays to forget, shown first and done only by its button. */
+      told?: Told
     }
+
+/** A place, with its state when it has one. */
+type Where = { place: string; region: string | null }
+
+/** A stay to keep or stays to forget, and where that stands: asked, being saved, done (Undo can put it back), undone,
+ *  cancelled. `changed`: what was saved or removed, as the server has it, for Undo. */
+type Told = {
+  what:
+    | {
+        kind: 'stay'
+        start: string
+        end: string
+        /** The place as you wrote it, with the state you wrote, if any. */
+        written: Where
+        /** What it could be, each a button: as you wrote it with your state, the same name you gave a state before, or
+         *  what your local AI read it as. Empty: kept as written. */
+        choices: Where[]
+        /** Your local AI is reading the place (only its words). */
+        checking?: boolean
+        /** Why it's kept as written without a state: no local AI, it doesn't know the place, or it couldn't be reached. */
+        why?: 'no-ai' | 'unknown' | 'failed'
+        /** The place you chose with its button. */
+        chosen?: Where
+      }
+    | { kind: 'forget'; stays: Stay[]; partOf: boolean }
+  status: 'ask' | 'saving' | 'done' | 'undoing' | 'undone' | 'cancelled'
+  changed?: Stay[]
+  error?: string
+}
 
 /** Ask Plutus: questions about your spending, answered from your files on this Mac. Rules read the question first
  *  (lib/askRules.ts); the local AI only when they're unsure (POST /api/ask; it never sees a transaction); the answer
  *  is always computed here, from the ledger, the way the dashboard counts (lib/ask.ts). The chat lives only while
  *  the page is open. */
-export function AskPanel({ open, onOpen, onClose, data, onShow }: {
+export function AskPanel({ open, onOpen, onClose, data, onShow, onChanged }: {
   open: boolean
   onOpen: () => void
   onClose: () => void
   /** The ledger as the dashboard shows it (investments left out when you chose so). */
   data: LedgerData
   onShow: (ids: string[], label: string) => void
+  /** After a stay you confirmed is kept or removed: the ledger, read again. */
+  onChanged: () => void
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
@@ -58,6 +93,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
     categories: data.categories,
     payees: [...new Set([...data.txns, ...data.leftOut].flatMap((t) => [t.payee, t.shop]))], // as files print them, and their shops
     cards: data.cards,
+    places: [...new Map(data.stays.map((s) => [placeKey(s.place), s.place])).values()],
     today: new Date().toLocaleDateString('en-CA'),
   }), [data])
   const starters = useMemo(() => suggestions(data), [data])
@@ -101,6 +137,32 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
     setMessages((all) => [...all, { id: you, from: 'you', text: question }, { id, from: 'plutus', state: 'reading' }])
     const previous = lastQuery
     try {
+      // telling, not asking: where you were, or weren't. A reply shows what it would do; only its button does it.
+      const told = readStay(question, ctx)
+      if (told && (told.kind === 'forget' || told.start)) {
+        show(id, tell(told))
+        return
+      }
+      if (/^\s*(yes|yep|yeah|ok|okay|sure|confirm|do it|go ahead)\b/i.test(question) && pending()) {
+        update(id, { state: 'done', reply: 'To keep it, press the button on it above: typing doesn’t change anything.' })
+        return
+      }
+      if (told && aiReady) {
+        // a stay whose days the rules couldn't place exactly ("the second week of March"): the local AI reads the days;
+        // if it can't be reached, the reply asks when instead
+        update(id, { byAi: true })
+        const res = await api.ask(question, previous).catch(() => null)
+        if (res?.action?.kind === 'stay' && res.action.from && res.action.to) {
+          show(id, { byAi: true, ...tell({ ...told, start: res.action.from, end: res.action.to }) })
+          return
+        }
+        update(id, { byAi: false })
+      }
+      if (told) {
+        const place = placeLabel(told)
+        update(id, { state: 'done', reply: `When were you in ${place}? Tell me the days, like “I was in ${place} from 1 to 5 Jan 2026”.` })
+        return
+      }
       const reading = readQuestion(question, ctx, previous)
       if (reading?.sure) {
         update(id, { state: 'done', answer: answer(data, reading.query) })
@@ -109,6 +171,10 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
       if (aiReady) {
         update(id, { byAi: true })
         const res = await api.ask(question, previous)
+        if (res.action) {
+          show(id, { byAi: true, ...fromAiAction(res.action) })
+          return
+        }
         if (res.understood && res.query) {
           update(id, { state: 'done', byAi: true, answer: answer(data, fromAi(res.query, reading?.query, ctx)) })
           return
@@ -142,6 +208,103 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
 
   const rerun = (id: number, query: AskQuery) => update(id, { answer: answer(data, query) })
 
+  /** Whether a stay you told is still waiting for its button. */
+  const pending = () => messages.some((m) => m.from === 'plutus' && m.told?.status === 'ask')
+
+  /** The reply to something you told: what it would do, to confirm; or why there's nothing to do. A place without a
+   *  state is offered with the state you gave the same name before; failing that, your local AI is asked (`show`). */
+  const tell = (told: StayReading): Partial<Extract<Message, { from: 'plutus' }>> => {
+    if (told.kind === 'stay') {
+      const written = { place: told.place, region: told.region }
+      const choices = written.region ? [written] : toldBefore(written.place, data.stays)
+      const checking = !choices.length && aiReady !== false
+      return { state: 'done', told: { what: { kind: 'stay', start: told.start!, end: told.end!, written, choices, checking, why: choices.length || checking ? undefined : 'no-ai' }, status: 'ask' } }
+    }
+    const named = told.place
+    // a state named picks that state's stays, and those told without one
+    let stays = data.stays.filter((s) => !named || (samePlace(s.place, named) && (!told.region || !s.region || s.region === told.region)))
+    if (told.start && told.end) stays = stays.filter((s) => s.start <= told.end! && told.start! <= s.end)
+    if (!stays.length) {
+      const reply = !data.stays.length ? 'You haven’t told me any places yet.' : named ? `You haven’t told me about ${placeLabel({ place: named, region: told.region })}${told.start ? ' on those days' : ''}.` : 'There are no places on those days.'
+      return { state: 'done', reply }
+    }
+    const partOf = !!(told.start && told.end && stays.some((s) => s.start < told.start! || s.end > told.end!))
+    return { state: 'done', told: { what: { kind: 'forget', stays, partOf }, status: 'ask' } }
+  }
+
+  /** A reply shown; for a stay told without a state, your local AI asked about its place. */
+  const show = (id: number, change: Partial<Extract<Message, { from: 'plutus' }>>) => {
+    update(id, change)
+    const what = change.told?.what
+    if (what?.kind === 'stay' && what.checking) void checkPlace(id, what.written.place)
+  }
+
+  /** Your local AI reads a place you told: only its words, never a payment or the rest of the sentence. What it says,
+   *  checked by the server, is shown as a button each; when it doesn't know the place, or isn't there, it's kept as you
+   *  wrote it, and the card says so. */
+  const checkPlace = async (id: number, written: string) => {
+    let choices: Where[] = []
+    let why: 'no-ai' | 'unknown' | 'failed' | undefined
+    try {
+      choices = (await api.readPlace(written)).places
+      if (!choices.length) why = 'unknown'
+    } catch (e) {
+      // set up, as far as the page knew, but not there to ask: said as such, as for a question
+      if (e instanceof ApiError && e.code === 'no_ai') {
+        setAiReady(false)
+        setAiFailed(true)
+      }
+      why = 'failed'
+    }
+    setMessages((all) => all.map((m) => (m.id === id && m.from === 'plutus' && m.told?.what.kind === 'stay'
+      ? { ...m, told: { ...m.told, what: { ...m.told.what, checking: false, choices, why } } } : m)))
+  }
+
+  /** The local AI's reading of something you told, checked here too: a place that isn't a name, or days it couldn't
+   *  read, and the reply asks instead. */
+  const fromAiAction = (a: AiAction): Partial<Extract<Message, { from: 'plutus' }>> => {
+    const read = a.place ? parsePlace(a.place) : null
+    const place = (read && ctx.places.find((p) => samePlace(p, read.place))) ?? read?.place ?? null
+    const region = read?.region ?? null
+    if (a.kind === 'forget') return tell({ kind: 'forget', place, region, start: a.from, end: a.to })
+    if (!place) return { state: 'done', reply: "I couldn't tell which place you mean. Try “I was in Goa from 1 to 5 Jan 2026”." }
+    const label = placeLabel({ place, region })
+    if (!a.from || !a.to) return { state: 'done', reply: `When were you in ${label}? Tell me the days, like “I was in ${label} from 1 to 5 Jan 2026”.` }
+    return tell({ kind: 'stay', place, region, start: a.from, end: a.to })
+  }
+
+  const setTold = (id: number, change: Partial<Told>) =>
+    setMessages((all) => all.map((m) => (m.id === id && m.from === 'plutus' && m.told ? { ...m, told: { ...m.told, ...change } } : m)))
+
+  /** Your button: the stay kept, as the place you chose, or the stays removed, through the same routes the Places section
+   *  uses. */
+  const confirm = async (id: number, told: Told, choice?: Where) => {
+    const what = told.what.kind === 'stay' && choice ? { ...told.what, chosen: choice } : told.what
+    setTold(id, { what, status: 'saving', error: undefined })
+    try {
+      const changed = what.kind === 'stay'
+        ? [await api.addPlace({ place: what.chosen!.place, region: what.chosen!.region, start: what.start, end: what.end })]
+        : await Promise.all(what.stays.map((s) => api.removePlace(s.id)))
+      setTold(id, { status: 'done', changed })
+      onChanged()
+    } catch (e) {
+      setTold(id, { status: 'ask', error: (e as Error).message })
+    }
+  }
+
+  /** Undo: a stay kept is removed; stays removed are put back exactly (their own ids, and when you told them). */
+  const undo = async (id: number, told: Told) => {
+    setTold(id, { status: 'undoing', error: undefined })
+    try {
+      if (told.what.kind === 'stay') await Promise.all((told.changed ?? []).map((s) => api.removePlace(s.id)))
+      else await Promise.all((told.changed ?? []).map((s) => api.addPlace({ place: s.place, region: s.region ?? null, start: s.start, end: s.end, id: s.id, addedAt: s.addedAt })))
+      setTold(id, { status: 'undone' })
+      onChanged()
+    } catch (e) {
+      setTold(id, { status: 'done', error: (e as Error).message })
+    }
+  }
+
   const submit = (e: FormEvent) => {
     e.preventDefault()
     void ask(draft)
@@ -170,7 +333,7 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
                   {aiReady === false ? (
                     <>
                       · rules only,{' '}
-                      <button type="button" onClick={aiPanel.open} className="text-zinc-300 underline decoration-white/25 underline-offset-2 hover:decoration-white">
+                      <button type="button" onClick={aiPanel.open} className="hit text-zinc-300 underline decoration-white/25 underline-offset-2 hover:decoration-white">
                         {aiFailed ? 'local AI unavailable' : 'local AI not set up'}
                       </button>
                     </>
@@ -200,8 +363,13 @@ export function AskPanel({ open, onOpen, onClose, data, onShow }: {
                       {m.text}
                     </p>
                   ) : (
-                    <Reply key={m.id} m={m} data={data} years={years} starters={starters}
-                      onAsk={(q) => void ask(q)} onChange={(q) => rerun(m.id, q)} onShow={onShow} />
+                    m.told ? (
+                      <ToldCard key={m.id} told={m.told} data={data} onShow={onShow}
+                        onConfirm={(choice) => void confirm(m.id, m.told!, choice)} onCancel={() => setTold(m.id, { status: 'cancelled' })} onUndo={() => void undo(m.id, m.told!)} />
+                    ) : (
+                      <Reply key={m.id} m={m} data={data} years={years} starters={starters}
+                        onAsk={(q) => void ask(q)} onChange={(q) => rerun(m.id, q)} onShow={onShow} />
+                    )
                   ),
                 )
               )}
@@ -243,6 +411,7 @@ function fromAi(q: AiQuery, rules: AskQuery | undefined, ctx: AskContext): AskQu
     ...q,
     payees: q.payees.filter((p) => couldBePayee(p, ctx)),
     cards: rules?.cards ?? [],
+    places: rules?.places ?? [], // the model is never told your places: the rules found them
     period: q.period ? rangePeriod(q.period.from, q.period.to) : null,
     compareTo: q.compareTo ? rangePeriod(q.compareTo.from, q.compareTo.to) : null,
   }
@@ -253,6 +422,7 @@ function Welcome({ starters, onPick }: { starters: string[]; onPick: (q: string)
     <div className="pt-6 text-center">
       <p className="font-display text-[15px] text-zinc-200">Ask about your spending</p>
       <p className="mx-auto mt-1 max-w-[30ch] text-sm text-zinc-400">Totals, top payees, months, comparisons. Every number comes from your files.</p>
+      <p className="mx-auto mt-2 max-w-[34ch] text-xs text-zinc-400">Tell me where you were, like “I was in Goa from 1 to 5 Jan”, and ask what you spent there.</p>
       <div className="mt-5 flex flex-col items-center gap-2">
         {starters.map((s) => (
           <button key={s} type="button" onClick={() => onPick(s)}
@@ -332,13 +502,179 @@ function Reply({ m, data, years, starters, onAsk, onChange, onShow }: {
   )
 }
 
+/** Something you told, shown before anything is done: what it would do, in days, payments and money, and what it
+ *  takes from places told before; for a stay, the place it would be, with its state, or a choice of them. Only a button
+ *  does it; then it can be undone. */
+function ToldCard({ told, data, onConfirm, onCancel, onUndo, onShow }: {
+  told: Told
+  data: LedgerData
+  /** For a stay, the place chosen. */
+  onConfirm: (choice?: Where) => void
+  onCancel: () => void
+  onUndo: () => void
+  onShow: (ids: string[], label: string) => void
+}) {
+  const span = (start: string, end: string) => (start === end ? dayLabel(start) : `${dayLabel(start)} – ${dayLabel(end)}`)
+  const busy = told.status === 'saving' || told.status === 'undoing'
+  const primary = 'tap inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[13px] font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50'
+  const quiet = 'tap inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-zinc-200 ring-1 ring-white/15 transition hover:bg-white/[0.06] disabled:opacity-50'
+  // one of several equal choices (a state each): above "Keep as written", below a single main action
+  const choice = 'tap inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-[13px] font-medium text-zinc-50 ring-1 ring-white/20 transition hover:bg-white/[0.12] disabled:opacity-50'
+  // the least: Cancel
+  const ghost = 'tap inline-flex items-center rounded-full px-3 py-1.5 text-[13px] text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100 disabled:opacity-50'
+  const spinner = <span className="size-3 animate-spin rounded-full border-2 border-zinc-950/25 border-t-zinc-950" />
+  const outcome = (text: string) => (
+    <p className="mt-3 flex items-center gap-1.5 text-sm text-zinc-200">
+      <Check className="size-4 text-emerald-400" strokeWidth={2.6} /> {text}
+    </p>
+  )
+  const error = told.error && <p className="mt-2 text-xs text-rose-300">That didn’t work: {told.error}. Nothing changed; try again.</p>
+  const closed = told.status === 'cancelled' || told.status === 'undone'
+  const note = (text: string) => (
+    <p className="mt-2 flex gap-1.5 text-xs text-zinc-400">
+      <Info className="mt-px size-3.5 shrink-0 text-faint" /> {text}
+    </p>
+  )
+
+  if (told.what.kind === 'stay') {
+    const { start, end, written, choices, checking, why, chosen } = told.what
+    const asking = told.status === 'ask' || told.status === 'saving'
+    const same = (a: Where, b: Where) => samePlace(a.place, b.place) && (a.region ?? null) === (b.region ?? null)
+    const several = !chosen && choices.length > 1
+    // the place it would be: the one you chose, else the one it can be, else as you wrote it (several: their name)
+    const shown = chosen ?? (choices.length === 1 ? choices[0] : several ? { place: choices[0].place, region: null } : written)
+    const label = placeLabel(shown)
+    const named = several ? choices.every((c) => samePlace(c.place, shown.place)) : true
+    const p = stayPreview(data, start, end, shown.place, shown.region)
+    const days = span(start, end)
+    const under = [
+      shown.region && label !== shown.place ? STATES[shown.region] : null,
+      named && !samePlace(shown.place, written.place) ? `you wrote “${written.place}”` : null,
+    ].filter(Boolean).join(' · ')
+    const pick = (c: Where, text: string, main: boolean) => (
+      <button key={`${c.place}|${c.region}`} type="button" onClick={() => onConfirm(c)} disabled={busy} className={main ? primary : choice}
+        title={c.region ? `${c.place}, ${STATES[c.region]}` : undefined}>
+        {told.status === 'saving' && chosen && same(chosen, c) ? (main ? spinner : <span className="size-3 animate-spin rounded-full border-2 border-white/25 border-t-white" />) : <MapPin className="size-3.5" />} {text}
+      </button>
+    )
+    const keepWritten = (
+      <button type="button" onClick={() => onConfirm(written)} disabled={busy} className={quiet}>
+        {told.status === 'saving' && chosen && same(chosen, written) && <span className="size-3 animate-spin rounded-full border-2 border-white/25 border-t-white" />} Keep as written
+      </button>
+    )
+    return (
+      <article role="group" aria-label={`${label}, ${days}`} className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+        <p className="flex items-center gap-2 font-display text-[17px] font-semibold tracking-tight text-zinc-50">
+          <MapPin className="size-4 shrink-0 text-zinc-400" /> {named ? label : written.place}
+        </p>
+        {under && <p className="mt-0.5 text-xs text-zinc-400">{under}</p>}
+        <p className="mt-1 text-sm text-zinc-300 tabular-nums">{days} · {plural(p.days, 'day')}</p>
+        <p className="mt-1 text-xs text-zinc-400 tabular-nums">
+          {p.payments ? `${plural(p.payments, 'payment')} on those days · ${inr(p.spent)} spent` : 'No payments on those days in your files yet; any you add later will show there.'}
+        </p>
+        {told.status === 'ask' && !several &&
+          p.taken.map((x) => (
+            <p key={x.stay.id} className="mt-2 flex gap-1.5 text-xs text-amber-200/90">
+              <Info className="mt-px size-3.5 shrink-0" /> {span(x.start, x.end)} {x.start === x.end ? 'was' : 'were'} {placeLabel(x.stay)}: {x.start === x.end ? 'that day becomes' : 'those days become'} {label}.
+            </p>
+          ))}
+        {error}
+        {asking ? (
+          <>
+            {checking && !chosen ? (
+              <p role="status" className="mt-2 flex items-center gap-2 text-xs text-zinc-400">
+                <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-zinc-400" /> Your local AI is checking its spelling and state…
+              </p>
+            ) : several ? (
+              <p className="mt-2 text-xs text-zinc-300">
+                {named ? `Places named ${shown.place} are in more than one state.` : 'It could be more than one place.'} Which one were you in?
+              </p>
+            ) : !choices.length && !chosen && !written.region && why ? (
+              note(`${why === 'no-ai' ? 'No state with it' : why === 'unknown' ? 'Your local AI doesn’t know this place, so it has no state'
+                : 'Your local AI couldn’t be reached to check it, so it has no state'}: write one after the place, like “Darjeeling, WB”, or add it in Places.`)
+            ) : (
+              <p className="mt-2 text-xs text-zinc-400">Nothing else changes: your payments and figures stay as they are, with {label} beside them.</p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {checking && !chosen ? keepWritten
+                : several ? <>{choices.map((c) => pick(c, named ? STATES[c.region!] : `${c.place}, ${STATES[c.region!]}`, false))}{keepWritten}</>
+                  : choices.length === 1 ? <>{pick(choices[0], `Mark as ${placeLabel(choices[0])}`, true)}{!same(choices[0], written) && keepWritten}</>
+                    : pick(chosen ?? written, `Mark as ${placeLabel(chosen ?? written)}`, true)}
+              <button type="button" onClick={onCancel} disabled={busy} className={ghost}>Cancel</button>
+            </div>
+          </>
+        ) : closed ? (
+          <p className="mt-3 text-sm text-zinc-400">{told.status === 'undone' ? 'Undone: nothing is kept.' : 'Cancelled: nothing changed.'}</p>
+        ) : (
+          <>
+            {outcome(`Kept: ${days} ${start === end ? 'is' : 'are'} ${label}.`)}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {p.ids.length > 0 && (
+                <button type="button" onClick={() => onShow(p.ids, `${label}, ${days}`)} className={quiet}>
+                  <ListFilter className="size-3.5" /> Show {p.payments === 1 ? 'this payment' : `these ${p.payments} payments`}
+                </button>
+              )}
+              <button type="button" onClick={onUndo} disabled={busy} className={quiet}>
+                <Undo2 className="size-3.5" /> Undo
+              </button>
+            </div>
+          </>
+        )}
+      </article>
+    )
+  }
+
+  const { stays, partOf } = told.what
+  const one = stays.length === 1
+  return (
+    <article role="group" aria-label={one ? `Forget ${placeLabel(stays[0])}` : `Forget ${stays.length} places`} className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+      <p className="font-display text-[17px] font-semibold tracking-tight text-zinc-50">{one ? `Forget ${placeLabel(stays[0])}?` : `Forget these ${stays.length} places?`}</p>
+      <ul className="mt-2 space-y-1">
+        {stays.map((s) => (
+          <li key={s.id} className="flex items-center gap-2 text-sm text-zinc-300 tabular-nums">
+            <MapPin className="size-3.5 shrink-0 text-zinc-400" /> {placeLabel(s)} · {span(s.start, s.end)}
+          </li>
+        ))}
+      </ul>
+      {partOf && told.status === 'ask' && (
+        <p className="mt-2 flex gap-1.5 text-xs text-amber-200/90">
+          <Info className="mt-px size-3.5 shrink-0" /> Those days are part of {one ? 'it' : 'them'}. This forgets {one ? 'the whole stay' : 'each whole stay'}; to change the days instead, use Places.
+        </p>
+      )}
+      {error}
+      {told.status === 'ask' || told.status === 'saving' ? (
+        <>
+          <p className="mt-2 text-xs text-zinc-400">Their payments lose the place; nothing else changes.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onConfirm()} disabled={busy} className={primary}>
+              {told.status === 'saving' && spinner} {one ? 'Forget it' : 'Forget them'}
+            </button>
+            <button type="button" onClick={onCancel} disabled={busy} className={ghost}>Cancel</button>
+          </div>
+        </>
+      ) : closed ? (
+        <p className="mt-3 text-sm text-zinc-400">{told.status === 'undone' ? 'Undone: put back as it was.' : 'Cancelled: nothing changed.'}</p>
+      ) : (
+        <>
+          {outcome(one ? `Forgotten: ${placeLabel(stays[0])}.` : `Forgotten: ${stays.length} places.`)}
+          <div className="mt-3">
+            <button type="button" onClick={onUndo} disabled={busy} className={quiet}>
+              <Undo2 className="size-3.5" /> Undo
+            </button>
+          </div>
+        </>
+      )}
+    </article>
+  )
+}
+
 /** Under an answer the rules gave alone: how the local AI would help, or, when it's set up but couldn't be reached,
  *  that it couldn't (the Local AI panel says why). */
 function AiNote({ failed }: { failed: boolean }) {
   return (
     <p className="mt-2.5 text-xs text-zinc-400">
       {failed ? "The local AI couldn't be reached, so the rules read this one." : 'With the local AI set up, Plutus can read questions like this one.'}{' '}
-      <button type="button" onClick={aiPanel.open} className="text-zinc-300 underline decoration-white/25 underline-offset-2 hover:decoration-white">
+      <button type="button" onClick={aiPanel.open} className="hit text-zinc-300 underline decoration-white/25 underline-offset-2 hover:decoration-white">
         {failed ? 'See why' : 'See how'}
       </button>
     </p>
@@ -423,6 +759,7 @@ function Reading({ query, data, years, byAi, onChange }: { query: AskQuery; data
       </span>
       {query.categories.map((c) => <span key={c}>{remove(data.categories.get(c)?.label ?? c, { categories: query.categories.filter((x) => x !== c) })}</span>)}
       {query.payees.map((p) => <span key={p}>{remove(`“${p}”`, { payees: query.payees.filter((x) => x !== p) })}</span>)}
+      {query.places.map((p) => <span key={p}>{remove(`in ${p}`, { places: query.places.filter((x) => x !== p) })}</span>)}
       {query.cards.map((c) => {
         const card = data.cards.find((x) => x.id === c)
         return <span key={c}>{remove(card ? `${card.issuer ?? 'Card'} ••${card.last4}` : 'a card', { cards: query.cards.filter((x) => x !== c) })}</span>
@@ -467,6 +804,7 @@ function readingLabel(q: AskQuery, data: LedgerData): string {
   const parts = [
     ...q.categories.map((c) => data.categories.get(c)?.label ?? c),
     ...q.payees.map((p) => `“${p}”`),
+    ...q.places.map((p) => `in ${p}`),
     q.channel === 'upi' ? 'UPI' : q.channel === 'cards' ? 'cards' : '',
     q.kind === 'why' && q.period ? `${q.period.label} against ${(q.compareTo ?? periodBefore(q.period)).label}`
       : q.kind === 'compare' && q.compareTo ? `${q.period?.label} vs ${q.compareTo.label}` : q.period?.label ?? 'all your files',

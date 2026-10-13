@@ -1,6 +1,8 @@
 // Plutus used as a person would, start to finish: start over, add the files with the picker, pick one again, answer a
-// payee waiting in Uncategorized from Total spend, answer the review list, change two payments and undo it, confirm a
-// held statement, delete a file, ask with no local AI, open the Local AI panel; the ledger checked after every change.
+// payee waiting in Uncategorized from Total spend, answer the review list, change two payments and undo it, tell Ask
+// Plutus where you were (kept only by its button, undone, removed in Places and put back, forgotten; a place with its
+// state, shown with it and changed in Places), confirm a held
+// statement, delete a file, ask with no local AI, open the Local AI panel; the ledger checked after every change.
 // It starts over, so it runs only when the demo was started for these checks (`make check-ui` sets
 // PLUTUS_CHECKS_MAY_START_OVER, and sends Start over to .demo/trash).
 import { copyFileSync, readdirSync } from 'node:fs'
@@ -127,6 +129,98 @@ export default async function walkthrough(s) {
   await s.evaluate(`[...document.querySelectorAll('[role=toolbar] button')].find((b) => b.textContent.trim() === 'Undo').click()`)
   await sleep(1500)
   s.check(JSON.stringify(await s.evaluate(`[...document.querySelectorAll('#transactions tbody tr')].slice(0, 2).map((tr) => tr.querySelector('select').value)`)) === JSON.stringify(was), 'and Undo puts them back exactly')
+
+  // where you were: told in Ask Plutus and kept only by its button; undone; removed in Places and put back exactly;
+  // forgotten in Ask Plutus. None of it touches the ledger.
+  {
+    const ASK = `document.querySelector('[role=dialog][aria-label="Ask Plutus"]')`
+    const placesNow = () => fetch(`${s.base}/api/places`).then((r) => r.json())
+    const ledgerNow = () => fetch(`${s.base}/api/transactions`).then((r) => r.text())
+    const ledgerBefore = await ledgerNow()
+    const say = async (text) => {
+      await s.evaluate(`(() => { const i = ${ASK}.querySelector('input[aria-label="Your question"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(text)}); i.dispatchEvent(new Event('input', { bubbles: true })); return true })()`)
+      await sleep(100)
+      await s.evaluate(`${ASK}.querySelector('button[aria-label="Ask"]').click()`)
+      await sleep(1200)
+      return s.evaluate(`[...${ASK}.querySelectorAll('[role=log] > *')].at(-1).innerText.replace(/\\s+/g, ' ')`)
+    }
+    const press = async (label) => {
+      const ok = await s.evaluate(`(() => { const b = [...${ASK}.querySelectorAll('button')].reverse().find((b) => b.textContent.trim().startsWith(${JSON.stringify(label)})); b?.click(); return !!b })()`)
+      await sleep(1500)
+      return ok
+    }
+    await s.load()
+    await s.evaluate(`document.querySelector('button[aria-label="Ask Plutus"][aria-haspopup="dialog"]').click()`)
+    await s.until(`!!${ASK}?.querySelector('input')`, 'the Ask panel')
+    const card = await say('I was in Goa from 19th Sep 2026 to 25th Sep 2026')
+    s.check(/Mark as Goa/.test(card) && /7 days/.test(card) && !(await placesNow()).length, 'telling Ask Plutus where you were shows it first: nothing kept until its button')
+    s.check(/press the button/.test(await say('yes')) && !(await placesNow()).length, 'typing “yes” keeps nothing: only the button does')
+    await s.evaluate(`[...${ASK}.querySelectorAll('[role=group]')].at(-1).scrollIntoView()`)
+    s.check(await press('Mark as Goa'), 'its button')
+    const kept = await placesNow()
+    s.check(kept.length === 1 && kept[0].place === 'Goa' && kept[0].region === 'GA' && kept[0].start === '2026-09-19' && kept[0].end === '2026-09-25', 'the button keeps Goa, a state itself, 19 to 25 Sep 2026')
+    await press('Undo')
+    s.check(!(await placesNow()).length, 'Undo: nothing kept')
+    await say('I was in Goa from 19th Sep 2026 to 25th Sep 2026')
+    await press('Mark as Goa')
+    const [goa] = await placesNow()
+    await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+    await s.load()
+    const location = await s.evaluate(`[...document.querySelectorAll('#transactions tbody tr')].filter((tr) => tr.innerText.includes('Goa')).length`)
+    s.check(!!goa && location > 0, `Goa is beside its days' payments in Your transactions (${location})`)
+    await s.evaluate(`(() => { const e = document.getElementById('places'); scrollTo(0, e.getBoundingClientRect().top + scrollY - 80); return true })()`)
+    await sleep(400)
+    await s.evaluate(`document.querySelector('#places [aria-label^="Remove Goa"]').click()`)
+    await sleep(300)
+    await s.evaluate(`[...document.querySelectorAll('#places button')].find((b) => b.textContent.trim() === 'Remove').click()`)
+    await sleep(1500)
+    s.check(!(await placesNow()).length, 'removed in Places')
+    await s.evaluate(`[...document.querySelectorAll('#places button')].find((b) => b.textContent.includes('Undo')).click()`)
+    await sleep(1500)
+    const back = await placesNow()
+    s.check(back.length === 1 && back[0].id === goa.id && back[0].addedAt === goa.addedAt, 'Undo in Places puts it back exactly: its own id, and when you told it')
+    await s.evaluate(`document.querySelector('button[aria-label="Ask Plutus"][aria-haspopup="dialog"]').click()`)
+    await s.until(`!!${ASK}?.querySelector('input')`, 'the Ask panel')
+    s.check(/Forget Goa\?/.test(await say('forget goa')) && (await placesNow()).length === 1, 'forgetting is shown first too')
+    await press('Forget it')
+    s.check(!(await placesNow()).length, 'forgotten with its button')
+
+    // a place told with its state: kept with it, shown "Place, ST" (its name on hover), found by the state's name; the
+    // state changed in Places; then removed
+    const stated = await say('I was in Fakepur, WB from 19th Sep 2026 to 25th Sep 2026')
+    s.check(/Mark as Fakepur, WB/.test(stated) && /West Bengal/.test(stated) && !(await placesNow()).length, 'a place told with its state shows it, with the state’s name')
+    await s.evaluate(`[...${ASK}.querySelectorAll('[role=group]')].at(-1).scrollIntoView()`)
+    await press('Mark as Fakepur, WB')
+    const [fakepur] = await placesNow()
+    s.check(fakepur?.place === 'Fakepur' && fakepur.region === 'WB', 'kept with its state, as its code')
+    await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+    await s.load()
+    const LIST = `document.getElementById('transactions')`
+    const besides = await s.evaluate(`[...${LIST}.querySelectorAll('tbody tr')].filter((tr) => tr.innerText.includes('Fakepur, WB')).length`)
+    await s.evaluate(`(() => { const i = ${LIST}.querySelector('input[placeholder^="Search"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'west bengal'); i.dispatchEvent(new Event('input', { bubbles: true })); return true })()`)
+    await sleep(500)
+    const found = await s.evaluate(`[...${LIST}.querySelectorAll('tbody tr')].filter((tr) => tr.children.length > 3).map((tr) => tr.innerText.includes('Fakepur, WB'))`)
+    s.check(besides > 0 && found.length > 0 && found.every(Boolean), `Fakepur, WB beside its days' payments (${besides}), and found by its state's name (${found.length})`)
+    await s.load()
+    await s.evaluate(`(() => { const e = document.getElementById('places'); scrollTo(0, e.getBoundingClientRect().top + scrollY - 80); return true })()`)
+    await sleep(400)
+    const title = await s.evaluate(`document.querySelector('#places article h3 span[title]')?.getAttribute('title')`)
+    s.check(title === 'Fakepur, West Bengal', `its card names the state on hover (${title})`)
+    await s.evaluate(`document.querySelector('#places [aria-label^="Edit Fakepur, WB"]').click()`)
+    await sleep(300)
+    await s.evaluate(`(() => { const sel = document.querySelector('#places form select'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'KA'); sel.dispatchEvent(new Event('change', { bubbles: true })); return true })()`)
+    await sleep(200)
+    await s.evaluate(`[...document.querySelectorAll('#places form button')].find((b) => b.textContent.trim() === 'Save').click()`)
+    await sleep(1500)
+    const [moved] = await placesNow()
+    s.check(moved?.id === fakepur.id && moved.region === 'KA' && moved.place === 'Fakepur', 'its state changed in Places')
+    await s.evaluate(`document.querySelector('#places [aria-label^="Remove Fakepur, KA"]').click()`)
+    await sleep(300)
+    await s.evaluate(`[...document.querySelectorAll('#places button')].find((b) => b.textContent.trim() === 'Remove').click()`)
+    await sleep(1500)
+    s.check(!(await placesNow()).length, 'and removed')
+    s.check((await ledgerNow()) === ledgerBefore, 'none of it touched the ledger: every payment exactly as it was')
+  }
 
   // a held statement, checked and counted
   const heldBefore = await s.evaluate(`fetch('/api/card-statements').then((r) => r.json()).then((x) => x.filter((st) => st.status === 'on_hold').map((st) => st.held.length))`)

@@ -97,6 +97,27 @@
   }
 }
 
+/* A short text control inside a line ("local AI not set up", "See how"): a target at least 24 by 24 (WCAG 2.2's least)
+   with a mouse and 44 by 44 under a finger, without changing how it looks or the line's height. */
+@utility hit {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 24px);
+    height: max(100%, 24px);
+    translate: -50% -50%;
+  }
+  @media (pointer: coarse) {
+    &::after {
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+    }
+  }
+}
+
 @utility text-gradient {
   background: linear-gradient(100deg, #ffe08a 0%, #f7b32d 50%, #e8921a 100%);
   -webkit-background-clip: text;

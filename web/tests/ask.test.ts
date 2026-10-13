@@ -221,7 +221,7 @@ describe('questions to start with', () => {
     const data = fake()
     const starters = suggestions(data)
     assert.deepEqual(starters, ['How much on online shopping in 2026?', 'Top 5 payees in 2026', 'Compare 2025 and 2026', 'Online shopping by month in 2026'])
-    const ctx = { categories: data.categories, payees: data.txns.map((t) => t.payee), cards: data.cards, today: '2026-10-07' }
+    const ctx = { categories: data.categories, payees: data.txns.map((t) => t.payee), cards: data.cards, places: [], today: '2026-10-07' }
     const kinds = starters.map((q) => {
       const r = readQuestion(q, ctx)
       assert.ok(r?.sure, `${q}: not sure (${r?.unknown.join(', ')})`)

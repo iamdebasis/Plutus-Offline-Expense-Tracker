@@ -100,7 +100,7 @@ export default async function access(s) {
   await s.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-contrast', value: 'more' }, { name: 'prefers-reduced-motion', value: 'reduce' }] })
   await s.load()
   const more = await s.evaluate(`({ muted: getComputedStyle(document.querySelector('.text-muted')).color, card: getComputedStyle(document.querySelector('section.bg-card\\\\/90')).borderTopColor,
-    row: getComputedStyle(document.querySelector('#transactions tbody tr')).borderBottomColor, picker: getComputedStyle(document.querySelector('#transactions select')).boxShadow })`)
+    row: getComputedStyle(document.querySelector('#transactions tbody tr')).borderBottomColor, picker: getComputedStyle(document.querySelector('#transactions tbody select')).boxShadow })`)
   s.check(more.muted === 'rgb(176, 176, 185)' && more.card.includes('0.4') && more.row.includes('0.25') && more.picker.includes('0.4'), 'Increase contrast: helper text, card edges, row lines and picker rings step up')
   s.check(!(await s.evaluate(CONTRAST)).low.length, 'Increase contrast: every text still reads')
   await s.motion()

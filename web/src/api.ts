@@ -1,5 +1,5 @@
 import type { AskQuery } from './lib/ask'
-import type { AiQuery, AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, ResetPreview, StorageInfo, Transaction, UploadRecord } from './types'
+import type { AiAction, AiQuery, AiSetup, CardPayment, CardStatement, CategoryNode, DeclaredKind, HeldRow, Instrument, LlmStatus, OwnAccount, PaymentState, Preferences, ResetPreview, Stay, StorageInfo, Transaction, UploadRecord } from './types'
 
 export class ApiError extends Error {
   readonly code: string | undefined
@@ -56,10 +56,18 @@ export const api = {
   /** A question the page's rules couldn't read, read by the local AI into a query (the page answers it from the
    *  ledger). The model gets the question, the categories and today's date; never a transaction. 409: no local AI. */
   ask: (question: string, previous: AskQuery | null) =>
-    request<{ understood: boolean; query: AiQuery | null }>('/api/ask', {
+    request<{ understood: boolean; query: AiQuery | null; action?: AiAction }>('/api/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, previous }),
+    }),
+  /** A place you told, read by the local AI into its usual spelling and its state: suggestions to show, each with a
+   *  button; none when it doesn't know it. The model gets only the place's words. 409: no local AI. */
+  readPlace: (written: string) =>
+    request<{ places: { place: string; region: string }[] }>('/api/ask/place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ written }),
     }),
   /** The one-time hint about the local AI was answered: it doesn't show again. */
   aiHintSeen: () => request<void>('/api/llm/hint-seen', { method: 'POST' }),
@@ -130,6 +138,14 @@ export const api = {
     }),
   /** "Not mine": its transfers count again. */
   forgetAccount: (last4: string) => request<{ updated: number }>(`/api/accounts/${last4}`, { method: 'DELETE' }),
+  /** Where you were (data/places.json): read and written apart from the ledger, which they never change. */
+  places: () => request<Stay[]>('/api/places'),
+  /** A stay you confirmed; with its `id` and `addedAt`, one put back exactly (Undo after removing it). */
+  addPlace: (body: { place: string; region?: string | null; start: string; end: string; id?: string; addedAt?: string }) =>
+    request<Stay>('/api/places', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  changePlace: (id: string, body: { place: string; region?: string | null; start: string; end: string }) =>
+    request<Stay>(`/api/places/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  removePlace: (id: string) => request<Stay>(`/api/places/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   preferences: () => request<Preferences>('/api/preferences'),
   setPreferences: (changes: Partial<Preferences>) =>
     request<Preferences>('/api/preferences', {

@@ -48,6 +48,11 @@ no cloud, no telemetry. It is named for the Greek god of wealth.
   is the dashboard's own number, with how your question was read and the payments behind it. Rules read most questions
   instantly; the optional local AI reads the rest, and it sees only your question, never a transaction. The chat isn't
   saved anywhere.
+- **Knows where you were, once you tell it.** Tell Ask Plutus "I was in Goa from 1 Jan to 5 Mar 2026" and, after you
+  confirm with its button, every payment on those days shows Goa: a Location column in your transactions, a card in
+  Places with what you spent there, and answers to "how much did I spend in Goa?". A place can carry its state
+  ("Darjeeling, WB"); with the local AI set up, a misspelt place is offered as usually spelt, with its state, and a name
+  in several states gets a button each. It changes no payment and no figure.
 
 ![Month by month: each category's spending per month, with estimated card spending dashed](docs/screenshots/month-by-month.png)
 
@@ -141,11 +146,13 @@ the billing step places each card bill in the cycle it paid for.
   `fake_takeout.py` add fixed layouts and a Google Takeout export. No real statement is ever in the repo.
 
 <details>
-<summary><b>More screenshots</b>: credit cards, UPI, transactions, your files, the Ask Plutus button</summary>
+<summary><b>More screenshots</b>: credit cards, UPI, places, transactions, your files, the Ask Plutus button</summary>
 
 ![Credit cards: each card's spending, month by month, solid where statements were read and dashed where estimated from bills](docs/screenshots/credit-cards.png)
 
 ![UPI spends: by category and month, where payments were debited from, and who you paid most](docs/screenshots/upi.png)
+
+![Places: a week in Goa you told Ask Plutus about, with what you spent there, a day's average and the top categories](docs/screenshots/places.png)
 
 ![Your transactions: payees waiting for an answer, and every payment with its category and how it was paid (PhonePe, a card, or a card on UPI)](docs/screenshots/transactions.png)
 

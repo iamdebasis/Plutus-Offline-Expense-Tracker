@@ -389,3 +389,80 @@ payees, so "and N more" is held by `web/tests/focus.test.ts`, not seen in the br
 `TotalSpend.tsx`, `CategoryBars.tsx` (the detail under its row); `categorize.shops`, `ListedTransaction`
 (`app/models.py`), `GET /api/transactions` (`backend/tests/test_shops.py`); `topPayees` in `lib/ledger.ts`, top payees
 and payee words in `lib/ask.ts`; `scripts/checks/focus.mjs`.
+
+## 30. Where you were, told to Ask Plutus; and Ask Plutus never gets more power than a dashboard button
+
+**Decision**: you tell Plutus where you were, in Ask Plutus ("I was in Goa from 1 Jan to 5 Mar 2026", "forget Goa").
+The rules read it (`readStay`, with day-level dates: "1st Jan", "1-5 Jan", "01/03/2026" day first, "since 3 Mar"; a day
+without its year the latest begun, or the next for "will be"); the local AI only for days the rules can't place exactly,
+and its place must be copied from the sentence. Either way it's a proposal: the reply shows the days, the payments on
+them, what was spent and the days it takes from places told before, and only its button keeps it, through the route
+the Places section uses (`POST /api/places`), with Undo. A typed "yes" changes nothing. A stay is kept in
+`data/places.json`, apart from the ledger, which it never touches: each payment's place is worked out from its day (a
+refund's, its payment's), the stay told latest winning a day two share. Places show in the Places section (between UPI
+spends and Your transactions, once there's one: a card each, with Edit, Remove and Undo, and Add a place), in a
+Location column after Payee in Your transactions (a Place filter, and the search), and in Ask Plutus's answers ("how
+much in Goa?", "where was I in February?"). Card spending known only from bills has no days, so no place: an answer or
+card about a place says about how much of it falls on those days. The rule for every action from the chat: **Ask
+Plutus never gets more power than a button on the dashboard**: what it offers is what a button there does, through
+the same route and checks, shown first, done by your click, undoable; anything that can't be undone (deleting files,
+Start over) is never offered from the chat.
+**Why**: the owner wanted spending tagged by place ("spent in Goa"). The files can't say where you were: a card
+statement prints the merchant's registered town (the company's, for anything online), UPI histories print none, and
+the location UPI apps send to NPCI isn't in any export. Telling Plutus is exact, private and simple, and the owner
+chose Ask Plutus for it, with a Location column after Payee and a Places section. Keeping stays apart from the ledger
+means a place can't change a figure, a statement for those days added later is placed too, re-reading a file can't
+lose it, and removing it leaves everything as it was. Making the chat propose and the button act keeps Ask Plutus's
+power no larger than the dashboard's, so a misread sentence costs a Cancel, never a change.
+**Costs**: one place a day: a day trip and home on the same day can't be split. UPI and cash payments get a place
+only from what you tell. Card spending known only from bills is never placed (only said about). The rules read
+English and the formats above; other wordings need the local AI or the days said again.
+**Where**: `app/places.py`, `app/routes/places.py` (`backend/tests/test_places.py`); `lib/places.ts`, `readStay` and
+`dayRange` in `lib/askRules.ts`, `places` and the `where` kind in `lib/ask.ts` (`web/tests/places.test.ts`);
+`components/AskPanel.tsx` (the told card), `components/dash/Places.tsx`, the Location column in
+`components/dash/TransactionsTable.tsx`; stays and `where` in `app/ask.py` (`tests/test_ask.py`);
+`scripts/checks/places.mjs` and the walkthrough; the demo's week in Goa (`app/tools/demo.py`).
+
+## 31. A place's state, by number-plate code; the local AI reads a place from its words alone
+
+**Decision**: a stay can carry its state ("Darjeeling, WB", "Bengaluru, KA"). States are written by the codes people
+use, the number-plate codes of India's 28 states and 8 union territories (Telangana's TG since March 2024, the merged
+DD since January 2020). They sit in a fixed table in the code, like the category tree: `STATES` in `app/places.py`
+and in `lib/places.ts`, held the same by a test. The official (ISO 3166-2:IN) and old codes (CT, UT, TS, OR, DN, DH)
+are taken as these. A state is optional.
+
+- **Written with the place, it's kept as written, and nothing else is asked.** That means a code in capitals after
+  the place (", WB", " WB", " (WB)"), or a state's name after a comma ("Darjeeling, West Bengal"). An old code counts
+  only after a comma or in brackets, because in "Goa OR Kerala", "OR" is a word. A place that is a state ("Goa",
+  "Jammu and Kashmir") is that state.
+- **Not written:** Ask Plutus first offers the state you gave the same name before.
+- **Failing that, with the local AI set up,** the AI is asked about the place's words alone, never a payment and
+  never the rest of the sentence (`POST /api/ask/place`). It gives the place's usual spelling and its state; a name
+  found in several states (Aurangabad: MH and BR) comes back as one button per state. The server checks what it says:
+  a state from the table, a short plain name, no repeats, at most four. The page shows it as a choice: *Mark as Mumbai,
+  MH* with "you wrote “Mambaii”", *Keep as written*, *Cancel*.
+- **Without the AI, or for a place it doesn't know,** the place is kept as written, and the card says it has no state
+  and how to add one.
+- **Places has a State list** (no search, no suggestions) to add or change one.
+- **Shown everywhere as "Place, ST"**, the state's name on hover. Ask Plutus answers by state ("how much did I spend
+  in West Bengal?") and by place in a state ("in Aurangabad, MH").
+
+**Why**: the owner wanted a place's state, and misspellings caught ("mambaii"), and chose the local AI over a
+downloaded list of towns: "instead of downloading the list … we can use local LLM here", and "suggestion/search … No
+need, keep it simple". The 36 states and union territories are the same for everyone and change only by law, so they
+belong in the code, like the categories. Towns number in the thousands and change, so they're left to the AI the user
+may already have. The model learns nothing of yours (a place's few words) and decides nothing: it suggests, and your
+button keeps it (#30).
+
+**Costs**:
+- Without the local AI, a place's spelling isn't checked, and its state is only what you write.
+- Codes in small letters aren't read: "up", "as" and "or" are words, so the AI reads those cases. Codes in a
+  sentence written all in capitals aren't read either.
+- "London, UK" reads as Uttarakhand. The card names the state, so this shows before it's kept.
+
+**Where**: `STATES`, `region_code` and `place_name` in `app/places.py`; `read_place` in `app/ask.py`; `POST
+/api/ask/place` in `app/routes/system.py` (`tests/test_places.py`, `tests/test_ask.py`). On the page:
+- `STATES`, `placeLabel`, `placeMatches`, `stateAt`, `parsePlace` and `toldBefore` in `lib/places.ts`;
+- `readStay` and the question's places in `lib/askRules.ts` (`web/tests/places.test.ts`);
+- the told card in `components/AskPanel.tsx`, and the State list in `components/dash/Places.tsx`;
+- the state steps in `scripts/checks/walkthrough.mjs`.

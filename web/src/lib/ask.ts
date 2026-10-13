@@ -3,6 +3,7 @@ import { plural } from './format'
 import { bucketOf, cycleShares, isLinkedRefund, NO_NAME, periodsIn, topOf, viewFor, type Bucket, type LedgerData } from './ledger'
 import { inr, inrExact } from './money'
 import { dayLabel, monthLongLabel, monthYearLabel } from './periods'
+import { daysBetween, estimatedOver, placeDays, placeLabel, placeMatches, samePlace, stayOn } from './places'
 
 /** "Ask Plutus": a question becomes a query of a fixed shape (lib/askRules.ts reads it, or the local AI does, through
  *  POST /api/ask), and the answer is computed here, from the ledger, with the dashboard's own rules: the same buckets,
@@ -10,7 +11,7 @@ import { dayLabel, monthLongLabel, monthYearLabel } from './periods'
  *  spread over the cycles they paid for. Nothing here guesses a number; every figure is a sum of payments the
  *  dashboard counts the same way, and `ids` says which. */
 
-export type AskKind = 'total' | 'count' | 'average' | 'top' | 'largest' | 'compare' | 'trend' | 'list' | 'last' | 'why'
+export type AskKind = 'total' | 'count' | 'average' | 'top' | 'largest' | 'compare' | 'trend' | 'list' | 'last' | 'why' | 'where'
 
 /** A span of days, both ends included ("2025-01-01" … "2025-12-31"), and how to say it ("2025", "March 2026"). */
 export interface AskPeriod {
@@ -27,6 +28,9 @@ export interface AskQuery {
   payees: string[]
   /** Card ids, for "on my … card". */
   cards: string[]
+  /** Places you told Plutus you were ("Goa", "Aurangabad, MH") or states ("West Bengal"): payments on the days you
+   *  were there (lib/places.ts `placeMatches`). */
+  places: string[]
   channel: 'all' | 'upi' | 'cards'
   /** "out": what you spent (and, when you name someone, paid to people); "in": money that came in. */
   money: 'out' | 'in'
@@ -42,7 +46,7 @@ export interface AskQuery {
 }
 
 export const emptyQuery = (kind: AskKind = 'total'): AskQuery => ({
-  kind, categories: [], payees: [], cards: [], channel: 'all', money: 'out', period: null, compareTo: null, by: 'payee',
+  kind, categories: [], payees: [], cards: [], places: [], channel: 'all', money: 'out', period: null, compareTo: null, by: 'payee',
   per: 'payment', limit: 5,
 })
 
@@ -223,10 +227,12 @@ function select(data: LedgerData, q: AskQuery, period: AskPeriod | null): Row[] 
   const investments = q.categories.some((c) => c === INVESTMENTS)
   const source = investments ? [...data.txns, ...data.leftOut] : data.txns
   const buckets = bucketsFor(q)
+  const at = (r: Row) => stayOn(r.day, data.stays)
   return rowsOf(source, [...data.txns, ...data.leftOut]).filter(
     (r) =>
       buckets.has(r.bucket) &&
       inPeriodOf(period, r.day) &&
+      (!q.places.length || q.places.some((p) => { const here = at(r); return !!here && placeMatches(p, here) })) &&
       (!q.categories.length || q.categories.some((c) => isUnder(r.t.category, c))) &&
       (!q.payees.length || q.payees.some((w) => paidTo(r.owner, w))) &&
       (!q.cards.length || (!!r.owner.card && q.cards.includes(r.owner.card))) &&
@@ -241,7 +247,7 @@ function estimates(data: LedgerData, q: AskQuery, period: AskPeriod | null) {
   const months = new Map<string, number>()
   const partial = new Set<string>()
   const perCard = new Map<string, number>()
-  if (q.money !== 'out' || q.categories.length || q.payees.length || q.channel === 'upi') return { amount: 0, months, partial }
+  if (q.money !== 'out' || q.categories.length || q.payees.length || q.places.length || q.channel === 'upi') return { amount: 0, months, partial }
   const placed: [string, string, number][] = []
   for (const p of data.payments) {
     if (p.coveredBy || (q.cards.length && !q.cards.includes(p.card))) continue
@@ -280,6 +286,7 @@ function about(data: LedgerData, q: AskQuery): string {
   const parts: string[] = []
   if (q.categories.length) parts.push(`on ${listOf(q.categories.map((c) => categoryLabel(data, c)))}`)
   if (q.payees.length) parts.push(`to ${listOf(q.payees.map((p) => `“${p}”`))}`)
+  if (q.places.length) parts.push(`in ${listOf(q.places)}`)
   if (q.cards.length) parts.push(`with ${listOf(q.cards.map((c) => cardLabel(data, c)))}`)
   if (q.channel === 'upi') parts.push('by UPI')
   if (q.channel === 'cards' && !q.cards.length) parts.push('with your cards')
@@ -297,6 +304,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 export function answer(data: LedgerData, q: AskQuery): AskAnswer {
   const query = normalize(q)
   if (query.categories.includes(CARD_BILL)) return billsAnswer(data, query)
+  if (query.kind === 'where') return whereAnswer(data, query)
   const rows = select(data, query, query.period)
   const est = estimates(data, query, query.period)
   const matchedPayees = query.payees.length ? [...new Set(rows.map((r) => r.owner.payee))].sort() : [] // every row is to one the words name
@@ -411,7 +419,8 @@ function normalize(q: AskQuery): AskQuery {
   const categories = [...new Set(q.categories)]
   // money in is what the "Money in" categories hold; asked about any other category, it's spending
   const money = categories.length ? (categories.every((c) => topOf(c) === 'income') ? 'in' : 'out') : q.money
-  return { ...q, categories, payees: [...new Set(q.payees.map((p) => p.trim()).filter(Boolean))], money, limit: Math.min(Math.max(Math.round(q.limit) || 5, 1), 50) }
+  const places = q.places.map((p) => p.trim()).filter((p, i, all) => p && all.findIndex((x) => samePlace(x, p)) === i)
+  return { ...q, categories, payees: [...new Set(q.payees.map((p) => p.trim()).filter(Boolean))], places, money, limit: Math.min(Math.max(Math.round(q.limit) || 5, 1), 50) }
 }
 
 /** The biggest payees or categories, and the rows behind them (what "Show these payments" shows). */
@@ -521,6 +530,34 @@ function whyAnswer(data: LedgerData, q: AskQuery, base: Omit<AskAnswer, 'figure'
   }
 }
 
+/** Where you were, as you told Plutus: each stay with days in the period (the days still its own: a day two stays share
+ *  is the latest told's), and what you spent on them. */
+function whereAnswer(data: LedgerData, q: AskQuery): AskAnswer {
+  const when = periodPhrase(q.period)
+  const base = { query: q, ids: [] as string[], matchedPayees: [], notes: [] as string[], lines: [] as AskLine[], amount: null as number | null, payments: 0, figure: null }
+  const p = q.period
+  const rows = rowsOf(data.txns, [...data.txns, ...data.leftOut]).filter((r) => r.bucket === 'spent' && inPeriodOf(p, r.day))
+  const lines: AskLine[] = []
+  const behind: string[] = []
+  let payments = 0
+  for (const s of [...data.stays].sort((a, b) => a.start.localeCompare(b.start))) {
+    const from = p && p.from > s.start ? p.from : s.start
+    const to = p && p.to < s.end ? p.to : s.end
+    if (from > to) continue
+    const mine = rows.filter((r) => r.day >= from && r.day <= to && stayOn(r.day, data.stays)?.id === s.id)
+    lines.push({ label: placeLabel(s), amount: round2(sum(mine)), detail: `${dayLabel(from)} – ${dayLabel(to)} · ${plural(daysBetween(from, to), 'day')}` })
+    behind.push(...ids(mine))
+    payments += count(mine)
+  }
+  if (!lines.length) {
+    return { ...base, sentence: data.stays.length ? `You haven't told me where you were ${when}.` : 'You haven’t told me where you were yet. Tell me like this: “I was in Goa from 1 to 5 Jan 2026”.' }
+  }
+  const places = listOf([...new Set(lines.map((l) => l.label))])
+  const over = estimatedOver(data, placeDays(data, [...new Set(lines.map((l) => l.label))], [p]))
+  const notes = over > 0.5 ? [`Not included: about ${inr(over)} of card spending estimated from card bills over those days. A bill has no payments, so it has no place.`] : []
+  return { ...base, ids: behind, payments, lines, notes, sentence: `${p ? `${capitalize(when)} you were` : 'You told me you were'} in ${places}. What you spent there:` }
+}
+
 /** Card bills paid, as the Credit cards section counts them: from your payment-app history and your statements, by
  *  the day paid. */
 function billsAnswer(data: LedgerData, q: AskQuery): AskAnswer {
@@ -547,8 +584,12 @@ function notesFor(data: LedgerData, q: AskQuery, rows: Row[], est: ReturnType<ty
   const notes: string[] = []
   const periods = [q.period, ...(q.kind === 'compare' || q.kind === 'why' ? [q.compareTo] : [])]
   const totals = ['total', 'count', 'average', 'top', 'trend', 'compare', 'why'].includes(q.kind)
+  // the days a place asked about covers: notes about other days don't belong in its answer
+  const days = q.places.length ? placeDays(data, q.places, periods) : null
+  const onDays = (from: string, to: string) => !days || [...days].some((d) => from <= d && d <= to)
   // a statement on hold: read, not counted
-  const held = data.held.filter((s) => periods.some((p) => !p || ((s.periodStart ?? '') <= p.to && p.from <= (s.periodEnd ?? s.periodStart ?? ''))))
+  const held = data.held.filter((s) => periods.some((p) => !p || ((s.periodStart ?? '') <= p.to && p.from <= (s.periodEnd ?? s.periodStart ?? '')))
+    && onDays(s.periodStart ?? '', s.periodEnd ?? s.periodStart ?? ''))
   if (held.length) notes.push(`${held.length === 1 ? 'A statement on hold isn’t' : `${held.length} statements on hold aren’t`} counted yet: check ${held.length === 1 ? 'it' : 'them'} in Your vault.`)
   // a period that starts before your files do: its total covers only part of it (the months after your last file are
   // still to come, so they need no saying)
@@ -556,7 +597,11 @@ function notesFor(data: LedgerData, q: AskQuery, rows: Row[], est: ReturnType<ty
   if (first && periods.some((p) => p && p.from.slice(0, 7) < first)) notes.push(`Your files start in ${monthYearLabel(first)}.`)
   // card spending known only from bills: in an answer about all your spending, out of one about a category or payee
   const notBought = q.categories.length && q.categories.every((c) => ['investments', 'transfers', 'ignored', 'income'].includes(topOf(c)))
-  if (totals && q.money === 'out' && q.channel !== 'upi' && est.amount <= 0.5 && (q.categories.length || q.payees.length) && !notBought) {
+  if (totals && q.money === 'out' && q.channel !== 'upi' && est.amount <= 0.5 && days && !q.categories.length && !q.payees.length) {
+    // a place: the card spending estimated over its own days, which has no payments to place
+    const over = estimatedOver(data, days)
+    if (over > 0.5) notes.push(`Not included: about ${inr(over)} of card spending estimated from card bills over those days. A bill has no payments, so it has no place.`)
+  } else if (totals && q.money === 'out' && q.channel !== 'upi' && est.amount <= 0.5 && (q.categories.length || q.payees.length) && !notBought) {
     const anyway = periods.reduce((s, p) => s + estimatedAnyway(data, p), 0)
     if (anyway > 0.5) notes.push(`Not included: ${inr(anyway)} of card spending known only from card bills, which have no categories.`)
   }
@@ -564,7 +609,7 @@ function notesFor(data: LedgerData, q: AskQuery, rows: Row[], est: ReturnType<ty
   const asksInvestments = q.categories.includes(INVESTMENTS)
   // lib/scope.ts sets investments aside (`leftOut`) when you leave them out, saved or just switched
   if (asksInvestments && data.leftOut.length) notes.push('Investments are left out of your spending (your setting); this is what you put into them.')
-  else if (['total', 'average', 'trend', 'compare'].includes(q.kind) && q.money === 'out' && data.leftOut.length && !q.payees.length && !q.categories.length) {
+  else if (['total', 'average', 'trend', 'compare'].includes(q.kind) && q.money === 'out' && data.leftOut.length && !q.payees.length && !q.categories.length && !q.places.length) {
     const out = rowsOf(data.leftOut, [...data.txns, ...data.leftOut]).filter((r) => periods.some((p) => inPeriodOf(p, r.day)))
     if (sum(out) > 0.5) notes.push(`Investments are left out (your setting): ${inr(sum(out))} ${periodPhrase(q.period)}.`)
   }
@@ -615,10 +660,11 @@ export function suggestions(data: LedgerData): string[] {
   const top = viewFor(data, year, null).byCategory.find((c) => c.amount > 0.5 && c.id !== 'uncategorized')
   const child = top?.children.find((c) => c.amount > 0.5 && c.id.includes('.'))
   const name = (child && child.amount >= (top?.amount ?? 0) / 2 ? child.label : top?.label)?.toLowerCase()
+  const latest = [...data.stays].sort((a, b) => b.end.localeCompare(a.end))[0]
   return [
     name ? `How much on ${name} in ${year}?` : `How much did I spend in ${year}?`,
     `Top 5 payees in ${year}`,
     years.includes(year - 1) ? `Compare ${year - 1} and ${year}` : `Biggest payments in ${year}`,
-    `${name ? `${name.charAt(0).toUpperCase()}${name.slice(1)}` : 'Spending'} by month in ${year}`,
+    latest ? `How much did I spend in ${placeLabel(latest)}?` : `${name ? `${name.charAt(0).toUpperCase()}${name.slice(1)}` : 'Spending'} by month in ${year}`,
   ]
 }

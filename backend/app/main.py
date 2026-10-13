@@ -15,6 +15,7 @@ from app.llm import llm
 from app.llm import setup as llm_setup
 from app.routes import ledger as ledger_routes
 from app.routes import storage as storage_routes
+from app.routes import places as places_routes
 from app.routes import system, uploads
 
 logs.setup()
@@ -100,6 +101,7 @@ app.include_router(uploads.router)
 app.include_router(storage_routes.router)
 app.include_router(ledger_routes.router)
 app.include_router(system.router)
+app.include_router(places_routes.router)
 
 dist = settings.web_dist
 if (dist / "index.html").exists():

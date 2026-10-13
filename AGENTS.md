@@ -211,5 +211,12 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   local AI (`app/ask.py`, `POST /api/ask`) read it, given the question, today and the category tree, **never a
   transaction**. `lib/ask.ts` works out the answer with the dashboard's own functions; `web/tests/ask.test.ts` holds it
   equal to the dashboard. A new kind of question is a new query kind there, never a model writing the answer.
+- **Ask Plutus never gets more power than a button on the dashboard** (DECISIONS #30). What you tell it (where you were:
+  `readStay` in `lib/askRules.ts`) is a proposal it shows first; only its button acts, through the dashboard's own
+  route, with Undo; nothing that can't be undone is offered from the chat. Places (`app/places.py`,
+  `data/places.json`, `lib/places.ts`, `components/dash/Places.tsx`) never touch the ledger: a payment's place comes
+  from its day. A place's state is a number-plate code from a fixed table of India's 36 (`STATES`, the same in both;
+  DECISIONS #31); the local AI may read a place's spelling and state, given only the place's words
+  (`POST /api/ask/place`), and its answer is a choice of buttons, never kept by itself.
 - Own accounts: `app/accounts.py` (`data/accounts.json`, last four digits only). Ignoring a bank-account payee marks
   it; the AI pill shows the model's state (`asleep` unless loaded), never the server's.

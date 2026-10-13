@@ -29,6 +29,7 @@ const SHOTS = [
   { file: 'month-by-month.png', heading: 'Month by month' },
   { file: 'credit-cards.png', heading: 'Credit cards' },
   { file: 'upi.png', heading: 'UPI spends' },
+  { file: 'places.png', heading: 'Places' },
   { file: 'transactions.png', heading: 'Your transactions', most: 1400 }, // the first screenful of a long list
   { file: 'vault.png', heading: 'Your vault' },
 ]

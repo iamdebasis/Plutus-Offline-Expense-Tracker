@@ -90,6 +90,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | `app/statements.py` | Your card statements (`data/card_statements.json`): period, the bank's figures, proven or held |
 | `app/payees.py` | Your payee table (`data/payees.json`): people you pay and what for |
 | `app/accounts.py` | Your own bank accounts, last four digits only (`data/accounts.json`): transfers between them count nowhere |
+| `app/places.py` | Where you told Plutus you were (`data/places.json`): stays, a place, its state (optional) and its days; checked (a short plain name, a state of India's 36 by its number-plate code, `STATES`, real days in order, at most ten years, a limit on how many); never the ledger |
 | `app/preferences.py` | Your settings (`data/settings.json`): investments counted or left out, the local model you picked, the AI hint answered |
 | `app/reset.py` | Start over: moves everything `userdata.py` lists to the macOS Trash (recoverable), refused while reading |
 
@@ -128,7 +129,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | `app/llm/advice.py` | Which model suits this Mac (memory, chip, macOS, Ollama's version) and the steps to get it; standard library only, so `make check` runs it; never downloads |
 | `app/llm/setup.py` | The Local AI panel's data and the model Plutus uses: `ET_OLLAMA_MODEL`, else your pick, else the best downloaded for this Mac |
 | `app/llm/__main__.py` | `make llm-check`: a live round trip with the model Plutus uses |
-| `app/ask.py` | Ask Plutus: a question the page's rules couldn't read, turned into a query of a fixed shape by the local AI and checked here; the model sees the question, the category tree and today's date, never a transaction |
+| `app/ask.py` | Ask Plutus: a question the page's rules couldn't read, turned into a query of a fixed shape by the local AI and checked here; the model sees the question, the category tree and today's date, never a transaction. `read_place`: a place you told, its words alone, read into its usual spelling and its state (at most four, each a state of India's and a plain name) |
 
 **The API** (all under `/api`, JSON in camelCase)
 
@@ -137,7 +138,8 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | `app/routes/uploads.py` | `GET /api/uploads`, `POST /api/uploads`, `POST /api/uploads/folder`, `GET /api/uploads/{upload_id}/file`, `POST /api/uploads/{upload_id}/reimport`, `DELETE /api/uploads/{upload_id}`, `GET /api/instruments`, `PUT /api/instruments/{instrument_id}` |
 | `app/routes/ledger.py` | `GET /api/transactions`, `GET /api/card-payments`, `GET /api/card-statements`, `PUT /api/card-statements/{statement_id}/held`, `POST /api/card-statements/{statement_id}/confirm`, `POST /api/categorize`, `POST /api/categorize/shop`, `POST /api/categorize/payments`, `POST /api/categorize/payments/undo`, `POST /api/categorize/bulk`, `POST /api/recategorize`, `GET /api/accounts`, `POST /api/accounts`, `DELETE /api/accounts/{last4}` |
 | `app/routes/storage.py` | `GET /api/storage`, `POST /api/storage/reveal` |
-| `app/routes/system.py` | `GET /api/status`, `GET /api/preferences`, `PUT /api/preferences`, `GET /api/card-art`, `GET /api/card-art/{name}`, `GET /api/reset`, `POST /api/reset`, `GET /api/llm/status`, `GET /api/llm/setup`, `PUT /api/llm/model`, `POST /api/llm/hint-seen`, `POST /api/ask`, `GET /api/categories`, `GET /api/payees`, `PUT /api/payees/{payee_id}`, `DELETE /api/payees/{payee_id}` |
+| `app/routes/system.py` | `GET /api/status`, `GET /api/preferences`, `PUT /api/preferences`, `GET /api/card-art`, `GET /api/card-art/{name}`, `GET /api/reset`, `POST /api/reset`, `GET /api/llm/status`, `GET /api/llm/setup`, `PUT /api/llm/model`, `POST /api/llm/hint-seen`, `POST /api/ask`, `POST /api/ask/place`, `GET /api/categories`, `GET /api/payees`, `PUT /api/payees/{payee_id}`, `DELETE /api/payees/{payee_id}` |
+| `app/routes/places.py` | `GET /api/places`, `POST /api/places` (a stay, with its state or none; with its id and `addedAt`, one put back by Undo), `PUT /api/places/{stay_id}`, `DELETE /api/places/{stay_id}`: under the ledger's lock, refused during Start over |
 
 Errors are `{"detail": {"code": "...", "message": "..."}}` with a message written for the person reading it.
 
@@ -232,6 +234,18 @@ flowchart LR
 - **Every answer shows how it was read** (chips you can change or remove), what it leaves out (card spending known
   only from bills has no category or payee; a held statement; where your files start) and "Show these payments": the
   exact rows, in the transactions list.
+- **Telling, not asking: where you were** ("I was in Goa from 1 Jan to 5 Mar 2026", "forget Goa"). `readStay` reads
+  it, the local AI only for days the rules can't place ("the second week of March"), with a place it must copy from
+  the sentence. Either way it's a proposal: the panel shows its days, payments, money and the days it takes from
+  places told before, and only its button keeps it (`POST /api/places`, the route Places uses), with Undo after. A
+  typed "yes" changes nothing. A place's state ("Darjeeling, WB") is kept as you write it; without one, the panel
+  offers the state you gave the same name before, or asks the local AI about the place's words alone (`POST
+  /api/ask/place`: its usual spelling and state, a button each, *Keep as written*; DECISIONS #31). Stays live in
+  `data/places.json` and never touch the ledger: `lib/places.ts` works out each payment's place from its day. Ask
+  Plutus can then answer "how much in Goa?", "how much in West Bengal?" and "where was I in February?" (`places` in the
+  query, a place or a state; the `where` kind); card spending known only from bills has no days, so an answer about a
+  place says about how much of it falls on those days, unplaced. Ask Plutus never gets more power than a button on the
+  dashboard (DECISIONS #30).
 - History lives in the page only: nothing about a question is stored, and the server never logs one.
 
 ## The data folder
@@ -249,6 +263,7 @@ authoritative list and the only way in.
 | `data/card_networks.json` | The network you set for a card |
 | `data/card_statements.json` | Your card statements: period, the bank's figures, proven or held |
 | `data/accounts.json` | Your own bank accounts, last four digits |
+| `data/places.json` | Where you told Plutus you were: a place, its state if you gave one, its days, and when you told it |
 | `data/payees.json` | Your payee table |
 | `data/merchant_memory.json` | Your corrections by payee name, and the local AI's earlier answers |
 | `data/row_answers.json` | The category you set for one payment, kept with its row |
@@ -292,7 +307,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/Vault.tsx` | Your vault: files, cards, each statement's check, held statements to review |
 | `components/PagePeek.tsx` | A page of a file you added, drawn here, with the row in question marked |
 | `components/StoragePanel.tsx` | Where your files are kept, with a cloud-sync warning |
-| `components/AskPanel.tsx` | Ask Plutus: the chat, each answer with its figure, lines, how it was read (chips to change) and the payments behind it |
+| `components/AskPanel.tsx` | Ask Plutus: the chat, each answer with its figure, lines, how it was read (chips to change) and the payments behind it; something you told (a stay, or one to forget) shown first, done only by its button, with Undo |
 | `components/AskOrb.tsx` | The way into Ask Plutus: the gold mark in a glass orb, bottom-right whatever the scroll; opens into "Ask Plutus" on hover, its drips run while a question is read; where it would cover the page (a phone), it shrinks into the corner while you scroll down |
 | `components/StartOver.tsx` | Start over: what goes to the Trash, typed confirmation, then a fresh start |
 | `components/Toasts.tsx` | Short notices |
@@ -313,6 +328,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/dash/InvestmentsSwitch.tsx` | Investments counted or left out |
 | `components/dash/ReviewQueue.tsx` | "Needs your eyes": payees to name, answered in bulk |
 | `components/dash/TransactionsTable.tsx` | Every payment: search, filters, category per row or ticked several, tags, the card bill guard; a table where it fits, a list in a narrower box (a phone) |
+| `components/dash/Places.tsx` | Places: a card for each stay with days in the period ("Darjeeling, WB", its days, what you spent and on what, its payments), Edit (place, state, days), Remove with Undo, Add a place |
 | `components/dash/CategorySelect.tsx` | The category picker |
 
 **Logic** (`lib/`, tested in `web/tests/` with Node's test runner on fake ledgers)
@@ -326,7 +342,8 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/periods.ts` | Calendar years, months, labels |
 | `lib/scope.ts` | Investments left out or counted |
 | `lib/ask.ts` | Ask Plutus's answers: a query worked out from the ledger with the dashboard's own counting; questions to start with |
-| `lib/askRules.ts` | Ask Plutus's rules: a question read into a query in the page, and whether they're sure of it |
+| `lib/askRules.ts` | Ask Plutus's rules: a question read into a query in the page, and whether they're sure of it; a sentence telling where you were (`readStay`), with its days (`dayRange`) |
+| `lib/places.ts` | Where you were: a payment's place from its day (a refund's from its payment's; the stay told latest wins a shared day), a stay's spending and estimate over its days, the preview before one is kept; states (`STATES`, the server's table): "Place, ST", a state written after a place, a place asked about by its name or its state |
 | `lib/selection.ts` | Ticking payments; what the ticked ones add up to |
 | `lib/useSelection.ts` | The files picked to add, before they're sent |
 | `lib/useFits.ts` | Whether a box is wide enough for a table, followed as it resizes: the narrow form (a list) otherwise |
@@ -408,9 +425,11 @@ bills linked and estimated to the paisa, proven statements closing, held rows ke
 shown in more than one place agrees, every year, investments counted or left out; Ask Plutus gives the same),
 `layout.mjs` (the page's width, the charts' keys), `table.mjs` (the month tables), `focus.mjs` (what Total spend shows
 for every row you tap: its payees and bills add up to it, "Show all" opens its payments; the highlights are Month by
-month's), `phone.mjs` (phones and small windows), `access.mjs` (contrast, tap targets, Increase contrast) and
-`walkthrough.mjs` (start over, add the files with the picker, answer a payee from Total spend and the review list,
-change and undo, confirm a held statement, delete a file; the ledger checked after each).
+month's), `places.mjs` (the demo's week away: its card against Ask Plutus and the API, the Location column on exactly
+its days, the filter and search, a phone), `phone.mjs` (phones and small windows), `access.mjs` (contrast, tap
+targets, Increase contrast) and `walkthrough.mjs` (start over, add the files with the picker, answer a payee from
+Total spend and the review list, change and undo, tell Ask Plutus where you were and undo it, remove it in Places and
+put it back, forget it; confirm a held statement, delete a file; the ledger checked after each).
 
 ## Adding a feature
 
