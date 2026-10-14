@@ -40,7 +40,22 @@ export default async function walkthrough(s) {
   await s.motion()
   await s.load()
 
-  // start over, with the typed confirmation
+  // start over, with the typed confirmation. Nothing of yours stays in the browser after it: answers about you are never
+  // cached, what the page kept (here, a card's id among the ticked chart lines) goes the moment the server confirms, and
+  // Plutus open in another tab loads again, empty, while this tab keeps its dialog
+  s.check(await s.evaluate(`Promise.all(['/api/transactions', '/api/payees', '/api/instruments'].map((p) => fetch(p).then((r) => r.headers.get('cache-control'))))
+    .then((all) => all.every((c) => c === 'no-store'))`), 'your payments, payees and cards are sent never to be cached')
+  await s.evaluate(`localStorage.setItem('plutus.cardTrends.ticked', JSON.stringify(['card-fake-bank-1111'])); localStorage.setItem('other.app', 'theirs'); true`)
+  const other = await s.tab(s.base)
+  const otherUntil = async (expression, what) => {
+    for (let i = 0; !(await other.evaluate(expression)); i++) {
+      if (i > 120) return s.check(false, `never: ${what}`)
+      await sleep(250)
+    }
+    return true
+  }
+  await otherUntil(`document.querySelectorAll('h2').length > 4`, 'the dashboard in another tab')
+  await other.evaluate(`window.plutusOpenBefore = true`)
   await s.evaluate(`(() => { const e = document.getElementById('your-vault'); scrollTo(0, e.getBoundingClientRect().top + scrollY + 3000); return true })()`)
   await sleep(400)
   s.check(await click('button', 'Remove all my data'), 'Remove all my data… is in Your vault')
@@ -50,6 +65,13 @@ export default async function walkthrough(s) {
   await sleep(300)
   await click('button', 'Remove everything')
   await s.until(`fetch('/api/status').then((r) => r.json()).then((x) => x.transactions === 0 && x.uploads === 0)`, 'an empty Plutus', 30)
+  await s.until(`document.body.innerText.includes('Plutus is empty again')`, 'its done dialog', 10)
+  s.check(await s.evaluate(`!Object.keys(localStorage).some((k) => k.startsWith('plutus.')) && localStorage.getItem('other.app') === 'theirs'`),
+    'what the page kept in the browser is gone the moment the server confirms (and nothing of anyone else)')
+  s.check(await otherUntil(`!window.plutusOpenBefore && document.body.innerText.includes('See where every')`, 'the other tab, empty')
+    && (await s.evaluate(`document.body.innerText.includes('Plutus is empty again')`)), 'Plutus open in another tab loads again, empty; this tab keeps its dialog')
+  await other.close()
+  await s.evaluate(`localStorage.removeItem('other.app'); true`)
   await s.send('Page.reload', { ignoreCache: true })
   await sleep(2000)
   s.check(await s.evaluate(`document.body.innerText.includes('See where every') && !document.querySelector('button[aria-label="Ask Plutus"][aria-haspopup="dialog"]')`), 'empty again: the welcome page, and no Ask orb')

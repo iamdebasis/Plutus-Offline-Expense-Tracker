@@ -56,7 +56,7 @@ def card_art() -> list[str]:
 def card_art_file(name: str) -> FileResponse:
     if not _CARD_ART.match(name) or not (path := userdata.path("card-art", name)).is_file():
         raise HTTPException(404, {"code": "not_found", "message": "No such card picture"})
-    return FileResponse(path, headers={"Cache-Control": "no-cache"})
+    return FileResponse(path)  # never cached: app/main.py sends every /api answer "no-store"
 
 
 class StartOver(Model):

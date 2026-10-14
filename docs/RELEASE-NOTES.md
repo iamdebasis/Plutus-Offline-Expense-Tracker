@@ -31,6 +31,11 @@ made.
   payment's place comes from its day. A statement for those days added later shows the place too.
 - **Ask Plutus closes with a click outside it**, as well as with ✕ or Escape: it slides away, and what you clicked
   still works. A click inside it, a window it opened, or selecting its text past its edge keeps it open.
+- **Start over leaves nothing of yours behind**, still sending it all to the Trash:
+  - Plutus never lets your browser cache an answer about you.
+  - The page forgets how its panels were left the moment the server confirms.
+  - Plutus open in another tab loads again, empty.
+  - The server forgets the local model you chose.
 - **Ask Plutus never gets more power than a button on the dashboard**: what it offers from the chat is what a button
   does, through the same route, shown first, done by your click, and undoable.
 
@@ -38,11 +43,11 @@ made.
 
 | Check | Result |
 |---|---|
-| `make test`: backend tests, with the network blocked | 407 passed |
-| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, contrast | 205 passed |
+| `make test`: backend tests, with the network blocked | 409 passed |
+| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, Start over, contrast | 207 passed |
 | `make test`: TypeScript | no errors |
 | `make measure`: 1000 random fake card statements | 926 proven, 74 held (they print nothing to check them by), none wrong, none unread |
-| `make check-ui`: the page in a headless browser, on the demo | 521 passed, none failed |
+| `make check-ui`: the page in a headless browser, on the demo | 524 passed, none failed |
 
 Among them: a place's spending is the same in its Places card, in Ask Plutus, and counted independently from the
 API; the Location column names the place on exactly its days; telling a stay keeps nothing until its button, a typed

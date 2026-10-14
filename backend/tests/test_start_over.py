@@ -160,3 +160,47 @@ def test_the_data_file_list_is_what_moves():
         else:
             target.write_text(json.dumps({}))
     assert sorted(p.name for p in reset._entries(root)) == sorted([*userdata.FILES, *userdata.FOLDERS])
+
+
+def test_nothing_of_yours_is_kept_in_the_browsers_cache(client, tmp_path, data_dir):
+    """Every answer from /api is sent "no-store": a browser writes none of it to its disk cache (your payments, payees,
+    cards, a card's picture, an original file, even an error), so nothing of yours outlives Start over there."""
+    upload_id = _add(client, fake_cards.axis(tmp_path / "axis.pdf"))
+    (data_dir / "card-art").mkdir(exist_ok=True)
+    (data_dir / "card-art" / "fake-bank.png").write_bytes(b"\x89PNG fake")
+    answers = {
+        path: client.get(path)
+        for path in ["/api/status", "/api/transactions", "/api/uploads", "/api/payees", "/api/instruments", "/api/places",
+                     "/api/preferences", "/api/card-art", "/api/card-art/fake-bank.png", f"/api/uploads/{upload_id}/file",
+                     "/api/uploads/upl_000000000000/file"]
+    }
+    answers["POST /api/reset (refused)"] = client.post("/api/reset", json={"confirm": "no"})
+    assert answers["/api/card-art/fake-bank.png"].status_code == 200 and answers[f"/api/uploads/{upload_id}/file"].status_code == 200
+    assert answers["/api/uploads/upl_000000000000/file"].status_code == 404
+    assert {path: r.headers.get("cache-control") for path, r in answers.items()} == {path: "no-store" for path in answers}
+
+
+def test_your_ai_model_choice_is_forgotten_at_once(client, monkeypatch):
+    """The model you chose lives in settings.json, which goes with the rest; the server's memory of it goes too, then
+    and there, not at its next look at the local AI."""
+    from app import preferences
+
+    preferences.set_ai_model("fake-model:1b")
+    monkeypatch.setattr(llm, "model", "fake-model:1b")
+    assert client.post("/api/reset", json=CONFIRM).status_code == 200
+    assert preferences.ai_model() is None
+    assert llm.model != "fake-model:1b"
+
+    # Ollama running but not saying what it has: picking a model again keeps whatever it had; yours is gone anyway
+    async def up():
+        return True
+
+    async def says_nothing(details=False):
+        return None
+
+    monkeypatch.setattr(llm, "is_up", up)
+    monkeypatch.setattr(llm, "models", says_nothing)
+    preferences.set_ai_model("fake-model:1b")
+    llm.model = "fake-model:1b"
+    assert client.post("/api/reset", json=CONFIRM).status_code == 200
+    assert llm.model is None

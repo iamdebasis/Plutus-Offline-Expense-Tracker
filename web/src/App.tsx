@@ -1,6 +1,7 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { useFileIntake } from './components/FileIntake'
 import { useLedger } from './lib/ledger'
+import { whenStartedOverElsewhere } from './lib/startOver'
 import { useImportActivity } from './lib/useImportActivity'
 import { CardGallery } from './pages/CardGallery'
 import { Dashboard } from './pages/Dashboard'
@@ -20,6 +21,8 @@ export function App() {
   const activity = useImportActivity(refresh)
   const intake = useFileIntake(activity, refresh)
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash)
+  // you started over in another tab: this one mustn't keep showing what's gone, so it loads again, empty
+  useEffect(() => whenStartedOverElsewhere(() => window.location.reload()), [])
   if (hash === '#card-gallery') return <CardGallery />
   if (error && !data) {
     return <p className="p-10 text-center text-sm text-zinc-400">Couldn't reach the local server ({error}). Is it running?</p>

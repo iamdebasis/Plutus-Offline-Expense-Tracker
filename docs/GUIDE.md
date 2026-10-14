@@ -543,6 +543,10 @@ restart. It lists what goes, with counts, and asks you to type `start over`. Not
 Trash you can put it back (quit Plutus, then move that folder's contents back into `data/`). It waits while files are
 being read or the local AI is working, stops an Ollama that Plutus started, and moves only what the table lists:
 anything else in the folder stays. Plutus itself, Ollama and its models, and the demo (`.demo/`) stay too.
+Nothing of yours stays in your browser either: Plutus never lets it cache an answer about you, the page forgets how its
+panels were left the moment the server confirms, and Plutus open in another tab loads again, empty. Outside Plutus's
+reach: the terminal window it ran in (its log shows file names; close the window) and any backup of the project
+folder, such as Time Machine.
 
 **Your original files** are always kept in `data/uploads/`; there's no setting to keep them anywhere else, so the
 project folder holds everything about you. Keep the project out of folders that sync to the cloud: Plutus warns when

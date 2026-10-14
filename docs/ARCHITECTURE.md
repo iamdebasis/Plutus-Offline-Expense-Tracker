@@ -92,7 +92,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 | `app/accounts.py` | Your own bank accounts, last four digits only (`data/accounts.json`): transfers between them count nowhere |
 | `app/places.py` | Where you told Plutus you were (`data/places.json`): stays, a place, its state (optional) and its days; checked (a short plain name, a state of India's 36 by its number-plate code, `STATES`, real days in order, at most ten years, a limit on how many); never the ledger |
 | `app/preferences.py` | Your settings (`data/settings.json`): investments counted or left out, the local model you picked, the AI hint answered |
-| `app/reset.py` | Start over: moves everything `userdata.py` lists to the macOS Trash (recoverable), refused while reading |
+| `app/reset.py` | Start over: moves everything `userdata.py` lists to the macOS Trash (recoverable), refused while reading; forgets the chosen local model in memory too |
 
 **Reading files**
 
@@ -309,7 +309,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/StoragePanel.tsx` | Where your files are kept, with a cloud-sync warning |
 | `components/AskPanel.tsx` | Ask Plutus: the chat, each answer with its figure, lines, how it was read (chips to change) and the payments behind it; something you told (a stay, or one to forget) shown first, done only by its button, with Undo |
 | `components/AskOrb.tsx` | The way into Ask Plutus: the gold mark in a glass orb, bottom-right whatever the scroll; opens into "Ask Plutus" on hover, its drips run while a question is read; where it would cover the page (a phone), it shrinks into the corner while you scroll down |
-| `components/StartOver.tsx` | Start over: what goes to the Trash, typed confirmation, then a fresh start |
+| `components/StartOver.tsx` | Start over: what goes to the Trash, typed confirmation, then a fresh start; the browser forgets the page's saved states the moment the server confirms |
 | `components/Toasts.tsx` | Short notices |
 | `components/Backdrop.tsx` | The background grid and glows |
 | `components/CardFace.tsx` | A card drawn: its bank's design or your picture of it |
@@ -344,6 +344,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/ask.ts` | Ask Plutus's answers: a query worked out from the ledger with the dashboard's own counting; questions to start with |
 | `lib/askRules.ts` | Ask Plutus's rules: a question read into a query in the page, and whether they're sure of it; a sentence telling where you were (`readStay`), with its days (`dayRange`) |
 | `lib/places.ts` | Where you were: a payment's place from its day (a refund's from its payment's; the stay told latest wins a shared day), a stay's spending and estimate over its days, the preview before one is kept; states (`STATES`, the server's table): "Place, ST", a state written after a place, a place asked about by its name or its state |
+| `lib/startOver.ts` | Start over, in the browser: forget what the page kept there (`plutus.*`, and only that), tell other open tabs to load again |
 | `lib/selection.ts` | Ticking payments; what the ticked ones add up to |
 | `lib/useSelection.ts` | The files picked to add, before they're sent |
 | `lib/useFits.ts` | Whether a box is wide enough for a table, followed as it resizes: the narrow form (a list) otherwise |

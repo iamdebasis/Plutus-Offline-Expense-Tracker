@@ -3,6 +3,7 @@ import { AlertCircle, Check, RotateCcw, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { plural, shortPath } from '../lib/format'
+import { forgetThisBrowser, tellOtherTabs } from '../lib/startOver'
 import type { ResetPreview } from '../types'
 
 const CONFIRM = 'start over'
@@ -70,6 +71,10 @@ function StartOverDialog({ open, onClose }: { open: boolean; onClose: () => void
     setPhase({ step: 'moving' })
     try {
       const res = await api.startOver(typed)
+      // the server has moved it all: the page forgets what it kept in this browser now, not when you press "Start
+      // fresh" (closing the tab instead mustn't leave it behind), and the other open tabs load again, empty
+      forgetThisBrowser()
+      tellOtherTabs()
       setPhase({ step: 'done', trash: res.trash })
     } catch (e) {
       setPhase({ step: 'failed', message: (e as Error).message })
@@ -261,13 +266,9 @@ function Done({ trash, folder }: { trash: string | null; folder: string }) {
   )
 }
 
-/** The page starts again from nothing: it forgets how its panels were left (collapsed sections, ticked chart lines), as a
- *  fresh clone's page would, and loads again. */
+/** The page starts again from nothing, as a fresh clone's page would: what it kept in the browser is already gone
+ *  (forgotten when the server confirmed; again here, in case), and it loads again. */
 function startFresh() {
-  try {
-    for (const key of Object.keys(localStorage)) if (key.startsWith('plutus.')) localStorage.removeItem(key)
-  } catch {
-    /* the browser keeps nothing for this page, then */
-  }
+  forgetThisBrowser()
   window.location.reload()
 }

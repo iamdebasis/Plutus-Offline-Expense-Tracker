@@ -7,6 +7,8 @@ data folder.
 
 It runs only while nothing is being read and the local AI isn't working; Ollama is stopped first if Plutus started it
 (its process id and log are in data/run); and the move holds the ledger's lock, so no change of yours lands halfway.
+The server keeps nothing of yours in memory after it: the local model you chose is forgotten then and there, and one
+picked as a fresh Plutus picks it. (The page forgets what it kept in the browser: components/StartOver.tsx.)
 An upload arriving meanwhile is turned away (`in_progress`). If anything fails, everything moved so far goes back.
 """
 
@@ -16,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app import accounts, ledger, logs, payees, statements, userdata, vault
-from app.config import ROOT
+from app.config import ROOT, settings
 from app.jsonstore import JsonFile
 
 log = logs.get("reset")
@@ -120,7 +122,7 @@ async def start_over() -> dict:
     """Moves everything Plutus keeps about you to the Trash. Raises Busy when it can't happen now, OSError when the
     Trash refused (then nothing has moved)."""
     global in_progress
-    from app.llm import llm
+    from app.llm import llm, setup
 
     root = userdata.root().resolve()
     _check_root(root)
@@ -132,6 +134,8 @@ async def start_over() -> dict:
         count, where = await asyncio.to_thread(_move, root)
     finally:
         in_progress = False
+    llm.model = settings.ollama_model  # the model you chose went with settings.json: forgotten here too
+    await setup.choose()  # and one picked as a fresh Plutus picks it
     if where is None:
         log.info("start over: nothing to move, the data folder was already empty")
         return {"moved": 0, "trash": None}

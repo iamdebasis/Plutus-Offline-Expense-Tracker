@@ -124,7 +124,20 @@ company can stand for insurance, phone and electricity).
 Trash as one folder; it asks for typed confirmation, refuses while a file is being read or the AI is working, refuses
 a folder that isn't Plutus's own, and puts everything back if the Trash refuses.
 **Why**: a complete reset should be easy to find and impossible to regret by accident.
-**Where**: `app/reset.py`, `components/StartOver.tsx`.
+**And nothing of yours outlives it anywhere else** (the owner: "no cache nothing else retained… a blank slate
+completely"):
+- **The browser's cache:** every `/api` answer is sent `Cache-Control: no-store` (one rule, in `app/main.py`'s
+  middleware), so a browser never writes your payments, payees, cards, a card's picture or a file to its disk cache.
+- **The page:** the moment the server confirms, it forgets what it kept in the browser (`plutus.*`: how its panels
+  were left, ticked chart lines among them, which include your cards' ids), not only when you press "Start fresh",
+  so closing the tab can't leave it behind.
+- **Other open tabs:** any other open tab of Plutus is told and loads again, empty (`lib/startOver.ts`, through the
+  browser's BroadcastChannel). The tab that started over ignores its own news and keeps its dialog.
+- **The server's memory:** it forgets the local model you chose then and there, and picks one as a fresh Plutus does.
+- **The Trash stays the place it all goes**, recoverable until emptied; the owner chose that over erasing.
+**Where**: `app/reset.py`, `components/StartOver.tsx`, `lib/startOver.ts`, `App.tsx` (the other tabs), the
+middleware in `app/main.py`; `tests/test_start_over.py`, `web/tests/startOver.test.ts`, and the walkthrough
+(`scripts/checks/walkthrough.mjs`, with a second tab).
 
 ## 15. Fake data only, everywhere in the repo
 

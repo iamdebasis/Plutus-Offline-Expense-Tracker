@@ -115,6 +115,30 @@ export async function open(base, out, port = 9341) {
     get counts() {
       return { passed, failed }
     },
+    /** Another tab, at `url` (a person with Plutus open twice): just enough to look into it, and to close it. */
+    async tab(url) {
+      const other = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' })).json()
+      const socket = new WebSocket(other.webSocketDebuggerUrl)
+      let n = 0
+      const waiting = new Map()
+      socket.onmessage = (e) => {
+        const m = JSON.parse(e.data)
+        if (m.id && waiting.has(m.id)) waiting.get(m.id)(m)
+      }
+      await new Promise((r) => (socket.onopen = r))
+      const ask = (method, params = {}) => new Promise((resolve) => {
+        const id = ++n
+        waiting.set(id, (m) => resolve(m.result))
+        socket.send(JSON.stringify({ id, method, params }))
+      })
+      return {
+        evaluate: async (expression) => (await ask('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }))?.result?.value,
+        async close() {
+          socket.close()
+          await fetch(`http://127.0.0.1:${port}/json/close/${other.id}`)
+        },
+      }
+    },
     async close() {
       ws.close()
       proc.kill()

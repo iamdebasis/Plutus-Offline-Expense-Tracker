@@ -82,6 +82,10 @@ async def security_headers(request: Request, call_next):
         log.warning("blocked a %s %s from %s", request.method, request.url.path, request.headers.get("origin") or "another site")
         return JSONResponse({"detail": {"code": "forbidden", "message": "Requests must come from this app"}}, status_code=403)
     response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        # Shown, never kept: no answer about you (payments, payees, cards, a card's picture, a file, an error) goes into
+        # the browser's cache, so nothing of yours outlives Start over there (docs/DECISIONS.md #14)
+        response.headers["Cache-Control"] = "no-store"
     response.headers.setdefault("Content-Security-Policy", CSP)
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")

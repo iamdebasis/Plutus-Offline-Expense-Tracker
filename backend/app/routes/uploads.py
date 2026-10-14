@@ -35,7 +35,7 @@ def upload_file(upload_id: str) -> FileResponse:
     if rec is None or path is None or not path.is_file():
         raise HTTPException(404, {"code": "not_found", "message": "No such file"})
     return FileResponse(path, media_type=rec.media_type or "application/octet-stream",
-                        headers={"Cache-Control": "no-store", "Content-Disposition": "inline"})
+                        headers={"Content-Disposition": "inline"})  # never cached: app/main.py sends /api "no-store"
 
 
 @router.post("/uploads/{upload_id}/reimport")
