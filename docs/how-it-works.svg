@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="866" viewBox="0 0 960 866" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif">
+<title id="t">How Plutus works</title>
+<desc id="d">How Plutus works, in four steps, all on your Mac. 1, your files: card statements (PDF, CSV or Excel), UPI app history (PhonePe, CRED, Google Pay) and UPI screenshots. 2, read: identify each file with quick checks, get its text, read its rows, and count a card statement only if it adds up to the paisa, else hold it for you. 3, make sense: one ledger with each payment once; categories from your answers, rules, known shops and the local AI; card bills placed in their cycle so nothing is counted twice. 4, see and ask: the dashboard, and Ask Plutus, which does the maths itself. The optional local AI only helps where the rules aren&#x27;t sure, and never does the sums.</desc>
+<!-- Drawn by scripts/how-it-works.py: change that, not this. Icons: Lucide (ISC licence). -->
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1016"/><stop offset="1" stop-color="#07090d"/></linearGradient></defs>
+<rect width="960" height="866" rx="24" fill="url(#bg)"/>
+<rect x="0.5" y="0.5" width="959" height="865" rx="23.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+<text x="32" y="62" font-size="24" font-weight="650" fill="#f4f4f5" text-anchor="start" data-max="560">From your files to one honest dashboard</text>
+<text x="32" y="90" font-size="14.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="600">Every step runs on your Mac, and every figure traces back to your files.</text>
+<rect x="700" y="42" width="228" height="34" rx="17" fill="#f7b32d" fill-opacity="0.08" stroke="#f7b32d" stroke-opacity="0.4"/>
+<g transform="translate(716 51) scale(0.67)" fill="none" stroke="#f7b32d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g>
+<text x="740" y="64" font-size="13.5" font-weight="600" fill="#f8c75a" text-anchor="start" data-max="176">Nothing leaves your Mac</text>
+<rect x="32" y="116" width="896" height="112" rx="18" fill="#0f1219" stroke="#ffffff" stroke-opacity="0.07"/>
+<circle cx="66" cy="150" r="14" fill="#f7b32d" fill-opacity="0.12" stroke="#f7b32d" stroke-opacity="0.55"/>
+<text x="66" y="155" font-size="14" font-weight="700" fill="#f7b32d" text-anchor="middle">1</text>
+<text x="90" y="156" font-size="17" font-weight="650" fill="#f4f4f5" text-anchor="start" data-max="120">Your files</text>
+<text x="52" y="188" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">drop them onto</text>
+<text x="52" y="206" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">the page</text>
+<rect x="208.0" y="132" width="226.67" height="80" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="224.0" y="166.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="194.67">Card statements</text>
+<text x="224.0" y="189.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="194.67">any bank: PDF, CSV, Excel</text>
+<rect x="446.67" y="132" width="226.67" height="80" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="462.67" y="166.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="194.67">UPI app history</text>
+<text x="462.67" y="189.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="194.67">PhonePe, CRED, Google Pay</text>
+<rect x="685.33" y="132" width="226.67" height="80" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="701.33" y="166.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="194.67">UPI screenshots</text>
+<text x="701.33" y="189.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="194.67">a payment&#x27;s receipt</text>
+<path d="M66 231V243" stroke="#f7b32d" stroke-opacity="0.45" stroke-width="1.5"/><path d="M62 239L66 243L70 239" fill="none" stroke="#f7b32d" stroke-opacity="0.6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="32" y="246" width="896" height="150" rx="18" fill="#0f1219" stroke="#ffffff" stroke-opacity="0.07"/>
+<circle cx="66" cy="280" r="14" fill="#f7b32d" fill-opacity="0.12" stroke="#f7b32d" stroke-opacity="0.55"/>
+<text x="66" y="285" font-size="14" font-weight="700" fill="#f7b32d" text-anchor="middle">2</text>
+<text x="90" y="286" font-size="17" font-weight="650" fill="#f4f4f5" text-anchor="start" data-max="120">Read</text>
+<text x="52" y="318" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">the same careful way,</text>
+<text x="52" y="336" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">for every file</text>
+<rect x="208.0" y="262" width="158.0" height="92" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="224.0" y="293.0" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="126.0">Identify</text>
+<text x="224.0" y="316.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">quick checks,</text>
+<text x="224.0" y="335.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">never the AI</text>
+<rect x="390.0" y="262" width="158.0" height="92" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="406.0" y="293.0" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="126.0">Get the text</text>
+<text x="406.0" y="316.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">its own text, or</text>
+<text x="406.0" y="335.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">on-device OCR</text>
+<path d="M371.0 308H384.0" stroke="#4d525c" stroke-width="1.5"/><path d="M379.0 303.5L385.0 308L379.0 312.5" fill="none" stroke="#4d525c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="572.0" y="262" width="158.0" height="92" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="588.0" y="293.0" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="126.0">Read the rows</text>
+<text x="588.0" y="316.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">one reader per</text>
+<text x="588.0" y="335.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">kind of file</text>
+<path d="M553.0 308H566.0" stroke="#4d525c" stroke-width="1.5"/><path d="M561.0 303.5L567.0 308L561.0 312.5" fill="none" stroke="#4d525c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="754.0" y="262" width="158.0" height="92" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="770.0" y="293.0" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="110.0">Prove it</text>
+<text x="770.0" y="316.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">card statements</text>
+<text x="770.0" y="335.0" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="126.0">must add up</text>
+<g transform="translate(886.0 272) scale(0.58)" fill="none" stroke="#f7b32d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.02 2.81a1 1 0 0 1 1.97 0l1.05 5.56a2 2 0 0 0 1.59 1.59l5.56 1.05a1 1 0 0 1 0 1.97l-5.56 1.05a2 2 0 0 0-1.59 1.59l-1.05 5.56a1 1 0 0 1-1.97 0l-1.05-5.56a2 2 0 0 0-1.59-1.59l-5.56-1.05a1 1 0 0 1 0-1.97l5.56-1.05a2 2 0 0 0 1.59-1.59z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></g>
+<path d="M735.0 308H748.0" stroke="#4d525c" stroke-width="1.5"/><path d="M743.0 303.5L749.0 308L743.0 312.5" fill="none" stroke="#4d525c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="212" cy="374" r="2.5" fill="#f7b32d"/>
+<text x="222" y="378" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="690">A card statement that doesn&#x27;t add up to the paisa waits on hold for you. It&#x27;s never guessed.</text>
+<path d="M66 399V411" stroke="#f7b32d" stroke-opacity="0.45" stroke-width="1.5"/><path d="M62 407L66 411L70 407" fill="none" stroke="#f7b32d" stroke-opacity="0.6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="32" y="414" width="896" height="176" rx="18" fill="#0f1219" stroke="#ffffff" stroke-opacity="0.07"/>
+<circle cx="66" cy="448" r="14" fill="#f7b32d" fill-opacity="0.12" stroke="#f7b32d" stroke-opacity="0.55"/>
+<text x="66" y="453" font-size="14" font-weight="700" fill="#f7b32d" text-anchor="middle">3</text>
+<text x="90" y="454" font-size="17" font-weight="650" fill="#f4f4f5" text-anchor="start" data-max="120">Make sense</text>
+<text x="52" y="486" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">kept in plain files,</text>
+<text x="52" y="504" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">on your Mac</text>
+<rect x="208" y="430" width="196" height="144" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="224" y="477.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="164">One ledger</text>
+<text x="224" y="500.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="164">each payment once,</text>
+<text x="224" y="519.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="164">however many files</text>
+<text x="224" y="538.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="164">it&#x27;s in</text>
+<rect x="448" y="430" width="464" height="66.0" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="464" y="457.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="416">Categories</text>
+<text x="464" y="480.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="432">your answers first, then rules, known shops and the local AI</text>
+<g transform="translate(886 440) scale(0.58)" fill="none" stroke="#f7b32d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.02 2.81a1 1 0 0 1 1.97 0l1.05 5.56a2 2 0 0 0 1.59 1.59l5.56 1.05a1 1 0 0 1 0 1.97l-5.56 1.05a2 2 0 0 0-1.59 1.59l-1.05 5.56a1 1 0 0 1-1.97 0l-1.05-5.56a2 2 0 0 0-1.59-1.59l-5.56-1.05a1 1 0 0 1 0-1.97l5.56-1.05a2 2 0 0 0 1.59-1.59z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></g>
+<rect x="448" y="508.0" width="464" height="66.0" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="464" y="535.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="432">Card bills</text>
+<text x="464" y="558.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="432">each placed in the cycle it paid, so nothing is counted twice</text>
+<path d="M404 502.0H416Q424 502.0 424 494.0V471.0Q424 463.0 432 463.0H447" fill="none" stroke="#4d525c" stroke-width="1.5"/>
+<path d="M441 458.5L447 463.0L441 467.5" fill="none" stroke="#4d525c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M404 502.0H416Q424 502.0 424 510.0V533.0Q424 541.0 432 541.0H447" fill="none" stroke="#4d525c" stroke-width="1.5"/>
+<path d="M441 536.5L447 541.0L441 545.5" fill="none" stroke="#4d525c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M66 593V605" stroke="#f7b32d" stroke-opacity="0.45" stroke-width="1.5"/><path d="M62 601L66 605L70 601" fill="none" stroke="#f7b32d" stroke-opacity="0.6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="32" y="608" width="896" height="112" rx="18" fill="#0f1219" stroke="#ffffff" stroke-opacity="0.07"/>
+<circle cx="66" cy="642" r="14" fill="#f7b32d" fill-opacity="0.12" stroke="#f7b32d" stroke-opacity="0.55"/>
+<text x="66" y="647" font-size="14" font-weight="700" fill="#f7b32d" text-anchor="middle">4</text>
+<text x="90" y="648" font-size="17" font-weight="650" fill="#f4f4f5" text-anchor="start" data-max="120">See and ask</text>
+<text x="52" y="680" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">answers from the</text>
+<text x="52" y="698" font-size="13" font-weight="400" fill="#888893" text-anchor="start" data-max="150">same numbers</text>
+<rect x="208" y="624" width="346.0" height="80" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="224" y="658.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="314.0">Dashboard</text>
+<text x="224" y="681.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="314.0">spending, UPI, cards, places, every payment</text>
+<rect x="566.0" y="624" width="346.0" height="80" rx="12" fill="#161a22" stroke="#ffffff" stroke-opacity="0.07"/>
+<text x="582.0" y="658.5" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="298.0">Ask Plutus</text>
+<text x="582.0" y="681.5" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="314.0">ask in your words; Plutus does the maths</text>
+<g transform="translate(886.0 634) scale(0.58)" fill="none" stroke="#f7b32d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.02 2.81a1 1 0 0 1 1.97 0l1.05 5.56a2 2 0 0 0 1.59 1.59l5.56 1.05a1 1 0 0 1 0 1.97l-5.56 1.05a2 2 0 0 0-1.59 1.59l-1.05 5.56a1 1 0 0 1-1.97 0l-1.05-5.56a2 2 0 0 0-1.59-1.59l-5.56-1.05a1 1 0 0 1 0-1.97l5.56-1.05a2 2 0 0 0 1.59-1.59z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></g>
+<rect x="32" y="742" width="896" height="92" rx="18" fill="#ffffff" fill-opacity="0.01" stroke="#ffffff" stroke-opacity="0.2" stroke-dasharray="5 5"/>
+<g transform="translate(54 764) scale(0.75)" fill="none" stroke="#f7b32d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.02 2.81a1 1 0 0 1 1.97 0l1.05 5.56a2 2 0 0 0 1.59 1.59l5.56 1.05a1 1 0 0 1 0 1.97l-5.56 1.05a2 2 0 0 0-1.59 1.59l-1.05 5.56a1 1 0 0 1-1.97 0l-1.05-5.56a2 2 0 0 0-1.59-1.59l-5.56-1.05a1 1 0 0 1 0-1.97l5.56-1.05a2 2 0 0 0 1.59-1.59z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></g>
+<text x="84" y="779" font-size="15" font-weight="600" fill="#e4e4e7" text-anchor="start" data-max="600">Local AI, optional, also on your Mac</text>
+<text x="84" y="803" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="824">It helps only where the rules aren&#x27;t sure, at the marked steps: a statement that doesn&#x27;t add up,</text>
+<text x="84" y="822" font-size="13.5" font-weight="400" fill="#a1a1aa" text-anchor="start" data-max="824">a payee the rules don&#x27;t know, a question they can&#x27;t read. It never does the sums: Plutus does.</text>
+</svg>

@@ -411,6 +411,9 @@ window each side, never narrower than 1104px of content, at most 1600.
 | `make inspect FILE=…` / `make redact FILE=…` / `make inspect-takeout FILE=…` | Masked structure of a file / an anonymised copy / a Takeout's structure |
 | `make llm-check` | A live round trip with the local model |
 
+The README's diagram, `docs/how-it-works.svg`, is drawn by `scripts/how-it-works.py`: change the script and run it
+(`python3 scripts/how-it-works.py`), never the picture by hand.
+
 Fakes: `tests/statement_gen.py` (random statement layouts), `tests/fake_cards.py` (banks' layouts as they make them),
 `tests/fake_takeout.py` (a Google Takeout export), `web/tests/fixtures.ts` (fake ledgers). CI
 (`.github/workflows/ci.yml`) runs the backend tests, the page's tests, the type check and a build on a macOS runner.

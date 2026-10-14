@@ -92,17 +92,7 @@ The [release notes](docs/RELEASE-NOTES.md) say what each version holds and how i
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A["Your files<br/>PDF · CSV · XLSX · zip · images"] --> B["Identify<br/>cheap checks, never the AI"]
-    B --> C["Text<br/>text layer · decoded fonts · on-device OCR"]
-    C --> D["Parse<br/>one parser per source"]
-    D --> E["Ledger<br/>deduplicated across files"]
-    E --> F["Categorize<br/>your answers · rules · merchants · local AI"]
-    E --> G["Billing<br/>which card · which cycle · estimates"]
-    F --> H["Dashboard"]
-    G --> H
-```
+![How Plutus works, all on your Mac. 1, your files: card statements (PDF, CSV or Excel), UPI app history (PhonePe, CRED, Google Pay) and UPI screenshots. 2, read: identify each file with quick checks, never the AI; get its text, or read it with on-device OCR; read its rows; and count a card statement only if it adds up to the paisa, else hold it for you. 3, make sense: one ledger with each payment once; categories from your answers, then rules, known shops and the local AI; card bills placed in their cycle, so nothing is counted twice. 4, see and ask: the dashboard, and Ask Plutus, which does the maths itself. The optional local AI helps only where the rules aren't sure, and never does the sums.](docs/how-it-works.svg)
 
 A file is hashed in the browser before it's uploaded, so a repeat is skipped even under a new name. On the server it
 is identified, stored in `data/uploads/`, and read in the background while the dashboard fills in. Transactions land
