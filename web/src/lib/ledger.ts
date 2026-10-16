@@ -64,7 +64,8 @@ export function useLedger() {
   return { data, error, refresh }
 }
 
-function flatten(tree: CategoryNode[]): Map<string, Category> {
+/** The category tree as a map by id, each with its parent. */
+export function flatten(tree: CategoryNode[]): Map<string, Category> {
   const out = new Map<string, Category>()
   for (const top of tree) {
     out.set(top.id, { id: top.id, label: top.label, parent: null, excludeFromSpend: !!top.excludeFromSpend })

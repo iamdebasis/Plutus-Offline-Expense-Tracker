@@ -1,6 +1,7 @@
 import type { Instrument } from '../types'
 import { emptyQuery, fyPeriod, lastDayOf, monthPeriod, payeeMatches, rangePeriod, SEASONS, seasonPeriod, yearPeriod, type AskKind, type AskPeriod, type AskQuery, type Season } from './ask'
 import type { Category } from './ledger'
+import { SYNONYMS } from './categoryWords'
 import { asStated, codesReadIn, isStateCode, placeKey, STATE_NAME, stateAt, STATES, statesIn } from './places'
 
 /** Reading a question with rules, here in the page, instantly: the periods ("2025", "last month", "FY 2024-25"), the
@@ -29,77 +30,6 @@ export interface Reading {
 
 // ---- words ---------------------------------------------------------------------------------------------------------
 
-/** What people call a category, besides its name. Indian usage included ("bijli", "EB bill", "kirana", "SIP"). */
-const SYNONYMS: Record<string, string[]> = {
-  food: ['food', 'dining', 'eating'],
-  'food.delivery': ['food delivery', 'food order', 'food orders', 'ordering food', 'takeaway', 'online food'],
-  'food.restaurants': ['restaurant', 'restaurants', 'cafe', 'cafes', 'dining out', 'eating out', 'dine out'],
-  'food.snacks': ['snacks', 'street food', 'chai', 'tea'],
-  'food.drinks': ['alcohol', 'liquor', 'bar', 'bars', 'pub', 'pubs', 'beer', 'wine', 'drinks'],
-  groceries: ['grocery', 'groceries'],
-  'groceries.quick_commerce': ['quick commerce', 'instant delivery'],
-  'groceries.supermarket': ['supermarket', 'supermarkets', 'hypermarket'],
-  'groceries.local': ['kirana', 'local store', 'local stores', 'vegetables', 'fruits', 'milk', 'dairy'],
-  'groceries.meat_fish': ['meat', 'fish', 'chicken', 'mutton'],
-  transport: ['transport', 'commute', 'commuting', 'travel within the city'],
-  'transport.ride_hailing': ['cab', 'cabs', 'taxi', 'taxis', 'auto', 'autos', 'rickshaw', 'rides'],
-  'transport.fuel': ['fuel', 'petrol', 'diesel', 'cng'],
-  'transport.public': ['metro', 'public transport', 'local train'],
-  'transport.tolls': ['toll', 'tolls', 'fastag'],
-  'transport.parking': ['parking'],
-  shopping: ['shopping'],
-  'shopping.online': ['online shopping'],
-  'shopping.electronics': ['electronics', 'gadgets', 'gadget'],
-  'shopping.device_repairs': ['repair', 'repairs', 'phone repair'],
-  'shopping.apparel': ['clothes', 'clothing', 'apparel', 'shoes', 'footwear', 'fashion'],
-  'shopping.home': ['home goods', 'kitchen', 'hardware', 'household'],
-  bills: ['bills', 'utilities', 'utility bills', 'utility'],
-  'bills.electricity': ['electricity', 'electric', 'electricity bill', 'power bill', 'current bill', 'eb bill', 'bijli', 'light bill'],
-  'bills.mobile': ['mobile', 'phone bill', 'mobile bill', 'recharge', 'recharges', 'mobile recharge', 'prepaid', 'postpaid'],
-  'bills.broadband': ['broadband', 'internet', 'wifi', 'wi fi', 'fiber', 'fibre'],
-  'bills.water': ['water', 'water bill'],
-  'bills.gas': ['gas', 'cooking gas', 'lpg', 'cylinder', 'piped gas', 'gas bill'],
-  'bills.dth': ['dth', 'cable', 'tv recharge'],
-  entertainment: ['entertainment'],
-  'entertainment.ott': ['ott', 'streaming'],
-  'entertainment.music': ['music'],
-  'entertainment.events': ['movie', 'movies', 'cinema', 'events', 'concerts', 'concert'],
-  'entertainment.gaming': ['gaming', 'games'],
-  subscriptions: ['subscriptions', 'subscription'],
-  'subscriptions.software': ['software', 'saas', 'app subscriptions'],
-  'subscriptions.cloud': ['cloud storage', 'cloud'],
-  'subscriptions.news': ['news', 'newspaper', 'newspapers', 'newsletters', 'magazines'],
-  health: ['health', 'healthcare', 'medical expenses'],
-  'health.pharmacy': ['pharmacy', 'medicines', 'medicine', 'chemist'],
-  'health.medical': ['doctor', 'doctors', 'hospital', 'hospitals', 'lab', 'labs', 'clinic', 'medical'],
-  'health.fitness': ['gym', 'fitness', 'sports', 'yoga'],
-  travel: ['travel', 'trip', 'trips', 'vacation', 'holiday', 'holidays'],
-  'travel.flights': ['flight', 'flights', 'air tickets', 'airline', 'airlines'],
-  'travel.hotels': ['hotel', 'hotels', 'stay', 'stays', 'lodging'],
-  'travel.trains': ['train', 'trains', 'railway', 'railways', 'train tickets'],
-  'travel.bus': ['bus tickets', 'intercity bus'],
-  'home.rent': ['rent', 'house rent', 'landlord'],
-  'home.furniture_rental': ['furniture rental', 'appliance rental'],
-  'home.maintenance': ['maintenance', 'society maintenance', 'society'],
-  'home.services': ['home services', 'cleaning', 'laundry', 'plumber', 'electrician'],
-  education: ['education', 'school', 'college', 'tuition', 'courses', 'course', 'school fees'],
-  personal_care: ['personal care', 'salon', 'haircut', 'haircuts', 'spa', 'grooming', 'beauty'],
-  insurance: ['insurance', 'premium', 'premiums', 'policy'],
-  fees: ['fees and charges', 'bank charges', 'charges'],
-  'fees.interest': ['interest'],
-  'fees.late': ['late fee', 'late fees', 'late payment'],
-  'fees.annual': ['annual fee', 'annual fees', 'joining fee', 'joining fees'],
-  'fees.forex': ['forex', 'foreign exchange', 'markup'],
-  'fees.tax': ['gst'],
-  cash: ['cash', 'atm', 'cash withdrawal', 'cash withdrawals', 'atm withdrawal', 'atm withdrawals'],
-  investments: ['investment', 'investments', 'invest', 'invested', 'sip', 'sips', 'mutual fund', 'mutual funds', 'stocks'],
-  'transfers.p2p': ['people', 'friends', 'family', 'persons', 'individuals'],
-  'transfers.card_bill': ['credit card bill', 'credit card bills', 'card bill', 'card bills'],
-  income: ['money in', 'income'],
-  'income.received': ['salary', 'received'],
-  'income.cashback': ['cashback', 'cash back', 'rewards'],
-  'income.refund': ['refund', 'refunds'],
-}
 
 /** Words that carry no meaning of their own here: never a payee, never "not understood". */
 const FILLER = new Set(

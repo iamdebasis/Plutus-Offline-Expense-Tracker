@@ -327,7 +327,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/dash/CardSpending.tsx` | Credit cards: purchases with each card's number |
 | `components/dash/InvestmentsSwitch.tsx` | Investments counted or left out |
 | `components/dash/ReviewQueue.tsx` | "Needs your eyes": payees to name, answered in bulk |
-| `components/dash/TransactionsTable.tsx` | Every payment: search, filters, category per row or ticked several, tags, the card bill guard; a table where it fits, a list in a narrower box (a phone) |
+| `components/dash/TransactionsTable.tsx` | Every payment: search (payee, UPI id, amount, place, and category by its words, with a chip per category named to narrow to it), filters, category per row or ticked several, tags, the card bill guard; a table where it fits, a list in a narrower box (a phone) |
 | `components/dash/Places.tsx` | Places: a card for each stay with days in the period ("Darjeeling, WB", its days, what you spent and on what, its payments), Edit (place, state, days), Remove with Undo, Add a place |
 | `components/dash/CategorySelect.tsx` | The category picker |
 
@@ -343,6 +343,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/scope.ts` | Investments left out or counted |
 | `lib/ask.ts` | Ask Plutus's answers: a query worked out from the ledger with the dashboard's own counting; questions to start with |
 | `lib/askRules.ts` | Ask Plutus's rules: a question read into a query in the page, and whether they're sure of it; a sentence telling where you were (`readStay`), with its days (`dayRange`) |
+| `lib/categoryWords.ts` | The words for each category (its name, and what people call it: "liquor", "kirana", "bijli"), one list for Ask Plutus's rules and the transactions search; `categoriesNamed`/`categoriesMatching`: what a search names, as you type (start of a word, three letters, a main category with what's under it) |
 | `lib/places.ts` | Where you were: a payment's place from its day (a refund's from its payment's; the stay told latest wins a shared day), a stay's spending and estimate over its days, the preview before one is kept; states (`STATES`, the server's table): "Place, ST", a state written after a place, a place asked about by its name or its state |
 | `lib/startOver.ts` | Start over, in the browser: forget what the page kept there (`plutus.*`, and only that), tell other open tabs to load again |
 | `lib/selection.ts` | Ticking payments; what the ticked ones add up to |
@@ -431,7 +432,8 @@ shown in more than one place agrees, every year, investments counted or left out
 `layout.mjs` (the page's width, the charts' keys), `table.mjs` (the month tables), `focus.mjs` (what Total spend shows
 for every row you tap: its payees and bills add up to it, "Show all" opens its payments; the highlights are Month by
 month's), `places.mjs` (the demo's week away: its card against Ask Plutus and the API, the Location column on exactly
-its days, the filter and search, a phone), `phone.mjs` (phones and small windows), `access.mjs` (contrast, tap
+its days, the filter and search, a phone), `search.mjs` (the transactions search by category: its payments and chip
+counted from the API, the chip narrowing, too short, Ignored by name, a phone), `phone.mjs` (phones and small windows), `access.mjs` (contrast, tap
 targets, Increase contrast) and `walkthrough.mjs` (start over, add the files with the picker, answer a payee from
 Total spend and the review list, change and undo, tell Ask Plutus where you were and undo it, remove it in Places and
 put it back, forget it; confirm a held statement, delete a file; the ledger checked after each).

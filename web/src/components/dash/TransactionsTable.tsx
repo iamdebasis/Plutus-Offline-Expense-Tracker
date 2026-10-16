@@ -3,7 +3,8 @@ import { AlertCircle, Check, ChevronDown, CornerDownRight, MapPin, Search, Spark
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../api'
 import { cardName } from '../../lib/cards'
-import { NO_NAME, billNote, billSides, cardSide, countsAs, howPaid, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
+import { categoriesMatching, categoriesNamed } from '../../lib/categoryWords'
+import { NO_NAME, billNote, billSides, cardSide, countsAs, flatten, howPaid, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
 import { plural } from '../../lib/format'
 import { inrExact } from '../../lib/money'
 import { dayLabel, dayMonthLabel, timeLabel } from '../../lib/periods'
@@ -110,6 +111,12 @@ export function TransactionsTable({
     billNote(t, t.settles ? bills.get(t.settles) : undefined, sides, names) ??
     (t.payeeHandle ?? (t.note && t.note !== t.payee ? t.note : '')) // a card's own wording, when it says more
   const [query, setQuery] = useState('')
+  // the search finds payments by category too (lib/categoryWords.ts): those in every category its words name ("food" is
+  // all of Food & Dining); each named one with payments here is a chip, which narrows this list to it (`only`)
+  const categories = useMemo(() => flatten(tree), [tree])
+  const named = useMemo(() => categoriesNamed(query, categories), [query, categories])
+  const inNamed = useMemo(() => categoriesMatching(query, categories), [query, categories])
+  const [only, setOnly] = useState<string | null>(null)
   const [onlyReview, setOnlyReview] = useState(false)
   const [showIgnored, setShowIgnored] = useState(false)
   const ignoredCount = useMemo(() => txns.filter(isIgnored).length, [txns])
@@ -128,6 +135,7 @@ export function TransactionsTable({
     setFile(request.upload || request.ids ? { upload: request.upload, ids: request.ids && new Set(request.ids), label: request.label ?? 'this file' } : null)
     setSource('all')
     setPlace('')
+    setOnly(null)
     setShown(PAGE)
   }, [request])
   useEffect(() => {
@@ -148,15 +156,29 @@ export function TransactionsTable({
     const base = file ? everything.filter((t) => (file.ids ? file.ids.has(t.id) : t.sources.some((s) => s.upload === file.upload))) : txns
     const out = base
       .filter((t) => file || !category || t.category === category || topOf(t.category) === category)
+      .filter((t) => file || !only || t.category === only || topOf(t.category) === only)
       .filter((t) => file || source === 'all' || (source === 'cards') === (t.channel === 'card'))
       .filter((t) => file || !place || samePlace(placeName(t) ?? '', place))
       .filter((t) => !onlyReview || t.needsReview)
-      .filter((t) => showIgnored || category === 'ignored' || !isIgnored(t))
-      .filter((t) => !q || t.payee.toLowerCase().includes(q) || (t.payeeHandle ?? '').toLowerCase().includes(q) || String(t.amount).includes(q) || placeWords(t).includes(q))
+      // ignored payments show when you ask for them: the box ticked, the category focused or picked, or searched by name
+      .filter((t) => showIgnored || category === 'ignored' || only === 'ignored' || (!!q && inNamed.has('ignored')) || !isIgnored(t))
+      .filter((t) => !q || t.payee.toLowerCase().includes(q) || (t.payeeHandle ?? '').toLowerCase().includes(q) || String(t.amount).includes(q) || placeWords(t).includes(q) || inNamed.has(t.category))
     if (held && !out.some((t) => t.id === held.id)) out.push(txns.find((t) => t.id === held.id) ?? held)
     // a file's own rows, or an answer's exact payments, are shown as they are; otherwise each payment once
     return (file ? out : oneRowPerPayment(out, sides)).sort((a, b) => b.at.localeCompare(a.at))
-  }, [txns, everything, file, source, place, placeOf, category, onlyReview, showIgnored, query, held, sides])
+  }, [txns, everything, file, source, place, placeOf, category, only, onlyReview, showIgnored, query, inNamed, held, sides])
+  // the categories the search names, with how many of the rows shown are in each (none: no chip); and whether it names
+  // one the dashboard leaves out (investments, switched off), which this list can't show
+  const chips = useMemo(
+    () => named.map((id) => [id, rows.filter((t) => t.category === id || topOf(t.category) === id).length] as const).filter(([, n]) => n > 0),
+    [named, rows],
+  )
+  const namesLeftOut = !file && [...inNamed].some((id) => leftOut.includes(topOf(id)))
+  const nameOf = (id: string) => categories.get(id)?.label ?? id
+  const pathOf = (id: string) => {
+    const c = categories.get(id)
+    return c?.parent ? `${nameOf(c.parent)} › ${c.label}` : nameOf(id)
+  }
 
   const leavesView = (id: string) => leftOut.includes(topOf(id))
 
@@ -390,10 +412,21 @@ export function TransactionsTable({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search payee, UPI id or amount"
+            placeholder="Search payee, category, UPI id or amount"
+            aria-label="Search payee, category, UPI id or amount"
             className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-zinc-100 outline-none placeholder:text-muted"
           />
         </label>
+        {only && !file && (
+          <button
+            type="button"
+            onClick={() => setOnly(null)}
+            title={`Showing only ${pathOf(only)}: show every category again`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-white/15"
+          >
+            Only {nameOf(only)} <X className="size-3.5" />
+          </button>
+        )}
         {file ? (
           <button
             type="button"
@@ -449,6 +482,26 @@ export function TransactionsTable({
         )}
         <span className="text-sm text-muted tabular-nums">{rows.length} shown</span>
       </div>
+      {(chips.length > 0 || namesLeftOut) && (
+        <div className="-mt-1 mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Categories your search names">
+          {chips.length > 0 && <span className="mr-0.5 text-xs text-zinc-400">Categories</span>}
+          {chips.map(([id, n]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setOnly(id)
+                setQuery('')
+              }}
+              title={`Show only ${pathOf(id)}`}
+              className="inline-flex min-h-6 items-center gap-1.5 rounded-full bg-white/[0.04] py-1 pr-2.5 pl-3 text-xs text-zinc-200 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:text-zinc-50"
+            >
+              {nameOf(id)} <span className="text-zinc-400 tabular-nums">{n}</span>
+            </button>
+          ))}
+          {namesLeftOut && <span className="text-xs text-zinc-400">Investments are left out: switch on Count investments, at the top, to see them here.</span>}
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {(ticked.size > 0 || bulk) && (

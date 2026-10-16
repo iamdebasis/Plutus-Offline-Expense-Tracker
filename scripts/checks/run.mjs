@@ -13,6 +13,7 @@ import ledger from './ledger.mjs'
 import money from './money.mjs'
 import phone from './phone.mjs'
 import places from './places.mjs'
+import search from './search.mjs'
 import table from './table.mjs'
 import walkthrough from './walkthrough.mjs'
 
@@ -28,7 +29,7 @@ async function main() {
   const started = Date.now()
   try {
     await ledger(s)
-    for (const check of [money, layout, table, focus, places, phone, access, walkthrough]) {
+    for (const check of [money, layout, table, focus, places, search, phone, access, walkthrough]) {
       try {
         await check(s)
       } catch (err) {

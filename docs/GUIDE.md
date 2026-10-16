@@ -229,6 +229,16 @@ card used through an app: **Card · PhonePe** (a RuPay credit card on UPI), **Ca
 chips, the account or card it was paid from (hover it for a long name in full, and the chips for all of it in
 words).
 
+**Searching** the transactions list: the box finds a payee, a UPI id, an amount, a place, and a **category**, within
+what the list shows (the year at the top, All/UPI/Cards…). Type a word of a category's name, or a word people use for it,
+and you get its payments: `bar` is Bars & liquor (and any payee with "bar" in its name), `food` all of Food & Dining,
+`shop` all of Shopping; `liquor`, `kirana`, `petrol`, `bijli`, `salon` work too, the same words Ask Plutus knows. A main
+category brings everything under it. It needs three letters; a number searches amounts. Under the box, a chip for each
+category your words name, with how many payments: tap one to see only that category (its pill clears it). `ignored`
+shows the ignored payments without ticking the box; investments left out by the switch at the top are said to be, not
+silently missing. Some words name a neighbour too (`rent` also finds "Furniture & appliance rental", since "rental"
+starts with it): the chips show it, and one tap narrows.
+
 **Changing categories** in the transactions list:
 
 - **One payment**: its category dropdown. You're then offered to change that payee's other payments too ("Change
