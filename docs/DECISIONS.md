@@ -218,8 +218,11 @@ them. The column stays "Paid with" (the owner declined renaming it). "From" only
 (Received, Refund, Transfer in): a cashback's name is the file's wording ("Cashback Received"), shown as it is; a card
 bill's statement side is your own payment to the card, its tag beside the name as before. The account on your side is
 the field the parsers already fill for both directions ("Debited from" and "Credited to"), so nothing stored changed;
-no line when a file doesn't say. `accountLine`, `moneyIn`, `moneyFrom` in `lib/ledger.ts` (`web/tests/moneyIn.test.ts`),
-`scripts/checks/rows.mjs`.
+no line when a file doesn't say. Every row the same height (the owner asked for it): money in is two lines like any
+row, the card's own wording beside the name rather than a third line (in the room the name leaves, so it's cut first);
+every Payee is two lines tall even with nothing under the name, and the chips are exactly a small line tall, so nothing
+else makes a row taller. `accountLine`, `moneyIn`, `moneyFrom` in `lib/ledger.ts` (`web/tests/moneyIn.test.ts`),
+`scripts/checks/rows.mjs` (it measures every row).
 
 **Decision**: each row of the transactions list says how the payment was made in the "Paid with" column (right after
 the payee, before the category: Date, Payee, Paid with, Category, Amount, as the owner set it): a chip each on top,

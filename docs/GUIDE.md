@@ -231,11 +231,13 @@ words).
 
 **Money in** reads the way a bank's statement says it. In **Payee**, its green tag on top (**Received**, **Refund**,
 **Cashback**, **Transfer in**) and under it who it's from: "from Mr Fake Friend", "from Zomato" (a cashback's name is the
-file's own wording for it, "Cashback Received", so it's shown as it is, without "from"). In **Paid with**, the chips
+file's own wording for it, "Cashback Received", so it's shown as it is, without "from"); the card's own wording, when
+it says more, sits beside the name, smaller, and is cut short before the name ever is. In **Paid with**, the chips
 on top and under them where it went: "Credited to account ••1111", or "Credited to SBI Card ••1111" when money comes
 back to a card. When the file doesn't say which account received it, there's no such line rather than a guess. A
 card bill's statement side ("PAYMENT RECEIVED") is your own payment to the card: it keeps its **Bill paid** tag
-beside the name, never "from".
+beside the name, never "from". Money in takes two lines like any other payment, so every row of the list is the same
+height.
 
 **Searching** the transactions list: the box finds a payee, a UPI id, an amount, a place, and a **category**, within
 what the list shows (the year at the top, All/UPI/Cards…). Type a word of a category's name, or a word people use for it,

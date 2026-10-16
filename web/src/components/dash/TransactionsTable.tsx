@@ -365,17 +365,23 @@ export function TransactionsTable({
   )
   // money in reads as a bank's statement says it: its tag on top, then "from" whom (a cashback, its own wording), the way
   // "Paid with" has its chips on top and the account it was credited to under them (lib/ledger.ts `moneyIn`,
-  // `moneyFrom`); a payment out, its payee and any tag beside it, as before
+  // `moneyFrom`); the card's own wording beside the name, in the room the name leaves (cut before the name ever is, and
+  // never widening the table), so money in is two lines like any row. A payment out, its payee and any tag beside it
   const payee = (t: Transaction) =>
     moneyIn(t) ? (
       <div className="min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex h-4 items-center gap-1.5">
           {tag(t)}
           {marks(t)}
         </div>
-        <div className="mt-1 flex min-w-0 items-baseline gap-1">
+        <div className="flex min-w-0 items-baseline gap-1">
           {t.payee !== NO_NAME && moneyFrom(t) && <span className="shrink-0 text-muted">from</span>}
           {payeeName(t)}
+          {detail(t) && (
+            <span className="ml-1 w-0 min-w-0 flex-1 truncate text-xs text-muted" title={detail(t) || undefined}>
+              {detail(t)}
+            </span>
+          )}
         </div>
       </div>
     ) : (
@@ -385,7 +391,8 @@ export function TransactionsTable({
         {marks(t)}
       </div>
     )
-  const subline = (t: Transaction) => detail(t) && <div className="truncate text-xs text-muted" title={detail(t) || undefined}>{detail(t)}</div>
+  // the card's own wording under a payment out's payee (money in has it beside the name)
+  const subline = (t: Transaction) => !moneyIn(t) && detail(t) && <div className="truncate text-xs text-muted" title={detail(t) || undefined}>{detail(t)}</div>
   const categoryOf = (t: Transaction) => <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
   // a card bill is neither money in nor spending: no sign, no colour
   const amount = (t: Transaction) => ({
@@ -642,9 +649,12 @@ export function TransactionsTable({
                         {dayLabel(t.at)}
                         {time(t) && <span className="ml-1.5 text-xs text-muted">{time(t)}</span>}
                       </td>
+                      {/* two lines tall whatever it holds, so every row is the same height */}
                       <td className="max-w-[28rem] py-2 pr-4">
-                        {payee(t)}
-                        {subline(t)}
+                        <div className="min-h-9">
+                          {payee(t)}
+                          {subline(t)}
+                        </div>
                       </td>
                       {places && (
                         <td className="max-w-[10rem] py-2 pr-4">
@@ -686,9 +696,10 @@ export function TransactionsTable({
                       {/* the box keeps its look; the space around it takes the tap */}
                       <label className="tap -m-1.5 flex shrink-0 cursor-pointer self-start p-1.5 pt-[0.4375rem]">{tickBox(t)}</label>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-3">
+                        {/* money in: the amount level with its tag, a line as tall as the tag's, so the item is no taller */}
+                        <div className={`flex gap-3 ${moneyIn(t) ? 'items-start' : 'items-baseline'}`}>
                           <div className="min-w-0 flex-1">{payee(t)}</div>
-                          <div className={`shrink-0 ${money.className}`} title={money.title}>
+                          <div className={`shrink-0 ${moneyIn(t) ? 'leading-4' : ''} ${money.className}`} title={money.title}>
                             {money.text}
                           </div>
                         </div>
@@ -872,7 +883,7 @@ function paidWith(t: Transaction, side: { text: string; title: string } | null, 
           {how.parts.map((part) => (
             <span
               key={part}
-              className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium tracking-wide whitespace-nowrap uppercase ${part === 'Card' ? 'chip-card' : 'chip-upi'}`}
+              className={`shrink-0 rounded px-1.5 py-px text-[10px] leading-3.5 font-medium tracking-wide whitespace-nowrap uppercase ${part === 'Card' ? 'chip-card' : 'chip-upi'}`}
             >
               {part}
             </span>
@@ -895,7 +906,7 @@ function statementChip(onCard: Transaction | undefined, card: (id: string) => st
   return (
     <span
       title={`Also on your ${card(onCard.card ?? '')} statement, ${dayLabel(onCard.at)}: the same payment, shown once`}
-      className="shrink-0 rounded bg-white/[0.06] px-1.5 py-px text-[10px] font-medium tracking-wide whitespace-nowrap text-zinc-400 uppercase"
+      className="shrink-0 rounded bg-white/[0.06] px-1.5 py-px text-[10px] leading-3.5 font-medium tracking-wide whitespace-nowrap text-zinc-400 uppercase"
     >
       + Statement
     </span>
@@ -908,7 +919,7 @@ function tag(t: Transaction) {
   return (
     <span
       title={it.title}
-      className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium tracking-wide uppercase ${
+      className={`shrink-0 rounded px-1.5 py-px text-[10px] leading-3.5 font-medium tracking-wide uppercase ${
         it.inward ? 'bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20' : 'bg-white/[0.06] text-zinc-400'
       }`}
     >
