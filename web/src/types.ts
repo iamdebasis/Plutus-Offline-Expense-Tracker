@@ -176,6 +176,10 @@ export interface ImportStatus {
   /** rows of a statement on hold: read, not counted until you confirm them */
   held?: number
   error: string | null
+  /** One reading's times (the server's clock): when the file joined the queue, began and finished. Missing for files
+   *  read before Plutus kept them. */
+  queuedAt?: string | null
+  startedAt?: string | null
   finishedAt: string | null
   /** For an export with many parts (Google Pay Takeout): what each held and what became of it. */
   details?: string[]

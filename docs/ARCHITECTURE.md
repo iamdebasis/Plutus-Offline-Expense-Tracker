@@ -98,7 +98,7 @@ Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Apple Vision through PyObjC, httpx.
 
 | Module | What it does |
 |---|---|
-| `app/imports.py` | The background worker: read → ledger → categorize → local AI; `PARSER_VERSIONS` and `DETECTOR_VERSION` (bump them when a reader or the detector improves) |
+| `app/imports.py` | The background worker: read → ledger → categorize → local AI; `PARSER_VERSIONS` and `DETECTOR_VERSION` (bump them when a reader or the detector improves); each reading's times (queued, began, finished: `_set_status`) for the page's stopwatch |
 | `app/ingest/detect.py` | What a file is, from its words or its shape (a card plus a table of dated amounts), and which cards it names |
 | `app/ingest/issuers.py` | Indian card issuers and how they appear in statement text |
 | `app/ingest/textlines.py` | Positioned lines per page: text layer, else decoded scrambled fonts, else OCR |
@@ -301,7 +301,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `components/DropLayer.tsx` | Drop files anywhere on the page |
 | `components/FileSheet.tsx` | The sheet listing the files picked, before and while they're sent |
 | `components/FileRow.tsx` | One file in that sheet: kind, password, status |
-| `components/ImportActivity.tsx` | "Reading 2 of 5", then a summary; each file's progress |
+| `components/ImportActivity.tsx` | "Reading 2 of 5" with a stopwatch, then a summary with how long it took; each file's progress and time |
 | `components/SourceTiles.tsx` | The kinds of file Plutus reads, as tiles on the Welcome page |
 | `components/GooglePayGuide.tsx` | How to get a Google Pay history from Google Takeout |
 | `components/Vault.tsx` | Your vault: files, cards, each statement's check, held statements to review |
@@ -351,6 +351,7 @@ year tabs, every section, and Ask Plutus), `pages/CardGallery.tsx` (every card d
 | `lib/useEdgeFade.ts` | A box that scrolls sideways (the years, the month-by-month table) fades at an edge with more beyond it |
 | `lib/trendTable.ts` | The month-by-month table's figures: a row a line, a column a month (a year, across several), totals, Together |
 | `lib/useImportActivity.ts` | What the server is reading, polled for the whole page |
+| `lib/readingTime.ts` | How long a run of reading takes, from the server's times: first file queued to last finished; the clock's and the summary's words |
 | `lib/aiHint.ts` | When the one-time AI hint shows, and what it says |
 | `lib/aiPanel.ts` | The Local AI panel's open state, shared |
 | `lib/cardArt.ts` | Matching your card pictures to your cards |

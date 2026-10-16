@@ -31,6 +31,9 @@ made.
   payment's place comes from its day. A statement for those days added later shows the place too.
 - **Ask Plutus closes with a click outside it**, as well as with ✕ or Escape: it slides away, and what you clicked
   still works. A click inside it, a window it opened, or selecting its text past its edge keeps it open.
+- **A stopwatch while your files are read**: the reading pill shows how long the run has taken so far, from the server's
+  own times (so a reload doesn't reset it), and when it's done, how long it took ("5 files read in 4m 12s"), with each
+  file's own time in its list.
 - **Start over leaves nothing of yours behind**, still sending it all to the Trash:
   - Plutus never lets your browser cache an answer about you.
   - The page forgets how its panels were left the moment the server confirms.
@@ -43,11 +46,11 @@ made.
 
 | Check | Result |
 |---|---|
-| `make test`: backend tests, with the network blocked | 409 passed |
-| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, Start over, contrast | 207 passed |
+| `make test`: backend tests, with the network blocked | 411 passed |
+| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, Start over, reading time, contrast | 215 passed |
 | `make test`: TypeScript | no errors |
 | `make measure`: 1000 random fake card statements | 926 proven, 74 held (they print nothing to check them by), none wrong, none unread |
-| `make check-ui`: the page in a headless browser, on the demo | 524 passed, none failed |
+| `make check-ui`: the page in a headless browser, on the demo | 527 passed, none failed |
 
 Among them: a place's spending is the same in its Places card, in Ask Plutus, and counted independently from the
 API; the Location column names the place on exactly its days; telling a stay keeps nothing until its button, a typed

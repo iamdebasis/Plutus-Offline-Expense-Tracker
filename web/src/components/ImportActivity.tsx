@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { AlertCircle, ArrowDown, Check, Clock3, MinusCircle, X } from 'lucide-react'
+import { AlertCircle, ArrowDown, Check, Clock3, MinusCircle, Timer, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { plural } from '../lib/format'
+import { clock, fileTime, runTime, spoken, took } from '../lib/readingTime'
 import { summarize, type Activity } from '../lib/useImportActivity'
 import type { UploadRecord } from '../types'
 
@@ -13,12 +14,14 @@ interface Props {
   onReview?: () => void
 }
 
-/** Background reading at a glance: "Reading 2 of 5" with a ring while it runs, a summary once it's
- *  done (kept until dismissed, so you know it finished). Click for each file's progress. */
+/** Background reading at a glance: "Reading 2 of 5" with a ring and a stopwatch while it runs, a summary once it's
+ *  done, with how long it took (kept until dismissed, so you know it finished). Click for each file's progress. The
+ *  times are the server's (lib/readingTime.ts), so a reload or a second tab shows the same clock. */
 export function ImportActivity({ activity, pending = 0, onReview }: Props) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const s = summarize(activity.batch, pending)
+  const run = runTime(activity.batch)
   const visible = s.total > 0 && (s.reading || !activity.dismissed)
 
   useEffect(() => {
@@ -84,9 +87,10 @@ export function ImportActivity({ activity, pending = 0, onReview }: Props) {
                     {s.current && <span className="hidden text-muted lg:inline"> · {s.current.importStatus?.step ?? 'Waiting its turn'}</span>}
                   </>
                 ) : (
-                  doneText(s)
+                  doneText(s, run)
                 )}
               </span>
+              {s.reading && run && <RunClock start={run.start} />}
             </button>
             {!s.reading && (
               <button
@@ -115,6 +119,7 @@ export function ImportActivity({ activity, pending = 0, onReview }: Props) {
                   <p className="font-display text-[15px] font-semibold tracking-tight">{s.reading ? 'Reading your files' : 'Finished reading'}</p>
                   <p className="text-xs text-muted tabular-nums">
                     {s.finished} of {s.total} done
+                    {!s.reading && run?.end != null && ` · ${took(run.end - run.start)}`}
                   </p>
                 </div>
                 <ul className="max-h-[min(360px,60dvh)] overflow-y-auto px-2 py-1.5">
@@ -185,8 +190,9 @@ export function ActivityLine({ activity, pending = 0 }: { activity: Activity; pe
   )
 }
 
-function doneText(s: ReturnType<typeof summarize>) {
-  const parts = [`${plural(s.finished, 'file')} read`, s.added ? `${s.added} new` : 'nothing new']
+function doneText(s: ReturnType<typeof summarize>, run: ReturnType<typeof runTime>) {
+  const read = `${plural(s.finished, 'file')} read${run?.end != null ? ` in ${took(run.end - run.start)}` : ''}`
+  const parts = [read, s.added ? `${s.added} new` : 'nothing new']
   if (s.toReview) parts.push(`${s.toReview} to review`)
   if (s.onHold) parts.push(`${s.onHold} on hold in Your vault`)
   if (s.failed.length) parts.push(`${s.failed.length} failed`)
@@ -214,7 +220,8 @@ function FileLine({ upload }: { upload: UploadRecord }) {
   if (state === 'running') detail = `${st?.step ?? 'Reading'}…`
   else if (state === 'queued') detail = 'Waiting its turn'
   else if (state === 'done') {
-    const bits = [st?.added ? `${st.added} new` : 'nothing new']
+    const time = fileTime(upload)
+    const bits = [...(time !== null ? [`read in ${took(time)}`] : []), st?.added ? `${st.added} new` : 'nothing new']
     if (st?.duplicates) bits.push(`${st.duplicates} already known`)
     if (st?.needsReview) bits.push(`${plural(st.needsReview, 'payee')} to review`)
     detail = bits.join(' · ')
@@ -232,6 +239,34 @@ function FileLine({ upload }: { upload: UploadRecord }) {
         </p>
       </div>
     </li>
+  )
+}
+
+/** The run's stopwatch, at the pill's end: from its first file joining the queue (the server's time), ticking on the
+ *  run's whole seconds while reading. Its own state, so only it renders each second. A screen reader reads it when
+ *  asked, never every second (role="timer"). */
+function RunClock({ start }: { start: number }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    let timer = 0
+    const tick = () => {
+      setNow(Date.now())
+      timer = window.setTimeout(tick, 1000 - ((Date.now() - start) % 1000) + 10) // just past the run's next second
+    }
+    tick()
+    return () => window.clearTimeout(timer)
+  }, [start])
+  const elapsed = Math.max(0, now - start)
+  return (
+    <span
+      role="timer"
+      aria-label={`${spoken(elapsed)} so far`}
+      title="Time since the first file joined the queue"
+      className="flex shrink-0 items-center gap-1.5 border-l border-amber-200/15 pl-2.5 font-medium text-zinc-100 tabular-nums"
+    >
+      <Timer className="size-3.5 text-amber-300/90" aria-hidden />
+      {clock(elapsed)}
+    </span>
   )
 }
 

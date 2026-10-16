@@ -224,3 +224,39 @@ def test_a_bill_paid_straight_to_the_card_is_one_payment(client, tmp_path):
     row = next(t for t in txns.values() if t["kind"] == "bill_payment" and "cardRow" in t["refs"])
     assert txns["upi-bill"]["settles"] == row["settles"] == f"bill-{row['id']}"
     assert [b["id"] for b in client.get("/api/card-payments").json()] == [row["settles"]]
+
+
+def test_each_reading_says_when_it_was_queued_began_and_finished(client, tmp_path):
+    """What the page's stopwatch reads: when a file joined the queue, when its reading began and when it finished, in
+    that order, for a file read and for one that can't be (skipped: its status is made anew, its times kept)."""
+    from datetime import datetime, timezone
+
+    before = datetime.now(timezone.utc)
+    read = _wait(client, _upload(client, make_pdf(tmp_path / "PhonePe.pdf", [PHONEPE_TEXT])))
+    after = datetime.now(timezone.utc)
+    queued, began, finished = (datetime.fromisoformat(read[k]) for k in ("queuedAt", "startedAt", "finishedAt"))
+    assert before <= queued <= began <= finished <= after
+    bank = ("Account Statement\nAccount Number: XXXXXXXX1234\nIFSC: ABCD0001234\nOpening Balance 1,000.00\n"
+            "Closing Balance 900.00\n01/09/2025 ATM Withdrawal 100.00")
+    skipped = _wait(client, _upload(client, make_pdf(tmp_path / "bank.pdf", [bank])))
+    assert skipped["state"] == "skipped" and skipped["queuedAt"] and skipped["startedAt"] and skipped["finishedAt"]
+
+
+def test_a_status_keeps_its_times_and_reading_again_starts_them_afresh(client, tmp_path):
+    """Every later update of a reading keeps when it was queued and began, whatever status replaces it; joining the
+    queue again (a restart, a better reader) is a new reading, with new times."""
+    from app import imports, vault
+    from app.models import ImportStatus
+
+    upload_id = _upload(client, make_pdf(tmp_path / "PhonePe.pdf", [PHONEPE_TEXT]))
+    first = _wait(client, upload_id)
+    status = lambda: vault.find_upload(upload_id).import_status  # noqa: E731
+    imports._set_status(upload_id, ImportStatus(state="queued", step="Waiting its turn"))
+    again = status()
+    assert again.queued_at > imports.datetime.fromisoformat(first["finishedAt"]) and again.started_at is None and again.finished_at is None
+    imports._set_status(upload_id, ImportStatus(state="running", step="Reading the file"))
+    running = status()
+    assert running.queued_at == again.queued_at and running.started_at >= again.queued_at
+    imports._set_status(upload_id, ImportStatus(state="failed", error="made up", finished_at=imports._now()))
+    failed = status()
+    assert (failed.queued_at, failed.started_at) == (again.queued_at, running.started_at) and failed.finished_at >= running.started_at

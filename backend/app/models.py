@@ -68,6 +68,9 @@ class ImportStatus(Model):
     held: int = 0  # rows of a statement on hold: read, not counted until you confirm them
     error: str | None = None
     details: list[str] = []  # per part of a many-part export: what it held and what became of it
+    # one reading's times, for the page's stopwatch: joined the queue, began, finished (app/imports.py `_set_status`)
+    queued_at: datetime | None = None
+    started_at: datetime | None = None
     finished_at: datetime | None = None
 
 

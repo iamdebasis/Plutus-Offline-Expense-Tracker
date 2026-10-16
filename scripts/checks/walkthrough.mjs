@@ -30,9 +30,32 @@ export default async function walkthrough(s) {
     await s.send('DOM.setFileInputFiles', { nodeId, files: paths })
     await s.until(`[...document.querySelectorAll('button')].some((b) => /^(Process|Read|Add) \\d/.test(b.textContent.trim()))`, 'the sheet of files picked', 30)
     await s.evaluate(`[...document.querySelectorAll('button')].find((b) => /^(Process|Read|Add) \\d/.test(b.textContent.trim())).click()`)
-    await sleep(1500)
+    // while they're read: the pill's stopwatch, from the server's own times, ticking; a screen reader can ask it
+    const clockNow = () => s.evaluate(`(() => { const t = document.querySelector('[role=timer]'); return t && { text: t.textContent.trim(), label: t.getAttribute('aria-label') } })()`)
+    const secs = (c) => c.split(':').map(Number).reduce((a, n) => a * 60 + n, 0)
+    let seen = null
+    for (let i = 0; i < 60 && !seen; i++) {
+      seen = await clockNow()
+      if (!seen) await sleep(250)
+    }
+    s.check(!!seen && /^\d+:\d\d(:\d\d)?$/.test(seen.text) && /so far$/.test(seen.label ?? ''), `a stopwatch shows while the files are read (${seen?.text}, "${seen?.label}")`)
+    await sleep(2100)
+    const later = await clockNow()
+    if (later) s.check(secs(later.text) > secs(seen?.text ?? '0:00'), `and it ticks (${seen?.text} then ${later.text})`)
+    else console.log('  · these files were read in under two seconds: too quick to see the stopwatch tick')
+    const lastSeen = later ?? seen
     await settled()
-    await sleep(1000)
+    await sleep(1500)
+    const done = await s.evaluate(`[...document.querySelectorAll('button[aria-haspopup=dialog] [role=status]')].map((e) => e.textContent.trim()).find((x) => / read/.test(x)) ?? null`)
+    const tookSecs = (x) => { const m = /read in (under a second|(?:(\d+)h)? ?(?:(\d+)m)? ?(?:(\d+)s)?)/.exec(x ?? ''); return !m ? null : m[1] === 'under a second' ? 0 : (+(m[2] ?? 0)) * 3600 + (+(m[3] ?? 0)) * 60 + +(m[4] ?? 0) }
+    s.check(tookSecs(done) !== null && tookSecs(done) + 1 >= secs(lastSeen?.text ?? '0:00') && !(await clockNow()),
+      `when every file is read, the pill says how long it took, and the stopwatch is gone ("${done}")`)
+    await s.evaluate(`[...document.querySelectorAll('button[aria-haspopup=dialog]')].find((b) => / read/.test(b.textContent)).click()`)
+    await sleep(500)
+    s.check(await s.evaluate(`[...document.querySelectorAll('[role=dialog][aria-label="Files being read"] li')].some((li) => /read in /.test(li.innerText))`),
+      'and each file says how long its own reading took')
+    await s.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+    await sleep(300)
     await click('button', 'Done')
     await sleep(500)
   }

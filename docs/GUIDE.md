@@ -64,9 +64,12 @@ payees, your answers to "Needs your eyes".
      rebuild the character table, and every amount must agree between the decoded text and OCR;
    - on-device OCR for screenshots and scans, with the local vision model as the fallback for unfamiliar layouts.
 
-   You can close the file sheet meanwhile. A pill in the dashboard's sticky year bar shows "Reading 2 of 5 files" and the
-   current step (click it for each file), a gold line fills as files finish, and the numbers update as each file lands.
-   When the run ends the pill says what was added and what needs review, and stays until you dismiss it.
+   You can close the file sheet meanwhile. A pill in the dashboard's sticky year bar shows "Reading 2 of 5 files", the
+   current step and a stopwatch (click it for each file), a gold line fills as files finish, and the numbers update as
+   each file lands. The stopwatch counts from the moment the first file reached Plutus, the local AI's step included,
+   and keeps its time through a reload or in another tab. When the run ends the pill says how long it took ("5 files
+   read in 4m 12s"), what was added and what needs review, and stays until you dismiss it; each file shows its own time
+   when you click it.
 4. **Deduplicated** into the ledger by UTR, then the app's transaction ID, then time + amount + payee. Different
    references are always different payments (two ₹15 teas in a minute are two teas), and a different amount is never
    the same payment (a cashback shares its payment's ID). The same UTR, amount and direction is always one payment,

@@ -341,6 +341,19 @@ def _count(n: int, noun: str) -> str:
 
 
 def _set_status(upload_id: str, status: ImportStatus) -> None:
+    """Saves a file's reading status, with the reading's times: joining the queue starts a new reading (a fresh
+    upload, a restart, a better reader) and stamps it; the first "running" stamps when it began; every later update
+    keeps both, whatever status replaces it ("failed" or "skipped" made anew included). `status` is updated in place,
+    so the caller's object carries them on."""
+    if status.state == "queued":
+        status.queued_at, status.started_at, status.finished_at = status.queued_at or _now(), None, None
+    else:
+        rec = vault.find_upload(upload_id)
+        was = rec.import_status if rec else None
+        status.queued_at = status.queued_at or (was.queued_at if was else None)
+        status.started_at = status.started_at or (was.started_at if was else None)
+        if status.started_at is None:
+            status.started_at = _now()  # its reading began now (or this is the first we know of it)
     vault.update_upload(upload_id, import_status=status)
 
 
