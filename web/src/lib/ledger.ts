@@ -515,6 +515,28 @@ export function paidFromLabel(t: Transaction, cards: Instrument[], accounts: Own
   return t.paidFrom ? describeSource(t.paidFrom, cards, accounts) : { title: '—', detail: '' }
 }
 
+/** The line under "Paid with"'s chips: the account or card on your side, as the files say it. A payment out, the one it
+ *  was paid from ("Account ••4321", "Fake Bank ••1141"); money in, the one it was credited to ("Credited to account
+ *  ••4321", "Credited to Fake Bank ••1141", a card's statement side of a bill included: your payment landed on the card).
+ *  Null when the file doesn't say: no line rather than a guess. */
+export function accountLine(t: Transaction, cards: Instrument[], accounts: OwnAccount[] = []): { text: string; title: string } | null {
+  const side = paidFromLabel(t, cards, accounts)
+  if (side.title === '—') return null
+  const hover = [side.title, side.detail].filter(Boolean).join(' · ')
+  if (t.direction !== 'credit') return { text: side.title, title: hover }
+  // "Account ••4321" and "Card ••99" read in a sentence in small letters; a name (your account's, a card's) as it is
+  const onto = side.title.replace(/^(Account|Card) ••/, (_, what: string) => `${what.toLowerCase()} ••`)
+  return { text: `Credited to ${onto}`, title: `Credited to ${hover}` }
+}
+
+/** Money in (Received, Refund, Cashback, Transfer in): the list shows its tag on top and its name under it, as a bank's
+ *  statement does. Never a payment out, nor a card bill's statement side (your own payment to the card). */
+export const moneyIn = (t: Transaction) => t.direction === 'credit' && !isCardBill(t)
+
+/** Money in whose name says who or where it came from (Received, Refund, Transfer in): "from" it. A cashback's name is
+ *  most often the file's own wording for it ("Cashback Received", "CASHBACK CREDIT"), so it's shown as it is. */
+export const moneyFrom = (t: Transaction) => moneyIn(t) && t.kind !== 'cashback' && t.category !== 'income.cashback'
+
 /** The UPI apps whose histories Plutus reads (a short name for the chip, the full one for words). */
 const APPS: Record<string, { chip: string; name: string }> = {
   phonepe: { chip: 'PhonePe', name: 'PhonePe' },

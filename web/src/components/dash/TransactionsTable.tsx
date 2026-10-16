@@ -4,7 +4,7 @@ import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useSta
 import { api } from '../../api'
 import { cardName } from '../../lib/cards'
 import { categoriesMatching, categoriesNamed } from '../../lib/categoryWords'
-import { NO_NAME, billNote, billSides, cardSide, countsAs, flatten, howPaid, isCardBill, isIgnored, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
+import { NO_NAME, accountLine, billNote, billSides, cardSide, countsAs, flatten, howPaid, isCardBill, isIgnored, moneyFrom, moneyIn, oneRowPerPayment, paidFromLabel, rowTag, topOf, type Bucket } from '../../lib/ledger'
 import { plural } from '../../lib/format'
 import { inrExact } from '../../lib/money'
 import { dayLabel, dayMonthLabel, timeLabel } from '../../lib/periods'
@@ -346,23 +346,45 @@ export function TransactionsTable({
   const oneYear = useMemo(() => new Set(rows.map((t) => t.at.slice(0, 4))).size <= 1, [rows])
   // card statements give the day only
   const time = (t: Transaction) => ('cardRow' in t.refs && t.at.slice(11, 16) === '00:00' ? null : timeLabel(t.at))
-  const payee = (t: Transaction) => (
-    <div className="flex min-w-0 items-center gap-1.5">
-      {t.payee === NO_NAME ? (
-        <span className="truncate text-muted italic" title="The file this came from doesn't say who was paid">
-          No payee name
-        </span>
-      ) : (
-        <span className="truncate text-zinc-100" title={t.payee}>
-          {t.payee}
-        </span>
-      )}
-      {tag(t)}
+  const payeeName = (t: Transaction) =>
+    t.payee === NO_NAME ? (
+      <span className="truncate text-muted italic" title={`The file this came from doesn't say who ${t.direction === 'credit' ? 'sent it' : 'was paid'}`}>
+        No payee name
+      </span>
+    ) : (
+      <span className="truncate text-zinc-100" title={t.payee}>
+        {t.payee}
+      </span>
+    )
+  const marks = (t: Transaction) => (
+    <>
       {statementChip(cardSide(t, sides), names.card)}
       {t.needsReview && <AlertCircle aria-label="Needs review" className="size-3.5 shrink-0 text-[var(--color-status-warning)]" />}
       {t.categorizedBy === 'llm' && <Sparkles aria-label="Categorised by the local AI" className="size-3.5 shrink-0 text-muted" />}
-    </div>
+    </>
   )
+  // money in reads as a bank's statement says it: its tag on top, then "from" whom (a cashback, its own wording), the way
+  // "Paid with" has its chips on top and the account it was credited to under them (lib/ledger.ts `moneyIn`,
+  // `moneyFrom`); a payment out, its payee and any tag beside it, as before
+  const payee = (t: Transaction) =>
+    moneyIn(t) ? (
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5">
+          {tag(t)}
+          {marks(t)}
+        </div>
+        <div className="mt-1 flex min-w-0 items-baseline gap-1">
+          {t.payee !== NO_NAME && moneyFrom(t) && <span className="shrink-0 text-muted">from</span>}
+          {payeeName(t)}
+        </div>
+      </div>
+    ) : (
+      <div className="flex min-w-0 items-center gap-1.5">
+        {payeeName(t)}
+        {tag(t)}
+        {marks(t)}
+      </div>
+    )
   const subline = (t: Transaction) => detail(t) && <div className="truncate text-xs text-muted" title={detail(t) || undefined}>{detail(t)}</div>
   const categoryOf = (t: Transaction) => <CategorySelect tree={tree} value={t.category} onChange={(c) => setOne(t, c)} compact />
   // a card bill is neither money in nor spending: no sign, no colour
@@ -634,7 +656,7 @@ export function TransactionsTable({
                           )}
                         </td>
                       )}
-                      <td className="py-2 pr-4">{paidWith(t, paidFromLabel(t, cards, accounts))}</td>
+                      <td className="py-2 pr-4">{paidWith(t, accountLine(t, cards, accounts))}</td>
                       <td className="py-2 pr-4">
                         <div className="w-44">{categoryOf(t)}</div>
                       </td>
@@ -671,7 +693,7 @@ export function TransactionsTable({
                           </div>
                         </div>
                         {subline(t)}
-                        <div className="mt-1.5">{paidWith(t, paidFromLabel(t, cards, accounts), true)}</div>
+                        <div className="mt-1.5">{paidWith(t, accountLine(t, cards, accounts), true)}</div>
                         {/* nothing cut: on a very narrow screen the category moves under the day */}
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                           <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
@@ -838,10 +860,10 @@ function OfferRow({
 /** A category's name as the dropdown shows it: a top-level category with sub-categories reads "Groceries (general)". */
 /** A row's tag (rowTag): green where money comes in, neutral otherwise. */
 /** "Paid with": how the payment was made, a chip each (a card in blue, UPI and its apps in violet; their tooltip says it
- *  in words), and under them the account or card it was paid from (the whole of a long name, and what it is, on
- *  hover). Nothing under them when the file doesn't say where it came from. `inline` (the narrow list): the account
- *  or card beside the chips, on one line. */
-function paidWith(t: Transaction, from: { title: string; detail: string }, inline = false) {
+ *  in words), and under them the account or card on your side (lib/ledger.ts `accountLine`): the one it was paid from,
+ *  or, for money in, "Credited to" the one it went to (the whole of a long name, and what it is, on hover). Nothing
+ *  under them when the file doesn't say. `inline` (the narrow list): the account or card beside the chips, on one line. */
+function paidWith(t: Transaction, side: { text: string; title: string } | null, inline = false) {
   const how = howPaid(t)
   return (
     <div className={inline ? 'flex min-w-0 items-center gap-2' : 'max-w-60'}>
@@ -857,9 +879,9 @@ function paidWith(t: Transaction, from: { title: string; detail: string }, inlin
           ))}
         </div>
       )}
-      {from.title !== '—' && (
-        <div className={`${inline ? 'min-w-0' : 'mt-1'} truncate text-xs text-muted`} title={[from.title, from.detail].filter(Boolean).join(' · ')}>
-          {from.title}
+      {side && (
+        <div className={`${inline ? 'min-w-0' : 'mt-1'} truncate text-xs text-muted`} title={side.title}>
+          {side.text}
         </div>
       )}
     </div>

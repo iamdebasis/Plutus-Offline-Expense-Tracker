@@ -31,6 +31,8 @@ made.
   payment's place comes from its day. A statement for those days added later shows the place too.
 - **Ask Plutus closes with a click outside it**, as well as with ✕ or Escape: it slides away, and what you clicked
   still works. A click inside it, a window it opened, or selecting its text past its edge keeps it open.
+- **Money in reads clearly**: a received payment's row says "Received", then "from" whom, and under Paid with's chips
+  "Credited to account ••1111" (or the card it went back to), as a bank's statement does; payments out are unchanged.
 - **Search Your transactions by category**: type `bar`, `food`, `shop` (or `liquor`, `kirana`, `petrol`…) and the list
   shows that category's payments, a main category with everything under it, alongside payees with the word in their
   name; a chip for each category named, with how many, narrows the list to it.
@@ -50,10 +52,10 @@ made.
 | Check | Result |
 |---|---|
 | `make test`: backend tests, with the network blocked | 411 passed |
-| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, Start over, reading time, search by category, contrast | 221 passed |
+| `make test`: the dashboard's arithmetic, Ask Plutus, places and states, Start over, reading time, search by category, how money in reads, contrast | 227 passed |
 | `make test`: TypeScript | no errors |
 | `make measure`: 1000 random fake card statements | 926 proven, 74 held (they print nothing to check them by), none wrong, none unread |
-| `make check-ui`: the page in a headless browser, on the demo | 536 passed, none failed |
+| `make check-ui`: the page in a headless browser, on the demo | 543 passed, none failed |
 
 Among them: a place's spending is the same in its Places card, in Ask Plutus, and counted independently from the
 API; the Location column names the place on exactly its days; telling a stay keeps nothing until its button, a typed

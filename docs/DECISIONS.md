@@ -212,6 +212,15 @@ rows; a payment and its posting in different years show in each year's list on t
 
 ## 21. How a payment was made: chips from what the files say
 
+**Money in, as the owner laid it out**: in Payee, the row's tag on top and "from" whom under it ("Received" / "from
+Mr Fake Friend"); in Paid with, the chips on top and "Credited to account ••1111" (or "Credited to <card> ••1111") under
+them. The column stays "Paid with" (the owner declined renaming it). "From" only where the name says who sent it
+(Received, Refund, Transfer in): a cashback's name is the file's wording ("Cashback Received"), shown as it is; a card
+bill's statement side is your own payment to the card, its tag beside the name as before. The account on your side is
+the field the parsers already fill for both directions ("Debited from" and "Credited to"), so nothing stored changed;
+no line when a file doesn't say. `accountLine`, `moneyIn`, `moneyFrom` in `lib/ledger.ts` (`web/tests/moneyIn.test.ts`),
+`scripts/checks/rows.mjs`.
+
 **Decision**: each row of the transactions list says how the payment was made in the "Paid with" column (right after
 the payee, before the category: Date, Payee, Paid with, Category, Amount, as the owner set it): a chip each on top,
 the account or card on the line below. **Card** (the card's number), **PhonePe**, **GPay** or **Paytm** (UPI in that

@@ -200,6 +200,8 @@ Backend tests alone: `cd backend && .venv/bin/python -m pytest -q`. Web: `cd web
   ticks), never for choices that change numbers; its keys start `plutus.`, so Start over can forget them all
   (`lib/startOver.ts`). Every `/api` answer is sent `no-store` (`app/main.py`): nothing of yours in the browser's cache.
 - Rows where money comes in carry a green tag (`rowTag` in `lib/ledger.ts`); a card bill's amount is grey, unsigned.
+  Money in reads as a bank's statement does: its tag on top and "from" whom under it in Payee, "Credited to" the
+  account or card under the chips in Paid with (`moneyIn`, `moneyFrom`, `accountLine` in `lib/ledger.ts`).
   How a payment was made shows in the list's "Paid with" column (`howPaid`): a chip each, a card in blue
   (`chip-card`), UPI and its apps in violet (`chip-upi`), the account or card below; only what the files say (the
   channel, the app whose history it came from, a card), never a guess (tap, swipe or online).
